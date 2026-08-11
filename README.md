@@ -1,14 +1,16 @@
-# Welcome to your Lovable project
+# Pet Care Hub
+
+vamos criar um site (estilo APP responsivo para celular) com as  funcionalidades de agendamento online (banho, tosa e veterinário) e uma loja virtual, utilizarei uma estrutura completa que permite gerenciar esses serviços, produtos e usuários de forma profissional. peque as paletas de cores para a criação, bem como a logo marca da imagem no panfleto
 
 This project was built with [Lovable](https://lovable.dev).
 
 ## Build with Lovable
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/742d96f8-a94b-437f-82eb-08d937f34c53).
 
 - **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+- **Stay in sync**: every change made in Lovable is committed straight to this repository.
+- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
 
 ## Development
 
@@ -20,10 +22,3 @@ cd <repository-name>
 npm i
 npm run dev
 ```
-
-## Built with
-
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
