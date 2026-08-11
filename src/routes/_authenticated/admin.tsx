@@ -125,11 +125,15 @@ function Admin() {
     }: {
       table: "services" | "products";
       id: string;
-      values: Record<string, unknown>;
+      values: { price_cents?: number; active?: boolean };
     }) => {
-      const { error } = await supabase.from(table).update(values).eq("id", id);
+      const { error } =
+        table === "services"
+          ? await supabase.from("services").update(values).eq("id", id)
+          : await supabase.from("products").update(values).eq("id", id);
       if (error) throw error;
     },
+
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: [`admin-${vars.table}`] });
       queryClient.invalidateQueries({ queryKey: [vars.table] });
