@@ -438,13 +438,25 @@ function Admin() {
       <h1 className="font-display text-2xl">Painel administrativo</h1>
 
       <Tabs defaultValue="agenda" className="mt-4">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="agenda">Agendamentos</TabsTrigger>
-          <TabsTrigger value="retornos">Retornos</TabsTrigger>
-          <TabsTrigger value="clinica">Clínica</TabsTrigger>
-          <TabsTrigger value="pedidos">Pedidos</TabsTrigger>
-          <TabsTrigger value="servicos">Serviços</TabsTrigger>
-          <TabsTrigger value="produtos">Produtos</TabsTrigger>
+        <TabsList className="flex w-full items-center justify-start gap-1 overflow-x-auto">
+          <TabsTrigger value="agenda" className="shrink-0">
+            Agendamentos
+          </TabsTrigger>
+          <TabsTrigger value="retornos" className="shrink-0">
+            Retornos
+          </TabsTrigger>
+          <TabsTrigger value="clinica" className="shrink-0">
+            Clínica
+          </TabsTrigger>
+          <TabsTrigger value="pedidos" className="shrink-0">
+            Pedidos
+          </TabsTrigger>
+          <TabsTrigger value="servicos" className="shrink-0">
+            Serviços
+          </TabsTrigger>
+          <TabsTrigger value="produtos" className="shrink-0">
+            Produtos
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="clinica" className="mt-4 space-y-3">
