@@ -11,6 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -32,6 +40,17 @@ const statuses = ["pendente", "confirmado", "concluido", "cancelado"];
 const orderStatuses = ["novo", "em_preparo", "entregue", "cancelado"];
 
 const priceSchema = z.coerce.number().min(0).max(1000000);
+
+const recordTypes = ["consulta", "exame", "cirurgia", "retorno", "emergencia", "vacina"] as const;
+
+const recordTypeLabels: Record<(typeof recordTypes)[number], string> = {
+  consulta: "Consulta",
+  exame: "Exame",
+  cirurgia: "Cirurgia",
+  retorno: "Retorno",
+  emergencia: "Emergência",
+  vacina: "Vacina",
+};
 
 function Admin() {
   const { user } = useAuth();
@@ -158,13 +177,20 @@ function Admin() {
 
   const [recordPetId, setRecordPetId] = useState<string | null>(null);
   const [record, setRecord] = useState({
+    record_type: "consulta" as (typeof recordTypes)[number],
     reason: "",
     diagnosis: "",
     treatment: "",
     prescription: "",
+    medication: "",
+    dosage: "",
+    duration: "",
     weight_kg: "",
     vet_name: "",
+    next_return_date: "",
   });
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [fileInputKey, setFileInputKey] = useState(0);
 
   const { data: petRecords } = useQuery({
     queryKey: ["admin-records", recordPetId],
@@ -172,7 +198,7 @@ function Admin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("medical_records")
-        .select("id, visit_at, reason, diagnosis, treatment, vet_name")
+        .select("id, visit_at, reason, diagnosis, treatment, vet_name, record_type")
         .eq("pet_id", recordPetId!)
         .order("visit_at", { ascending: false });
       if (error) throw error;
@@ -185,28 +211,68 @@ function Admin() {
       if (!recordPetId) throw new Error("Escolha um pet");
       const reason = record.reason.trim();
       if (reason.length < 3) throw new Error("Descreva o motivo do atendimento");
-      const { error } = await supabase.from("medical_records").insert({
-        pet_id: recordPetId,
-        reason: reason.slice(0, 200),
-        diagnosis: record.diagnosis.trim().slice(0, 500) || null,
-        treatment: record.treatment.trim().slice(0, 500) || null,
-        prescription: record.prescription.trim().slice(0, 500) || null,
-        weight_kg: record.weight_kg ? Number(record.weight_kg.replace(",", ".")) : null,
-        vet_name: record.vet_name.trim().slice(0, 100) || null,
-      });
+
+      const attachmentPaths: string[] = [];
+      for (const file of attachmentFiles) {
+        const path = `${recordPetId}/${crypto.randomUUID()}-${file.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from("medical-attachments")
+          .upload(path, file);
+        if (uploadError) throw new Error(`Falha ao enviar anexo: ${uploadError.message}`);
+        attachmentPaths.push(path);
+      }
+
+      const { data: inserted, error } = await supabase
+        .from("medical_records")
+        .insert({
+          pet_id: recordPetId,
+          record_type: record.record_type,
+          reason: reason.slice(0, 200),
+          diagnosis: record.diagnosis.trim().slice(0, 500) || null,
+          treatment: record.treatment.trim().slice(0, 500) || null,
+          prescription: record.prescription.trim().slice(0, 500) || null,
+          medication: record.medication.trim().slice(0, 200) || null,
+          dosage: record.dosage.trim().slice(0, 100) || null,
+          duration: record.duration.trim().slice(0, 100) || null,
+          weight_kg: record.weight_kg ? Number(record.weight_kg.replace(",", ".")) : null,
+          vet_name: record.vet_name.trim().slice(0, 100) || null,
+          next_return_date: record.next_return_date || null,
+          attachments: attachmentPaths,
+        })
+        .select("id")
+        .single();
       if (error) throw error;
+
+      if (record.next_return_date) {
+        const { error: reminderError } = await supabase.from("care_reminders").insert({
+          pet_id: recordPetId,
+          reminder_type: "retorno",
+          title: `Retorno: ${reason}`.slice(0, 120),
+          due_date: record.next_return_date,
+          source_record_id: inserted!.id,
+        });
+        if (reminderError) throw reminderError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-records"] });
       queryClient.invalidateQueries({ queryKey: ["medical_records"] });
+      queryClient.invalidateQueries({ queryKey: ["care_reminders"] });
       setRecord({
+        record_type: "consulta",
         reason: "",
         diagnosis: "",
         treatment: "",
         prescription: "",
+        medication: "",
+        dosage: "",
+        duration: "",
         weight_kg: "",
         vet_name: "",
+        next_return_date: "",
       });
+      setAttachmentFiles([]);
+      setFileInputKey((k) => k + 1);
       toast.success("Prontuário registrado");
     },
     onError: (error) =>
@@ -285,6 +351,23 @@ function Admin() {
                 Novo atendimento
               </p>
               <div className="mt-2 space-y-2">
+                <Select
+                  value={record.record_type}
+                  onValueChange={(value) =>
+                    setRecord({ ...record, record_type: value as (typeof recordTypes)[number] })
+                  }
+                >
+                  <SelectTrigger className="h-11 rounded-xl">
+                    <SelectValue placeholder={recordTypeLabels[record.record_type]} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {recordTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {recordTypeLabels[type]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Input
                   placeholder="Motivo da consulta"
                   value={record.reason}
@@ -307,12 +390,38 @@ function Admin() {
                   className="rounded-xl"
                 />
                 <Textarea
-                  placeholder="Prescrição"
+                  placeholder="Prescrição (observações gerais)"
                   value={record.prescription}
                   maxLength={500}
                   onChange={(e) => setRecord({ ...record, prescription: e.target.value })}
                   className="rounded-xl"
                 />
+                <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Medicação estruturada (opcional)
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  <Input
+                    placeholder="Medicamento"
+                    value={record.medication}
+                    maxLength={200}
+                    onChange={(e) => setRecord({ ...record, medication: e.target.value })}
+                    className="col-span-3 h-11 rounded-xl"
+                  />
+                  <Input
+                    placeholder="Dose"
+                    value={record.dosage}
+                    maxLength={100}
+                    onChange={(e) => setRecord({ ...record, dosage: e.target.value })}
+                    className="h-11 rounded-xl"
+                  />
+                  <Input
+                    placeholder="Duração"
+                    value={record.duration}
+                    maxLength={100}
+                    onChange={(e) => setRecord({ ...record, duration: e.target.value })}
+                    className="col-span-2 h-11 rounded-xl"
+                  />
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <Input
                     placeholder="Peso (kg)"
@@ -330,6 +439,36 @@ function Admin() {
                     className="h-11 rounded-xl"
                   />
                 </div>
+                <div>
+                  <Label htmlFor="next-return" className="text-xs text-muted-foreground">
+                    Data de retorno (gera lembrete automático)
+                  </Label>
+                  <Input
+                    id="next-return"
+                    type="date"
+                    value={record.next_return_date}
+                    onChange={(e) => setRecord({ ...record, next_return_date: e.target.value })}
+                    className="mt-1 h-11 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="attachments" className="text-xs text-muted-foreground">
+                    Anexos (exame, foto, etc.)
+                  </Label>
+                  <Input
+                    key={fileInputKey}
+                    id="attachments"
+                    type="file"
+                    multiple
+                    onChange={(e) => setAttachmentFiles(Array.from(e.target.files ?? []))}
+                    className="mt-1 h-11 rounded-xl"
+                  />
+                  {attachmentFiles.length > 0 && (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {attachmentFiles.length} arquivo(s) selecionado(s)
+                    </p>
+                  )}
+                </div>
               </div>
               <Button
                 className="mt-3 h-11 w-full rounded-xl"
@@ -344,7 +483,13 @@ function Admin() {
           {(petRecords ?? []).map((r) => (
             <div key={r.id} className="rounded-2xl bg-card p-3 shadow-card">
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                <p className="min-w-0 truncate text-sm font-semibold">{r.reason}</p>
+                <div className="min-w-0">
+                  <Badge variant="outline" className="mb-1 text-[10px]">
+                    {recordTypeLabels[r.record_type as (typeof recordTypes)[number]] ??
+                      r.record_type}
+                  </Badge>
+                  <p className="truncate text-sm font-semibold">{r.reason}</p>
+                </div>
                 <Badge variant="secondary" className="shrink-0">
                   {formatDateTime(r.visit_at)}
                 </Badge>
