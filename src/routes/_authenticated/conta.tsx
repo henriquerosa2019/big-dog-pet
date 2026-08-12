@@ -74,11 +74,30 @@ function Conta() {
     queryKey: ["pets", user?.id],
     enabled: Boolean(user?.id),
     queryFn: async () => {
-      const { data, error } = await supabase.from("pets").select("id, name, species, breed");
+      const { data, error } = await supabase
+        .from("pets")
+        .select("id, name, species, breed, allergies");
       if (error) throw error;
       return data;
     },
   });
+
+  const { data: vaccineAlerts } = useQuery({
+    queryKey: ["vaccine-alerts", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const limit = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+      const { data, error } = await supabase
+        .from("vaccinations")
+        .select("id, vaccine_name, next_due_at, pet_id, pets(name)")
+        .not("next_due_at", "is", null)
+        .lte("next_due_at", limit)
+        .order("next_due_at");
+      if (error) throw error;
+      return data;
+    },
+  });
+
 
   async function signOut() {
     await queryClient.cancelQueries();
