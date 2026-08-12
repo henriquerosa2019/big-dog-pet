@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { AlertTriangle, ArrowLeft, Syringe } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Scissors, Stethoscope, Syringe } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/pets/$petId")({
   head: () => ({
@@ -19,12 +27,12 @@ export const Route = createFileRoute("/_authenticated/pets/$petId")({
       {
         name: "description",
         content:
-          "Ficha completa do pet com temperamento, alergias, controle de vacinas e histórico clínico no PetCura.",
+          "Clínica médica do pet: ficha, carteira de vacinas, lembretes de retorno e prontuário veterinário no PetCura.",
       },
       { property: "og:title", content: "Ficha do pet | PetCura" },
       {
         property: "og:description",
-        content: "Temperamento, alergias, vacinas e prontuário veterinário do seu pet.",
+        content: "Temperamento, alergias, vacinas, retornos e prontuário veterinário do seu pet.",
       },
     ],
   }),
@@ -48,6 +56,22 @@ const vaccineSchema = z.object({
   dose: z.string().trim().max(40),
   applied_at: z.string().min(10, "Informe a data de aplicação"),
   next_due_at: z.string().trim().max(10),
+});
+
+const reminderTypes = ["retirada_pontos", "exame", "retorno", "outro"] as const;
+
+const reminderTypeLabels: Record<(typeof reminderTypes)[number], string> = {
+  retirada_pontos: "Retirada de pontos",
+  exame: "Exame de retorno",
+  retorno: "Consulta de retorno",
+  outro: "Outro",
+};
+
+const reminderSchema = z.object({
+  reminder_type: z.enum(reminderTypes),
+  title: z.string().trim().min(2, "Descreva o lembrete").max(120),
+  due_date: z.string().min(10, "Informe a data do retorno"),
+  notes: z.string().trim().max(300),
 });
 
 function PetFicha() {
@@ -90,6 +114,19 @@ function PetFicha() {
         .select("id, visit_at, reason, diagnosis, treatment, prescription, weight_kg, vet_name")
         .eq("pet_id", petId)
         .order("visit_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: reminders } = useQuery({
+    queryKey: ["care_reminders", petId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("care_reminders")
+        .select("id, reminder_type, title, due_date, notes, completed")
+        .eq("pet_id", petId)
+        .order("due_date", { ascending: true });
       if (error) throw error;
       return data;
     },
@@ -201,9 +238,93 @@ function PetFicha() {
     onError: () => toast.error("Não foi possível remover"),
   });
 
-  const alerts = (vaccines ?? []).filter(
-    (v) => v.next_due_at && daysUntil(v.next_due_at) <= 30,
-  );
+  const [reminder, setReminder] = useState({
+    reminder_type: "retorno" as (typeof reminderTypes)[number],
+    title: "",
+    due_date: "",
+    notes: "",
+  });
+
+  const addReminder = useMutation({
+    mutationFn: async () => {
+      const parsed = reminderSchema.parse(reminder);
+      const { error } = await supabase.from("care_reminders").insert({
+        pet_id: petId,
+        reminder_type: parsed.reminder_type,
+        title: parsed.title,
+        due_date: parsed.due_date,
+        notes: parsed.notes || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["care_reminders"] });
+      setReminder({ reminder_type: "retorno", title: "", due_date: "", notes: "" });
+      toast.success("Lembrete de retorno criado");
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof z.ZodError ? error.issues[0]!.message : "Não foi possível registrar",
+      );
+    },
+  });
+
+  const completeReminder = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("care_reminders")
+        .update({ completed: true })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["care_reminders"] });
+      toast.success("Retorno concluído");
+    },
+    onError: () => toast.error("Não foi possível atualizar"),
+  });
+
+  const removeReminder = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("care_reminders").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["care_reminders"] });
+      toast.success("Lembrete removido");
+    },
+    onError: () => toast.error("Não foi possível remover"),
+  });
+
+  const vaccineAlerts = (vaccines ?? [])
+    .filter((v) => v.next_due_at && daysUntil(v.next_due_at) <= 30)
+    .map((v) => ({
+      key: `vaccine-${v.id}`,
+      days: daysUntil(v.next_due_at!),
+      dueDate: v.next_due_at!,
+      title:
+        daysUntil(v.next_due_at!) < 0
+          ? `Reforço de ${v.vaccine_name} atrasado`
+          : `Reforço de ${v.vaccine_name} em ${daysUntil(v.next_due_at!)} dia(s)`,
+      whatsappMsg: `Olá, ${CLINIC.name}! Gostaria de agendar o reforço da vacina ${v.vaccine_name} do meu pet ${pet?.name ?? ""} (retorno previsto para ${formatDate(v.next_due_at!)}).`,
+    }));
+
+  const reminderAlerts = (reminders ?? [])
+    .filter((r) => !r.completed && daysUntil(r.due_date) <= 30)
+    .map((r) => ({
+      key: `reminder-${r.id}`,
+      days: daysUntil(r.due_date),
+      dueDate: r.due_date,
+      title:
+        daysUntil(r.due_date) < 0
+          ? `${r.title} atrasado(a)`
+          : `${r.title} em ${daysUntil(r.due_date)} dia(s)`,
+      whatsappMsg: `Olá, ${CLINIC.name}! Gostaria de agendar "${r.title}" (${reminderTypeLabels[r.reminder_type as (typeof reminderTypes)[number]]}) do meu pet ${pet?.name ?? ""} (previsto para ${formatDate(r.due_date)}).`,
+    }));
+
+  const allAlerts = [...vaccineAlerts, ...reminderAlerts].sort((a, b) => a.days - b.days);
+
+  const selectedReminderLabel = reminderTypeLabels[reminder.reminder_type];
 
   return (
     <div className="p-4">
@@ -213,272 +334,391 @@ function PetFicha() {
       </Link>
       <h1 className="mt-2 font-display text-2xl">{pet?.name ?? "Ficha do pet"}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Temperamento, alergias, vacinas e histórico clínico.
+        Temperamento, alergias, vacinas, retornos e histórico clínico.
       </p>
 
-      {alerts.length > 0 && (
+      {allAlerts.length > 0 && (
         <div className="mt-4 space-y-2">
-          {alerts.map((v) => {
-            const days = daysUntil(v.next_due_at!);
-            return (
-              <div
-                key={v.id}
-                className="flex items-start gap-2 rounded-2xl border-2 border-primary/30 bg-secondary p-3"
-              >
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <div className="min-w-0 text-xs">
-                  <p className="font-semibold">
-                    {days < 0
-                      ? `Reforço de ${v.vaccine_name} atrasado`
-                      : `Reforço de ${v.vaccine_name} em ${days} dia(s)`}
-                  </p>
-                  <p className="text-muted-foreground">Retorno: {formatDate(v.next_due_at!)}</p>
-                  <a
-                    className="mt-1 inline-block font-semibold text-primary underline"
-                    href={whatsappLink(
-                      `Olá, ${CLINIC.name}! Gostaria de agendar o reforço da vacina ${v.vaccine_name} do meu pet ${pet?.name ?? ""} (retorno previsto para ${formatDate(v.next_due_at!)}).`,
-                    )}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Agendar reforço no WhatsApp
-                  </a>
-                </div>
+          {allAlerts.map((a) => (
+            <div
+              key={a.key}
+              className="flex items-start gap-2 rounded-2xl border-2 border-primary/30 bg-secondary p-3"
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <div className="min-w-0 text-xs">
+                <p className="font-semibold">{a.title}</p>
+                <p className="text-muted-foreground">Retorno: {formatDate(a.dueDate)}</p>
+                <a
+                  className="mt-1 inline-block font-semibold text-primary underline"
+                  href={whatsappLink(a.whatsappMsg)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Agendar no WhatsApp
+                </a>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
 
-      <section className="mt-6 rounded-2xl bg-card p-3 shadow-card">
-        <h2 className="font-display text-lg">Ficha do pet</h2>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <div className="col-span-2">
-            <Label htmlFor="name">Nome</Label>
-            <Input
-              id="name"
-              value={form.name}
-              maxLength={60}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="mt-1 h-11 rounded-xl"
-            />
-          </div>
-          <div>
-            <Label htmlFor="species">Espécie</Label>
-            <Input
-              id="species"
-              value={form.species}
-              maxLength={30}
-              onChange={(e) => setForm({ ...form, species: e.target.value })}
-              className="mt-1 h-11 rounded-xl"
-            />
-          </div>
-          <div>
-            <Label htmlFor="breed">Raça</Label>
-            <Input
-              id="breed"
-              value={form.breed}
-              maxLength={60}
-              onChange={(e) => setForm({ ...form, breed: e.target.value })}
-              className="mt-1 h-11 rounded-xl"
-            />
-          </div>
-          <div>
-            <Label htmlFor="sex">Sexo</Label>
-            <Input
-              id="sex"
-              placeholder="Macho / Fêmea"
-              value={form.sex}
-              maxLength={20}
-              onChange={(e) => setForm({ ...form, sex: e.target.value })}
-              className="mt-1 h-11 rounded-xl"
-            />
-          </div>
-          <div>
-            <Label htmlFor="birth">Nascimento</Label>
-            <Input
-              id="birth"
-              type="date"
-              value={form.birth_date}
-              onChange={(e) => setForm({ ...form, birth_date: e.target.value })}
-              className="mt-1 h-11 rounded-xl"
-            />
-          </div>
-          <div className="col-span-2">
-            <Label htmlFor="weight">Peso (kg)</Label>
-            <Input
-              id="weight"
-              inputMode="decimal"
-              value={form.weight_kg}
-              maxLength={10}
-              onChange={(e) => setForm({ ...form, weight_kg: e.target.value })}
-              className="mt-1 h-11 rounded-xl"
-            />
-          </div>
-          <div className="col-span-2">
-            <Label htmlFor="temperament">Temperamento</Label>
-            <Textarea
-              id="temperament"
-              placeholder="Dócil, agitado, medroso com barulho, não gosta de secador..."
-              value={form.temperament}
-              maxLength={300}
-              onChange={(e) => setForm({ ...form, temperament: e.target.value })}
-              className="mt-1 rounded-xl"
-            />
-          </div>
-          <div className="col-span-2">
-            <Label htmlFor="allergies">Alergias</Label>
-            <Textarea
-              id="allergies"
-              placeholder="Alergia a shampoo neutro, frango, medicamentos..."
-              value={form.allergies}
-              maxLength={300}
-              onChange={(e) => setForm({ ...form, allergies: e.target.value })}
-              className="mt-1 rounded-xl"
-            />
-          </div>
-          <div className="col-span-2">
-            <Label htmlFor="petnotes">Observações</Label>
-            <Textarea
-              id="petnotes"
-              value={form.notes}
-              maxLength={500}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              className="mt-1 rounded-xl"
-            />
-          </div>
-        </div>
-        <Button
-          className="mt-3 h-11 w-full rounded-xl"
-          disabled={saveFicha.isPending}
-          onClick={() => saveFicha.mutate()}
-        >
-          {saveFicha.isPending ? "Salvando..." : "Salvar ficha"}
-        </Button>
-      </section>
-
       <section className="mt-6">
-        <h2 className="font-display text-lg">Carteira de vacinas</h2>
-        <ul className="mt-3 space-y-2">
-          {(vaccines ?? []).map((v) => (
-            <li key={v.id} className="rounded-2xl bg-card p-3 shadow-card">
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">
-                    <Syringe className="mr-1 inline h-3.5 w-3.5 text-primary" />
-                    {v.vaccine_name}
-                    {v.dose ? ` · ${v.dose}` : ""}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Aplicada em {formatDate(v.applied_at)}
-                    {v.next_due_at ? ` · retorno ${formatDate(v.next_due_at)}` : ""}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="shrink-0 text-xs"
-                  onClick={() => removeVaccine.mutate(v.id)}
-                >
-                  Remover
-                </Button>
-              </div>
-            </li>
-          ))}
-          {(vaccines ?? []).length === 0 && (
-            <li className="text-sm text-muted-foreground">Nenhuma vacina registrada.</li>
-          )}
-        </ul>
-
-        <div className="mt-3 rounded-2xl bg-card p-3 shadow-card">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Registrar vacina
-          </p>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <Input
-              placeholder="Vacina (ex: V10)"
-              value={vaccine.vaccine_name}
-              maxLength={80}
-              onChange={(e) => setVaccine({ ...vaccine, vaccine_name: e.target.value })}
-              className="col-span-2 h-11 rounded-xl"
-            />
-            <Input
-              placeholder="Dose (opcional)"
-              value={vaccine.dose}
-              maxLength={40}
-              onChange={(e) => setVaccine({ ...vaccine, dose: e.target.value })}
-              className="col-span-2 h-11 rounded-xl"
-            />
-            <div>
-              <Label htmlFor="applied">Aplicação</Label>
-              <Input
-                id="applied"
-                type="date"
-                value={vaccine.applied_at}
-                onChange={(e) => setVaccine({ ...vaccine, applied_at: e.target.value })}
-                className="mt-1 h-11 rounded-xl"
-              />
-            </div>
-            <div>
-              <Label htmlFor="due">Retorno</Label>
-              <Input
-                id="due"
-                type="date"
-                value={vaccine.next_due_at}
-                onChange={(e) => setVaccine({ ...vaccine, next_due_at: e.target.value })}
-                className="mt-1 h-11 rounded-xl"
-              />
-            </div>
-          </div>
-          <Button
-            variant="secondary"
-            className="mt-2 h-11 w-full rounded-xl"
-            disabled={addVaccine.isPending}
-            onClick={() => addVaccine.mutate()}
-          >
-            Salvar vacina
-          </Button>
+        <div className="flex items-center gap-1.5">
+          <Stethoscope className="h-4 w-4 text-primary" />
+          <h2 className="font-display text-lg">Clínica Médica</h2>
         </div>
-      </section>
-
-      <section className="mt-6">
-        <h2 className="font-display text-lg">Prontuário veterinário</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Registros preenchidos pela equipe clínica do {CLINIC.name}.
+          Ficha, carteira de vacinas, lembretes de retorno e prontuário do seu pet, tudo em um só
+          lugar.
         </p>
-        <ul className="mt-3 space-y-2">
-          {(records ?? []).map((r) => (
-            <li key={r.id} className="rounded-2xl bg-card p-3 shadow-card">
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                <p className="min-w-0 truncate text-sm font-semibold">{r.reason}</p>
-                <Badge variant="secondary" className="shrink-0">
-                  {formatDateTime(r.visit_at)}
-                </Badge>
+
+        <Tabs defaultValue="ficha" className="mt-3">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="ficha">Ficha</TabsTrigger>
+            <TabsTrigger value="vacinas">Vacinas</TabsTrigger>
+            <TabsTrigger value="retornos">Retornos</TabsTrigger>
+            <TabsTrigger value="prontuario">Prontuário</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="ficha" className="mt-3">
+            <div className="rounded-2xl bg-card p-3 shadow-card">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="col-span-2">
+                  <Label htmlFor="name">Nome</Label>
+                  <Input
+                    id="name"
+                    value={form.name}
+                    maxLength={60}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    className="mt-1 h-11 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="species">Espécie</Label>
+                  <Input
+                    id="species"
+                    value={form.species}
+                    maxLength={30}
+                    onChange={(e) => setForm({ ...form, species: e.target.value })}
+                    className="mt-1 h-11 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="breed">Raça</Label>
+                  <Input
+                    id="breed"
+                    value={form.breed}
+                    maxLength={60}
+                    onChange={(e) => setForm({ ...form, breed: e.target.value })}
+                    className="mt-1 h-11 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="sex">Sexo</Label>
+                  <Input
+                    id="sex"
+                    placeholder="Macho / Fêmea"
+                    value={form.sex}
+                    maxLength={20}
+                    onChange={(e) => setForm({ ...form, sex: e.target.value })}
+                    className="mt-1 h-11 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="birth">Nascimento</Label>
+                  <Input
+                    id="birth"
+                    type="date"
+                    value={form.birth_date}
+                    onChange={(e) => setForm({ ...form, birth_date: e.target.value })}
+                    className="mt-1 h-11 rounded-xl"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Label htmlFor="weight">Peso (kg)</Label>
+                  <Input
+                    id="weight"
+                    inputMode="decimal"
+                    value={form.weight_kg}
+                    maxLength={10}
+                    onChange={(e) => setForm({ ...form, weight_kg: e.target.value })}
+                    className="mt-1 h-11 rounded-xl"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Label htmlFor="temperament">Temperamento</Label>
+                  <Textarea
+                    id="temperament"
+                    placeholder="Dócil, agitado, medroso com barulho, não gosta de secador..."
+                    value={form.temperament}
+                    maxLength={300}
+                    onChange={(e) => setForm({ ...form, temperament: e.target.value })}
+                    className="mt-1 rounded-xl"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Label htmlFor="allergies">Alergias</Label>
+                  <Textarea
+                    id="allergies"
+                    placeholder="Alergia a shampoo neutro, frango, medicamentos..."
+                    value={form.allergies}
+                    maxLength={300}
+                    onChange={(e) => setForm({ ...form, allergies: e.target.value })}
+                    className="mt-1 rounded-xl"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Label htmlFor="petnotes">Observações</Label>
+                  <Textarea
+                    id="petnotes"
+                    value={form.notes}
+                    maxLength={500}
+                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                    className="mt-1 rounded-xl"
+                  />
+                </div>
               </div>
-              {r.diagnosis && (
-                <p className="mt-1 text-xs text-muted-foreground">Diagnóstico: {r.diagnosis}</p>
+              <Button
+                className="mt-3 h-11 w-full rounded-xl"
+                disabled={saveFicha.isPending}
+                onClick={() => saveFicha.mutate()}
+              >
+                {saveFicha.isPending ? "Salvando..." : "Salvar ficha"}
+              </Button>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="vacinas" className="mt-3 space-y-2">
+            <ul className="space-y-2">
+              {(vaccines ?? []).map((v) => (
+                <li key={v.id} className="rounded-2xl bg-card p-3 shadow-card">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">
+                        <Syringe className="mr-1 inline h-3.5 w-3.5 text-primary" />
+                        {v.vaccine_name}
+                        {v.dose ? ` · ${v.dose}` : ""}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Aplicada em {formatDate(v.applied_at)}
+                        {v.next_due_at ? ` · retorno ${formatDate(v.next_due_at)}` : ""}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0 text-xs"
+                      onClick={() => removeVaccine.mutate(v.id)}
+                    >
+                      Remover
+                    </Button>
+                  </div>
+                </li>
+              ))}
+              {(vaccines ?? []).length === 0 && (
+                <li className="text-sm text-muted-foreground">Nenhuma vacina registrada.</li>
               )}
-              {r.treatment && (
-                <p className="text-xs text-muted-foreground">Tratamento: {r.treatment}</p>
+            </ul>
+
+            <div className="rounded-2xl bg-card p-3 shadow-card">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Registrar vacina
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <Input
+                  placeholder="Vacina (ex: V10)"
+                  value={vaccine.vaccine_name}
+                  maxLength={80}
+                  onChange={(e) => setVaccine({ ...vaccine, vaccine_name: e.target.value })}
+                  className="col-span-2 h-11 rounded-xl"
+                />
+                <Input
+                  placeholder="Dose (opcional)"
+                  value={vaccine.dose}
+                  maxLength={40}
+                  onChange={(e) => setVaccine({ ...vaccine, dose: e.target.value })}
+                  className="col-span-2 h-11 rounded-xl"
+                />
+                <div>
+                  <Label htmlFor="applied">Aplicação</Label>
+                  <Input
+                    id="applied"
+                    type="date"
+                    value={vaccine.applied_at}
+                    onChange={(e) => setVaccine({ ...vaccine, applied_at: e.target.value })}
+                    className="mt-1 h-11 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="due">Retorno</Label>
+                  <Input
+                    id="due"
+                    type="date"
+                    value={vaccine.next_due_at}
+                    onChange={(e) => setVaccine({ ...vaccine, next_due_at: e.target.value })}
+                    className="mt-1 h-11 rounded-xl"
+                  />
+                </div>
+              </div>
+              <Button
+                variant="secondary"
+                className="mt-2 h-11 w-full rounded-xl"
+                disabled={addVaccine.isPending}
+                onClick={() => addVaccine.mutate()}
+              >
+                Salvar vacina
+              </Button>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="retornos" className="mt-3 space-y-2">
+            <ul className="space-y-2">
+              {(reminders ?? []).map((r) => (
+                <li key={r.id} className="rounded-2xl bg-card p-3 shadow-card">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">
+                        <Scissors className="mr-1 inline h-3.5 w-3.5 text-primary" />
+                        {r.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {reminderTypeLabels[r.reminder_type as (typeof reminderTypes)[number]]} ·{" "}
+                        {r.completed ? "concluído" : formatDate(r.due_date)}
+                      </p>
+                      {r.notes && (
+                        <p className="mt-1 text-xs text-muted-foreground">{r.notes}</p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      {!r.completed && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => completeReminder.mutate(r.id)}
+                        >
+                          Concluir
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => removeReminder.mutate(r.id)}
+                      >
+                        Remover
+                      </Button>
+                    </div>
+                  </div>
+                </li>
+              ))}
+              {(reminders ?? []).length === 0 && (
+                <li className="text-sm text-muted-foreground">Nenhum lembrete de retorno.</li>
               )}
-              {r.prescription && (
-                <p className="text-xs text-muted-foreground">Prescrição: {r.prescription}</p>
+            </ul>
+
+            <div className="rounded-2xl bg-card p-3 shadow-card">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Novo lembrete de retorno
+              </p>
+              <div className="mt-2 space-y-2">
+                <Select
+                  value={reminder.reminder_type}
+                  onValueChange={(value) =>
+                    setReminder({
+                      ...reminder,
+                      reminder_type: value as (typeof reminderTypes)[number],
+                    })
+                  }
+                >
+                  <SelectTrigger className="h-11 rounded-xl">
+                    <SelectValue placeholder={selectedReminderLabel} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {reminderTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {reminderTypeLabels[type]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  placeholder="Título (ex: Retirada de pontos da castração)"
+                  value={reminder.title}
+                  maxLength={120}
+                  onChange={(e) => setReminder({ ...reminder, title: e.target.value })}
+                  className="h-11 rounded-xl"
+                />
+                <div>
+                  <Label htmlFor="reminder-due">Data prevista</Label>
+                  <Input
+                    id="reminder-due"
+                    type="date"
+                    value={reminder.due_date}
+                    onChange={(e) => setReminder({ ...reminder, due_date: e.target.value })}
+                    className="mt-1 h-11 rounded-xl"
+                  />
+                </div>
+                <Textarea
+                  placeholder="Observações (opcional)"
+                  value={reminder.notes}
+                  maxLength={300}
+                  onChange={(e) => setReminder({ ...reminder, notes: e.target.value })}
+                  className="rounded-xl"
+                />
+              </div>
+              <Button
+                variant="secondary"
+                className="mt-2 h-11 w-full rounded-xl"
+                disabled={addReminder.isPending}
+                onClick={() => addReminder.mutate()}
+              >
+                Salvar lembrete
+              </Button>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="prontuario" className="mt-3">
+            <p className="text-xs text-muted-foreground">
+              Registros preenchidos pela equipe clínica do {CLINIC.name}.
+            </p>
+            <ul className="mt-3 space-y-2">
+              {(records ?? []).map((r) => (
+                <li key={r.id} className="rounded-2xl bg-card p-3 shadow-card">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                    <p className="min-w-0 truncate text-sm font-semibold">{r.reason}</p>
+                    <Badge variant="secondary" className="shrink-0">
+                      {formatDateTime(r.visit_at)}
+                    </Badge>
+                  </div>
+                  {r.diagnosis && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Diagnóstico: {r.diagnosis}
+                    </p>
+                  )}
+                  {r.treatment && (
+                    <p className="text-xs text-muted-foreground">Tratamento: {r.treatment}</p>
+                  )}
+                  {r.prescription && (
+                    <p className="text-xs text-muted-foreground">Prescrição: {r.prescription}</p>
+                  )}
+                  {(r.weight_kg != null || r.vet_name) && (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {r.weight_kg != null ? `${r.weight_kg} kg` : ""}
+                      {r.weight_kg != null && r.vet_name ? " · " : ""}
+                      {r.vet_name ?? ""}
+                    </p>
+                  )}
+                </li>
+              ))}
+              {(records ?? []).length === 0 && (
+                <li className="text-sm text-muted-foreground">
+                  Nenhum atendimento registrado ainda.
+                </li>
               )}
-              {(r.weight_kg != null || r.vet_name) && (
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  {r.weight_kg != null ? `${r.weight_kg} kg` : ""}
-                  {r.weight_kg != null && r.vet_name ? " · " : ""}
-                  {r.vet_name ?? ""}
-                </p>
-              )}
-            </li>
-          ))}
-          {(records ?? []).length === 0 && (
-            <li className="text-sm text-muted-foreground">
-              Nenhum atendimento registrado ainda.
-            </li>
-          )}
-        </ul>
+            </ul>
+          </TabsContent>
+        </Tabs>
       </section>
     </div>
   );
