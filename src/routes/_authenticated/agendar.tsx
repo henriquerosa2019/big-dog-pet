@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,8 +47,18 @@ const petSchema = z.object({
   allergies: z.string().trim().max(300).optional(),
 });
 
+// Local calendar date (YYYY-MM-DD) — NOT toISOString(), which reports the UTC date and
+// jumps to "tomorrow" during Rio's evening hours (UTC-3), wrongly blocking same-day booking.
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function isPastSlot(date: string, hour: string) {
+  return new Date(`${date}T${hour}:00`).getTime() < Date.now();
 }
 
 function Agendar() {
@@ -62,6 +72,15 @@ function Agendar() {
   const [date, setDate] = useState(todayISO());
   const [time, setTime] = useState("09:00");
   const [notes, setNotes] = useState("");
+
+  const availableHours = useMemo(() => hours.filter((h) => !isPastSlot(date, h)), [date]);
+
+  useEffect(() => {
+    if (availableHours.length > 0 && !availableHours.includes(time)) {
+      setTime(availableHours[0]!);
+    }
+  }, [availableHours, time]);
+
   const [newPet, setNewPet] = useState({
     name: "",
     species: "cachorro",
@@ -121,7 +140,9 @@ function Agendar() {
       toast.success("Pet cadastrado");
     },
     onError: (error) => {
-      toast.error(error instanceof z.ZodError ? error.issues[0]!.message : "Não foi possível salvar");
+      toast.error(
+        error instanceof z.ZodError ? error.issues[0]!.message : "Não foi possível salvar",
+      );
     },
   });
 
@@ -130,7 +151,8 @@ function Agendar() {
       if (!serviceId) throw new Error("Escolha um serviço");
       const scheduled = new Date(`${date}T${time}:00`);
       if (Number.isNaN(scheduled.getTime())) throw new Error("Data inválida");
-      if (scheduled.getTime() < Date.now()) throw new Error("Escolha uma data futura");
+      if (scheduled.getTime() < Date.now())
+        throw new Error("Esse horário já passou. Escolha outro horário ou outra data.");
       const { error } = await supabase.from("appointments").insert({
         user_id: user!.id,
         service_id: serviceId,
@@ -143,8 +165,7 @@ function Agendar() {
     },
     onSuccess: ({ scheduled }) => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      const serviceName =
-        (services ?? []).find((s) => s.id === serviceId)?.name ?? "serviço";
+      const serviceName = (services ?? []).find((s) => s.id === serviceId)?.name ?? "serviço";
       const petName = (pets ?? []).find((p) => p.id === petId)?.name;
       const message = `Olá, ${CLINIC.name}! Solicito a liberação/autorização do agendamento:\n• Serviço: ${serviceName}\n• Pet: ${petName ?? "não informado"}\n• Data: ${formatDateTime(scheduled)}${notes.trim() ? `\n• Observações: ${notes.trim()}` : ""}`;
       window.open(whatsappLink(message), "_blank", "noopener,noreferrer");
@@ -155,7 +176,6 @@ function Agendar() {
       toast.error(error instanceof Error ? error.message : "Não foi possível agendar");
     },
   });
-
 
   const filteredServices = (services ?? []).filter((s) => s.category === category);
 
@@ -296,7 +316,7 @@ function Agendar() {
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          {hours.map((h) => (
+          {availableHours.map((h) => (
             <button
               key={h}
               onClick={() => setTime(h)}
@@ -310,6 +330,11 @@ function Agendar() {
               {h}
             </button>
           ))}
+          {availableHours.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              Não há mais horários hoje. Escolha outra data acima.
+            </p>
+          )}
         </div>
         <div>
           <Label htmlFor="notes">Observações (opcional)</Label>
@@ -325,7 +350,7 @@ function Agendar() {
 
       <Button
         className="mt-5 h-12 w-full rounded-2xl"
-        disabled={createAppointment.isPending || !serviceId}
+        disabled={createAppointment.isPending || !serviceId || availableHours.length === 0}
         onClick={() => createAppointment.mutate()}
       >
         {createAppointment.isPending ? "Enviando..." : "Confirmar agendamento"}
