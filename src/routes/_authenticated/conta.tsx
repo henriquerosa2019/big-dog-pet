@@ -130,6 +130,43 @@ function Conta() {
         </Button>
       )}
 
+      {(vaccineAlerts ?? []).length > 0 && (
+        <section className="mt-5 space-y-2">
+          <h2 className="font-display text-lg">Alertas de vacina</h2>
+          {(vaccineAlerts ?? []).map((v) => {
+            const days = daysUntil(v.next_due_at!);
+            return (
+              <div
+                key={v.id}
+                className="flex items-start gap-2 rounded-2xl border-2 border-primary/30 bg-secondary p-3"
+              >
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <div className="min-w-0 text-xs">
+                  <p className="font-semibold">
+                    {v.pets?.name ? `${v.pets.name} · ` : ""}
+                    {days < 0
+                      ? `${v.vaccine_name} atrasada`
+                      : `${v.vaccine_name} vence em ${days} dia(s)`}
+                  </p>
+                  <p className="text-muted-foreground">Retorno: {formatDate(v.next_due_at!)}</p>
+                  <a
+                    className="mt-1 inline-block font-semibold text-primary underline"
+                    href={whatsappLink(
+                      `Olá, ${CLINIC.name}! Quero agendar o reforço da vacina ${v.vaccine_name} do meu pet ${v.pets?.name ?? ""}.`,
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Falar no WhatsApp
+                  </a>
+                </div>
+              </div>
+            );
+          })}
+        </section>
+      )}
+
+
       <section className="mt-6">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg">Meus agendamentos</h2>
