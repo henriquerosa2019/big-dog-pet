@@ -129,16 +129,23 @@ function Agendar() {
         notes: notes.trim().slice(0, 500) || null,
       });
       if (error) throw error;
+      return { scheduled };
     },
-    onSuccess: () => {
+    onSuccess: ({ scheduled }) => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      toast.success("Agendamento enviado! Vamos confirmar em breve.");
+      const serviceName =
+        (services ?? []).find((s) => s.id === serviceId)?.name ?? "serviço";
+      const petName = (pets ?? []).find((p) => p.id === petId)?.name;
+      const message = `Olá, ${CLINIC.name}! Solicito a liberação/autorização do agendamento:\n• Serviço: ${serviceName}\n• Pet: ${petName ?? "não informado"}\n• Data: ${formatDateTime(scheduled)}${notes.trim() ? `\n• Observações: ${notes.trim()}` : ""}`;
+      window.open(whatsappLink(message), "_blank", "noopener,noreferrer");
+      toast.success("Agendamento enviado! Confirme a liberação pelo WhatsApp.");
       navigate({ to: "/conta" });
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Não foi possível agendar");
     },
   });
+
 
   const filteredServices = (services ?? []).filter((s) => s.category === category);
 
