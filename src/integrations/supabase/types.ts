@@ -65,6 +65,59 @@ export type Database = {
           },
         ]
       }
+      medical_records: {
+        Row: {
+          created_at: string
+          diagnosis: string | null
+          id: string
+          notes: string | null
+          pet_id: string
+          prescription: string | null
+          reason: string
+          treatment: string | null
+          updated_at: string
+          vet_name: string | null
+          visit_at: string
+          weight_kg: number | null
+        }
+        Insert: {
+          created_at?: string
+          diagnosis?: string | null
+          id?: string
+          notes?: string | null
+          pet_id: string
+          prescription?: string | null
+          reason: string
+          treatment?: string | null
+          updated_at?: string
+          vet_name?: string | null
+          visit_at?: string
+          weight_kg?: number | null
+        }
+        Update: {
+          created_at?: string
+          diagnosis?: string | null
+          id?: string
+          notes?: string | null
+          pet_id?: string
+          prescription?: string | null
+          reason?: string
+          treatment?: string | null
+          updated_at?: string
+          vet_name?: string | null
+          visit_at?: string
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medical_records_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           id: string
@@ -145,31 +198,46 @@ export type Database = {
       }
       pets: {
         Row: {
+          allergies: string | null
+          birth_date: string | null
           breed: string | null
           created_at: string
           id: string
           name: string
           notes: string | null
           owner_id: string
+          sex: string | null
           species: string
+          temperament: string | null
+          weight_kg: number | null
         }
         Insert: {
+          allergies?: string | null
+          birth_date?: string | null
           breed?: string | null
           created_at?: string
           id?: string
           name: string
           notes?: string | null
           owner_id: string
+          sex?: string | null
           species?: string
+          temperament?: string | null
+          weight_kg?: number | null
         }
         Update: {
+          allergies?: string | null
+          birth_date?: string | null
           breed?: string | null
           created_at?: string
           id?: string
           name?: string
           notes?: string | null
           owner_id?: string
+          sex?: string | null
           species?: string
+          temperament?: string | null
+          weight_kg?: number | null
         }
         Relationships: []
       }
@@ -292,6 +360,53 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      vaccinations: {
+        Row: {
+          applied_at: string
+          created_at: string
+          dose: string | null
+          id: string
+          next_due_at: string | null
+          notes: string | null
+          pet_id: string
+          updated_at: string
+          vaccine_name: string
+          vet_name: string | null
+        }
+        Insert: {
+          applied_at?: string
+          created_at?: string
+          dose?: string | null
+          id?: string
+          next_due_at?: string | null
+          notes?: string | null
+          pet_id: string
+          updated_at?: string
+          vaccine_name: string
+          vet_name?: string | null
+        }
+        Update: {
+          applied_at?: string
+          created_at?: string
+          dose?: string | null
+          id?: string
+          next_due_at?: string | null
+          notes?: string | null
+          pet_id?: string
+          updated_at?: string
+          vaccine_name?: string
+          vet_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vaccinations_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

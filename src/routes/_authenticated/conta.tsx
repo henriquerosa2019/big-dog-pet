@@ -1,10 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LogOut, PawPrint, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ChevronRight, LogOut, PawPrint, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useIsAdmin } from "@/hooks/useAuth";
-import { formatBRL, formatDateTime } from "@/lib/format";
+import { CLINIC, daysUntil, formatBRL, formatDate, formatDateTime, whatsappLink } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -74,11 +74,30 @@ function Conta() {
     queryKey: ["pets", user?.id],
     enabled: Boolean(user?.id),
     queryFn: async () => {
-      const { data, error } = await supabase.from("pets").select("id, name, species, breed");
+      const { data, error } = await supabase
+        .from("pets")
+        .select("id, name, species, breed, allergies");
       if (error) throw error;
       return data;
     },
   });
+
+  const { data: vaccineAlerts } = useQuery({
+    queryKey: ["vaccine-alerts", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const limit = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+      const { data, error } = await supabase
+        .from("vaccinations")
+        .select("id, vaccine_name, next_due_at, pet_id, pets(name)")
+        .not("next_due_at", "is", null)
+        .lte("next_due_at", limit)
+        .order("next_due_at");
+      if (error) throw error;
+      return data;
+    },
+  });
+
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -110,6 +129,43 @@ function Conta() {
           </Link>
         </Button>
       )}
+
+      {(vaccineAlerts ?? []).length > 0 && (
+        <section className="mt-5 space-y-2">
+          <h2 className="font-display text-lg">Alertas de vacina</h2>
+          {(vaccineAlerts ?? []).map((v) => {
+            const days = daysUntil(v.next_due_at!);
+            return (
+              <div
+                key={v.id}
+                className="flex items-start gap-2 rounded-2xl border-2 border-primary/30 bg-secondary p-3"
+              >
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <div className="min-w-0 text-xs">
+                  <p className="font-semibold">
+                    {v.pets?.name ? `${v.pets.name} · ` : ""}
+                    {days < 0
+                      ? `${v.vaccine_name} atrasada`
+                      : `${v.vaccine_name} vence em ${days} dia(s)`}
+                  </p>
+                  <p className="text-muted-foreground">Retorno: {formatDate(v.next_due_at!)}</p>
+                  <a
+                    className="mt-1 inline-block font-semibold text-primary underline"
+                    href={whatsappLink(
+                      `Olá, ${CLINIC.name}! Quero agendar o reforço da vacina ${v.vaccine_name} do meu pet ${v.pets?.name ?? ""}.`,
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Falar no WhatsApp
+                  </a>
+                </div>
+              </div>
+            );
+          })}
+        </section>
+      )}
+
 
       <section className="mt-6">
         <div className="flex items-center justify-between">
@@ -167,22 +223,30 @@ function Conta() {
 
       <section className="mt-6">
         <h2 className="font-display text-lg">Meus pets</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Toque no pet para ver a ficha, vacinas e prontuário.
+        </p>
         <ul className="mt-3 space-y-2">
           {(pets ?? []).map((pet) => (
-            <li
-              key={pet.id}
-              className="flex items-center gap-3 rounded-2xl bg-card p-3 shadow-card"
-            >
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
-                <PawPrint className="h-4 w-4" />
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">{pet.name}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {pet.species}
-                  {pet.breed ? ` · ${pet.breed}` : ""}
-                </p>
-              </div>
+            <li key={pet.id}>
+              <Link
+                to="/pets/$petId"
+                params={{ petId: pet.id }}
+                className="flex items-center gap-3 rounded-2xl bg-card p-3 shadow-card"
+              >
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+                  <PawPrint className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold">{pet.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {pet.species}
+                    {pet.breed ? ` · ${pet.breed}` : ""}
+                    {pet.allergies ? ` · alergias: ${pet.allergies}` : ""}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </Link>
             </li>
           ))}
           {(pets ?? []).length === 0 && (
@@ -192,6 +256,7 @@ function Conta() {
           )}
         </ul>
       </section>
+
     </div>
   );
 }

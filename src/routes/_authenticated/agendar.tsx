@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { formatBRL } from "@/lib/format";
+import { CLINIC, formatBRL, formatDateTime, whatsappLink } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +43,8 @@ const petSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome do pet").max(60),
   species: z.string().trim().min(2).max(30),
   breed: z.string().trim().max(60).optional(),
+  temperament: z.string().trim().max(300).optional(),
+  allergies: z.string().trim().max(300).optional(),
 });
 
 function todayISO() {
@@ -60,7 +62,13 @@ function Agendar() {
   const [date, setDate] = useState(todayISO());
   const [time, setTime] = useState("09:00");
   const [notes, setNotes] = useState("");
-  const [newPet, setNewPet] = useState({ name: "", species: "cachorro", breed: "" });
+  const [newPet, setNewPet] = useState({
+    name: "",
+    species: "cachorro",
+    breed: "",
+    temperament: "",
+    allergies: "",
+  });
 
   const { data: services } = useQuery({
     queryKey: ["services"],
@@ -98,6 +106,8 @@ function Agendar() {
           name: parsed.name,
           species: parsed.species,
           breed: parsed.breed || null,
+          temperament: parsed.temperament || null,
+          allergies: parsed.allergies || null,
         })
         .select("id")
         .single();
@@ -107,7 +117,7 @@ function Agendar() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["pets"] });
       setPetId(data.id);
-      setNewPet({ name: "", species: "cachorro", breed: "" });
+      setNewPet({ name: "", species: "cachorro", breed: "", temperament: "", allergies: "" });
       toast.success("Pet cadastrado");
     },
     onError: (error) => {
@@ -129,16 +139,23 @@ function Agendar() {
         notes: notes.trim().slice(0, 500) || null,
       });
       if (error) throw error;
+      return { scheduled };
     },
-    onSuccess: () => {
+    onSuccess: ({ scheduled }) => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      toast.success("Agendamento enviado! Vamos confirmar em breve.");
+      const serviceName =
+        (services ?? []).find((s) => s.id === serviceId)?.name ?? "serviço";
+      const petName = (pets ?? []).find((p) => p.id === petId)?.name;
+      const message = `Olá, ${CLINIC.name}! Solicito a liberação/autorização do agendamento:\n• Serviço: ${serviceName}\n• Pet: ${petName ?? "não informado"}\n• Data: ${formatDateTime(scheduled)}${notes.trim() ? `\n• Observações: ${notes.trim()}` : ""}`;
+      window.open(whatsappLink(message), "_blank", "noopener,noreferrer");
+      toast.success("Agendamento enviado! Confirme a liberação pelo WhatsApp.");
       navigate({ to: "/conta" });
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Não foi possível agendar");
     },
   });
+
 
   const filteredServices = (services ?? []).filter((s) => s.category === category);
 
@@ -237,6 +254,20 @@ function Agendar() {
               value={newPet.breed}
               maxLength={60}
               onChange={(e) => setNewPet({ ...newPet, breed: e.target.value })}
+              className="col-span-2 h-10 rounded-xl"
+            />
+            <Input
+              placeholder="Temperamento (opcional)"
+              value={newPet.temperament}
+              maxLength={300}
+              onChange={(e) => setNewPet({ ...newPet, temperament: e.target.value })}
+              className="col-span-2 h-10 rounded-xl"
+            />
+            <Input
+              placeholder="Alergias (opcional)"
+              value={newPet.allergies}
+              maxLength={300}
+              onChange={(e) => setNewPet({ ...newPet, allergies: e.target.value })}
               className="col-span-2 h-10 rounded-xl"
             />
           </div>
