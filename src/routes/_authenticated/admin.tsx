@@ -1,17 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { CheckCircle2, MessageCircle, Syringe } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useIsAdmin } from "@/hooks/useAuth";
-import { formatBRL, formatDateTime } from "@/lib/format";
+import { CLINIC, formatBRL, formatDate, formatDateTime, whatsappLinkTo } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Select,
   SelectContent,
@@ -52,6 +54,21 @@ const recordTypeLabels: Record<(typeof recordTypes)[number], string> = {
   vacina: "Vacina",
 };
 
+const returnTypes = ["vacina", "exame", "retorno", "retirada_pontos", "outro"] as const;
+type ReturnType = (typeof returnTypes)[number];
+
+const returnTypeLabels: Record<ReturnType, string> = {
+  vacina: "Vacina",
+  exame: "Exame de retorno",
+  retorno: "Consulta de retorno",
+  retirada_pontos: "Retirada de pontos",
+  outro: "Outro",
+};
+
+function todayISODate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function Admin() {
   const { user } = useAuth();
   const isAdmin = useIsAdmin(user?.id);
@@ -63,7 +80,7 @@ function Admin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("appointments")
-        .select("id, scheduled_at, status, notes, services(name), pets(name)")
+        .select("id, user_id, scheduled_at, status, notes, services(name), pets(name)")
         .order("scheduled_at", { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -86,6 +103,22 @@ function Admin() {
       return data;
     },
   });
+
+  const { data: profiles } = useQuery({
+    queryKey: ["admin-profiles"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("profiles").select("id, full_name, phone");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const profileById = useMemo(() => {
+    const map = new Map<string, { full_name: string | null; phone: string | null }>();
+    for (const p of profiles ?? []) map.set(p.id, { full_name: p.full_name, phone: p.phone });
+    return map;
+  }, [profiles]);
 
   const { data: services } = useQuery({
     queryKey: ["admin-services"],
@@ -123,6 +156,36 @@ function Admin() {
       toast.success("Agendamento atualizado");
     },
     onError: () => toast.error("Não foi possível atualizar"),
+  });
+
+  const confirmAppointment = useMutation({
+    mutationFn: async (item: {
+      id: string;
+      user_id: string;
+      scheduled_at: string;
+      services?: { name: string } | null;
+      pets?: { name: string } | null;
+    }) => {
+      const { error } = await supabase
+        .from("appointments")
+        .update({ status: "confirmado" })
+        .eq("id", item.id);
+      if (error) throw error;
+      return item;
+    },
+    onSuccess: (item) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
+      const client = profileById.get(item.user_id);
+      const message = `Ol\u00e1${client?.full_name ? `, ${client.full_name}` : ""}! Seu agendamento de ${item.services?.name ?? "servi\u00e7o"}${item.pets?.name ? ` para ${item.pets.name}` : ""} em ${formatDateTime(item.scheduled_at)} foi CONFIRMADO pelo ${CLINIC.name}. Qualquer d\u00favida, estamos \u00e0 disposi\u00e7\u00e3o!`;
+      const link = whatsappLinkTo(client?.phone, message);
+      if (link) {
+        window.open(link, "_blank", "noopener,noreferrer");
+        toast.success("Agendamento confirmado! Envie a mensagem no WhatsApp que abriu.");
+      } else {
+        toast.error("Agendamento confirmado, mas o cliente n\u00e3o tem telefone cadastrado.");
+      }
+    },
+    onError: () => toast.error("N\u00e3o foi poss\u00edvel confirmar"),
   });
 
   const updateOrder = useMutation({
@@ -279,6 +342,84 @@ function Admin() {
       toast.error(error instanceof Error ? error.message : "Não foi possível registrar"),
   });
 
+  const { data: vaccinesDue } = useQuery({
+    queryKey: ["admin-vaccinations-due"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vaccinations")
+        .select("id, vaccine_name, next_due_at, pet_id, pets(name, owner_id)")
+        .not("next_due_at", "is", null)
+        .order("next_due_at");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: careReminders } = useQuery({
+    queryKey: ["admin-care-reminders"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("care_reminders")
+        .select(
+          "id, reminder_type, title, due_date, notes, completed, pet_id, pets(name, owner_id)",
+        )
+        .eq("completed", false)
+        .order("due_date");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const completeReturnReminder = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("care_reminders")
+        .update({ completed: true })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-care-reminders"] });
+      toast.success("Retorno concluído");
+    },
+    onError: () => toast.error("Não foi possível atualizar"),
+  });
+
+  const [returnFilter, setReturnFilter] = useState<"todos" | ReturnType>("todos");
+  const [returnDate, setReturnDate] = useState<Date>(new Date());
+
+  const allReturns = useMemo(() => {
+    const fromVaccines = (vaccinesDue ?? []).map((v) => ({
+      key: `vaccine-${v.id}`,
+      type: "vacina" as ReturnType,
+      title: `Reforço: ${v.vaccine_name}`,
+      dueDate: v.next_due_at as string,
+      petName: v.pets?.name ?? "Pet",
+      ownerId: v.pets?.owner_id as string | undefined,
+      reminderId: null as string | null,
+    }));
+    const fromReminders = (careReminders ?? []).map((r) => ({
+      key: `reminder-${r.id}`,
+      type: r.reminder_type as ReturnType,
+      title: r.title,
+      dueDate: r.due_date,
+      petName: r.pets?.name ?? "Pet",
+      ownerId: r.pets?.owner_id as string | undefined,
+      reminderId: r.id as string | null,
+    }));
+    return [...fromVaccines, ...fromReminders].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  }, [vaccinesDue, careReminders]);
+
+  const selectedReturnDateISO = returnDate.toISOString().slice(0, 10);
+
+  const filteredReturns = allReturns.filter((item) => {
+    const matchesType = returnFilter === "todos" || item.type === returnFilter;
+    const referenceDate = returnFilter === "todos" ? todayISODate() : selectedReturnDateISO;
+    return matchesType && item.dueDate === referenceDate;
+  });
+
   if (!isAdmin) {
     return (
       <div className="p-8 text-center">
@@ -297,8 +438,9 @@ function Admin() {
       <h1 className="font-display text-2xl">Painel administrativo</h1>
 
       <Tabs defaultValue="agenda" className="mt-4">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="agenda">Agenda</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="agenda">Agendamentos</TabsTrigger>
+          <TabsTrigger value="retornos">Retornos</TabsTrigger>
           <TabsTrigger value="clinica">Clínica</TabsTrigger>
           <TabsTrigger value="pedidos">Pedidos</TabsTrigger>
           <TabsTrigger value="servicos">Serviços</TabsTrigger>
@@ -506,15 +648,34 @@ function Admin() {
         </TabsContent>
 
         <TabsContent value="agenda" className="mt-4 space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Confirme os agendamentos pendentes para avisar o cliente automaticamente pelo WhatsApp.
+          </p>
 
           {(appointments ?? []).map((item) => (
             <div key={item.id} className="rounded-2xl bg-card p-3 shadow-card">
-              <p className="text-sm font-semibold">{item.services?.name ?? "Serviço"}</p>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                <p className="text-sm font-semibold">{item.services?.name ?? "Serviço"}</p>
+                <Badge variant="secondary" className="shrink-0 capitalize">
+                  {item.status}
+                </Badge>
+              </div>
               <p className="text-xs text-muted-foreground">
                 {formatDateTime(item.scheduled_at)}
                 {item.pets?.name ? ` · ${item.pets.name}` : ""}
               </p>
               {item.notes && <p className="mt-1 text-xs text-muted-foreground">{item.notes}</p>}
+              {item.status === "pendente" && (
+                <Button
+                  size="sm"
+                  className="mt-2 h-9 w-full rounded-xl"
+                  disabled={confirmAppointment.isPending}
+                  onClick={() => confirmAppointment.mutate(item)}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  Confirmar e avisar no WhatsApp
+                </Button>
+              )}
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {statuses.map((status) => (
                   <button
@@ -537,13 +698,111 @@ function Admin() {
           )}
         </TabsContent>
 
+        <TabsContent value="retornos" className="mt-4 space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Mensagens de retorno do dia. Escolha um tipo para liberar o calendário e ver outras
+            datas.
+          </p>
+
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => setReturnFilter("todos")}
+              className={
+                returnFilter === "todos"
+                  ? "rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground"
+                  : "rounded-lg bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground"
+              }
+            >
+              Todos (hoje)
+            </button>
+            {returnTypes.map((type) => (
+              <button
+                key={type}
+                onClick={() => setReturnFilter(type)}
+                className={
+                  returnFilter === type
+                    ? "rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground"
+                    : "rounded-lg bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground"
+                }
+              >
+                {returnTypeLabels[type]}
+              </button>
+            ))}
+          </div>
+
+          {returnFilter !== "todos" && (
+            <div className="rounded-2xl bg-card p-2 shadow-card">
+              <Calendar
+                mode="single"
+                selected={returnDate}
+                onSelect={(date) => date && setReturnDate(date)}
+                className="mx-auto"
+              />
+            </div>
+          )}
+
+          <ul className="space-y-2">
+            {filteredReturns.map((item) => {
+              const client = item.ownerId ? profileById.get(item.ownerId) : undefined;
+              const message = `Olá${client?.full_name ? `, ${client.full_name}` : ""}! Aqui é do ${CLINIC.name}. Passando para lembrar: ${item.title} do seu pet ${item.petName}, previsto para ${formatDate(item.dueDate)}. Podemos agendar?`;
+              const link = whatsappLinkTo(client?.phone, message);
+              return (
+                <li key={item.key} className="rounded-2xl bg-card p-3 shadow-card">
+                  <div className="min-w-0">
+                    <Badge variant="outline" className="mb-1 text-[10px]">
+                      {returnTypeLabels[item.type]}
+                    </Badge>
+                    <p className="truncate text-sm font-semibold">
+                      <Syringe className="mr-1 inline h-3.5 w-3.5 text-primary" />
+                      {item.title}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.petName} · {formatDate(item.dueDate)}
+                    </p>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {link ? (
+                      <a
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground"
+                      >
+                        <MessageCircle className="h-3.5 w-3.5" />
+                        Enviar lembrete no WhatsApp
+                      </a>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground">
+                        Cliente sem telefone cadastrado
+                      </span>
+                    )}
+                    {item.reminderId && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-[11px]"
+                        onClick={() => completeReturnReminder.mutate(item.reminderId!)}
+                      >
+                        Concluir
+                      </Button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+            {filteredReturns.length === 0 && (
+              <li className="text-sm text-muted-foreground">
+                Nenhum retorno para esse filtro/data.
+              </li>
+            )}
+          </ul>
+        </TabsContent>
+
         <TabsContent value="pedidos" className="mt-4 space-y-2">
           {(orders ?? []).map((order) => (
             <div key={order.id} className="rounded-2xl bg-card p-3 shadow-card">
               <div className="flex items-center justify-between gap-2">
-                <p className="truncate text-sm font-semibold">
-                  {order.customer_name ?? "Cliente"}
-                </p>
+                <p className="truncate text-sm font-semibold">{order.customer_name ?? "Cliente"}</p>
                 <span className="font-display text-sm text-primary">
                   {formatBRL(order.total_cents)}
                 </span>

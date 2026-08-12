@@ -43,3 +43,19 @@ export const CLINIC = {
 export function whatsappLink(message: string): string {
   return `https://wa.me/${CLINIC.whatsapp}?text=${encodeURIComponent(message.slice(0, 1500))}`;
 }
+
+export function digitsOnly(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+/**
+ * Builds a wa.me link to a client's own phone number (as opposed to `whatsappLink`,
+ * which always points at the clinic's WhatsApp). Returns null when there aren't enough
+ * digits to form a valid number, so callers can show a fallback instead of a broken link.
+ */
+export function whatsappLinkTo(phone: string | null | undefined, message: string): string | null {
+  const digits = digitsOnly(phone ?? "");
+  if (digits.length < 10) return null;
+  const withCountryCode = digits.startsWith("55") ? digits : `55${digits}`;
+  return `https://wa.me/${withCountryCode}?text=${encodeURIComponent(message.slice(0, 1500))}`;
+}
