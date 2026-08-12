@@ -186,22 +186,30 @@ function Conta() {
 
       <section className="mt-6">
         <h2 className="font-display text-lg">Meus pets</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Toque no pet para ver a ficha, vacinas e prontuário.
+        </p>
         <ul className="mt-3 space-y-2">
           {(pets ?? []).map((pet) => (
-            <li
-              key={pet.id}
-              className="flex items-center gap-3 rounded-2xl bg-card p-3 shadow-card"
-            >
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
-                <PawPrint className="h-4 w-4" />
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">{pet.name}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {pet.species}
-                  {pet.breed ? ` · ${pet.breed}` : ""}
-                </p>
-              </div>
+            <li key={pet.id}>
+              <Link
+                to="/pets/$petId"
+                params={{ petId: pet.id }}
+                className="flex items-center gap-3 rounded-2xl bg-card p-3 shadow-card"
+              >
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
+                  <PawPrint className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold">{pet.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {pet.species}
+                    {pet.breed ? ` · ${pet.breed}` : ""}
+                    {pet.allergies ? ` · alergias: ${pet.allergies}` : ""}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </Link>
             </li>
           ))}
           {(pets ?? []).length === 0 && (
@@ -211,6 +219,7 @@ function Conta() {
           )}
         </ul>
       </section>
+
     </div>
   );
 }
