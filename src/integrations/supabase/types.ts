@@ -65,15 +65,75 @@ export type Database = {
           },
         ]
       }
+      care_reminders: {
+        Row: {
+          completed: boolean
+          created_at: string
+          due_date: string
+          id: string
+          notes: string | null
+          pet_id: string
+          reminder_type: string
+          source_record_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          due_date: string
+          id?: string
+          notes?: string | null
+          pet_id: string
+          reminder_type?: string
+          source_record_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          due_date?: string
+          id?: string
+          notes?: string | null
+          pet_id?: string
+          reminder_type?: string
+          source_record_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_reminders_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_reminders_source_record_id_fkey"
+            columns: ["source_record_id"]
+            isOneToOne: false
+            referencedRelation: "medical_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medical_records: {
         Row: {
+          attachments: string[]
           created_at: string
           diagnosis: string | null
+          dosage: string | null
+          duration: string | null
           id: string
+          medication: string | null
+          next_return_date: string | null
           notes: string | null
           pet_id: string
           prescription: string | null
           reason: string
+          record_type: string
           treatment: string | null
           updated_at: string
           vet_name: string | null
@@ -81,13 +141,19 @@ export type Database = {
           weight_kg: number | null
         }
         Insert: {
+          attachments?: string[]
           created_at?: string
           diagnosis?: string | null
+          dosage?: string | null
+          duration?: string | null
           id?: string
+          medication?: string | null
+          next_return_date?: string | null
           notes?: string | null
           pet_id: string
           prescription?: string | null
           reason: string
+          record_type?: string
           treatment?: string | null
           updated_at?: string
           vet_name?: string | null
@@ -95,13 +161,19 @@ export type Database = {
           weight_kg?: number | null
         }
         Update: {
+          attachments?: string[]
           created_at?: string
           diagnosis?: string | null
+          dosage?: string | null
+          duration?: string | null
           id?: string
+          medication?: string | null
+          next_return_date?: string | null
           notes?: string | null
           pet_id?: string
           prescription?: string | null
           reason?: string
+          record_type?: string
           treatment?: string | null
           updated_at?: string
           vet_name?: string | null
