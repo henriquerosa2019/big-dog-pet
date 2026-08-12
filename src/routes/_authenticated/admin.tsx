@@ -143,6 +143,76 @@ function Admin() {
     onError: () => toast.error("Não foi possível atualizar"),
   });
 
+  const { data: allPets } = useQuery({
+    queryKey: ["admin-pets"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("pets")
+        .select("id, name, species, breed, temperament, allergies")
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const [recordPetId, setRecordPetId] = useState<string | null>(null);
+  const [record, setRecord] = useState({
+    reason: "",
+    diagnosis: "",
+    treatment: "",
+    prescription: "",
+    weight_kg: "",
+    vet_name: "",
+  });
+
+  const { data: petRecords } = useQuery({
+    queryKey: ["admin-records", recordPetId],
+    enabled: isAdmin && Boolean(recordPetId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("medical_records")
+        .select("id, visit_at, reason, diagnosis, treatment, vet_name")
+        .eq("pet_id", recordPetId!)
+        .order("visit_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const createRecord = useMutation({
+    mutationFn: async () => {
+      if (!recordPetId) throw new Error("Escolha um pet");
+      const reason = record.reason.trim();
+      if (reason.length < 3) throw new Error("Descreva o motivo do atendimento");
+      const { error } = await supabase.from("medical_records").insert({
+        pet_id: recordPetId,
+        reason: reason.slice(0, 200),
+        diagnosis: record.diagnosis.trim().slice(0, 500) || null,
+        treatment: record.treatment.trim().slice(0, 500) || null,
+        prescription: record.prescription.trim().slice(0, 500) || null,
+        weight_kg: record.weight_kg ? Number(record.weight_kg.replace(",", ".")) : null,
+        vet_name: record.vet_name.trim().slice(0, 100) || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-records"] });
+      queryClient.invalidateQueries({ queryKey: ["medical_records"] });
+      setRecord({
+        reason: "",
+        diagnosis: "",
+        treatment: "",
+        prescription: "",
+        weight_kg: "",
+        vet_name: "",
+      });
+      toast.success("Prontuário registrado");
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "Não foi possível registrar"),
+  });
+
   if (!isAdmin) {
     return (
       <div className="p-8 text-center">
@@ -154,19 +224,144 @@ function Admin() {
     );
   }
 
+  const selectedPet = (allPets ?? []).find((p) => p.id === recordPetId);
+
   return (
     <div className="p-4">
       <h1 className="font-display text-2xl">Painel administrativo</h1>
 
       <Tabs defaultValue="agenda" className="mt-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="agenda">Agenda</TabsTrigger>
+          <TabsTrigger value="clinica">Clínica</TabsTrigger>
           <TabsTrigger value="pedidos">Pedidos</TabsTrigger>
           <TabsTrigger value="servicos">Serviços</TabsTrigger>
           <TabsTrigger value="produtos">Produtos</TabsTrigger>
         </TabsList>
 
+        <TabsContent value="clinica" className="mt-4 space-y-3">
+          <div className="rounded-2xl bg-card p-3 shadow-card">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Selecione o pet
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {(allPets ?? []).map((pet) => (
+                <button
+                  key={pet.id}
+                  onClick={() => setRecordPetId(pet.id)}
+                  className={
+                    recordPetId === pet.id
+                      ? "rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground"
+                      : "rounded-lg bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground"
+                  }
+                >
+                  {pet.name}
+                </button>
+              ))}
+              {(allPets ?? []).length === 0 && (
+                <p className="text-sm text-muted-foreground">Nenhum pet cadastrado.</p>
+              )}
+            </div>
+          </div>
+
+          {selectedPet && (
+            <div className="rounded-2xl bg-card p-3 shadow-card">
+              <p className="text-sm font-semibold">
+                {selectedPet.name} · {selectedPet.species}
+                {selectedPet.breed ? ` · ${selectedPet.breed}` : ""}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Temperamento: {selectedPet.temperament ?? "não informado"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Alergias: {selectedPet.allergies ?? "não informadas"}
+              </p>
+            </div>
+          )}
+
+          {recordPetId && (
+            <div className="rounded-2xl bg-card p-3 shadow-card">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Novo atendimento
+              </p>
+              <div className="mt-2 space-y-2">
+                <Input
+                  placeholder="Motivo da consulta"
+                  value={record.reason}
+                  maxLength={200}
+                  onChange={(e) => setRecord({ ...record, reason: e.target.value })}
+                  className="h-11 rounded-xl"
+                />
+                <Textarea
+                  placeholder="Diagnóstico"
+                  value={record.diagnosis}
+                  maxLength={500}
+                  onChange={(e) => setRecord({ ...record, diagnosis: e.target.value })}
+                  className="rounded-xl"
+                />
+                <Textarea
+                  placeholder="Tratamento"
+                  value={record.treatment}
+                  maxLength={500}
+                  onChange={(e) => setRecord({ ...record, treatment: e.target.value })}
+                  className="rounded-xl"
+                />
+                <Textarea
+                  placeholder="Prescrição"
+                  value={record.prescription}
+                  maxLength={500}
+                  onChange={(e) => setRecord({ ...record, prescription: e.target.value })}
+                  className="rounded-xl"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    placeholder="Peso (kg)"
+                    inputMode="decimal"
+                    value={record.weight_kg}
+                    maxLength={10}
+                    onChange={(e) => setRecord({ ...record, weight_kg: e.target.value })}
+                    className="h-11 rounded-xl"
+                  />
+                  <Input
+                    placeholder="Veterinário"
+                    value={record.vet_name}
+                    maxLength={100}
+                    onChange={(e) => setRecord({ ...record, vet_name: e.target.value })}
+                    className="h-11 rounded-xl"
+                  />
+                </div>
+              </div>
+              <Button
+                className="mt-3 h-11 w-full rounded-xl"
+                disabled={createRecord.isPending}
+                onClick={() => createRecord.mutate()}
+              >
+                {createRecord.isPending ? "Salvando..." : "Salvar no prontuário"}
+              </Button>
+            </div>
+          )}
+
+          {(petRecords ?? []).map((r) => (
+            <div key={r.id} className="rounded-2xl bg-card p-3 shadow-card">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                <p className="min-w-0 truncate text-sm font-semibold">{r.reason}</p>
+                <Badge variant="secondary" className="shrink-0">
+                  {formatDateTime(r.visit_at)}
+                </Badge>
+              </div>
+              {r.diagnosis && (
+                <p className="mt-1 text-xs text-muted-foreground">Diagnóstico: {r.diagnosis}</p>
+              )}
+              {r.treatment && (
+                <p className="text-xs text-muted-foreground">Tratamento: {r.treatment}</p>
+              )}
+              {r.vet_name && <p className="text-[11px] text-muted-foreground">{r.vet_name}</p>}
+            </div>
+          ))}
+        </TabsContent>
+
         <TabsContent value="agenda" className="mt-4 space-y-2">
+
           {(appointments ?? []).map((item) => (
             <div key={item.id} className="rounded-2xl bg-card p-3 shadow-card">
               <p className="text-sm font-semibold">{item.services?.name ?? "Serviço"}</p>
