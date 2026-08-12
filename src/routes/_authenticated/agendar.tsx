@@ -43,6 +43,8 @@ const petSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome do pet").max(60),
   species: z.string().trim().min(2).max(30),
   breed: z.string().trim().max(60).optional(),
+  temperament: z.string().trim().max(300).optional(),
+  allergies: z.string().trim().max(300).optional(),
 });
 
 function todayISO() {
@@ -60,7 +62,13 @@ function Agendar() {
   const [date, setDate] = useState(todayISO());
   const [time, setTime] = useState("09:00");
   const [notes, setNotes] = useState("");
-  const [newPet, setNewPet] = useState({ name: "", species: "cachorro", breed: "" });
+  const [newPet, setNewPet] = useState({
+    name: "",
+    species: "cachorro",
+    breed: "",
+    temperament: "",
+    allergies: "",
+  });
 
   const { data: services } = useQuery({
     queryKey: ["services"],
@@ -98,6 +106,8 @@ function Agendar() {
           name: parsed.name,
           species: parsed.species,
           breed: parsed.breed || null,
+          temperament: parsed.temperament || null,
+          allergies: parsed.allergies || null,
         })
         .select("id")
         .single();
@@ -107,7 +117,7 @@ function Agendar() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["pets"] });
       setPetId(data.id);
-      setNewPet({ name: "", species: "cachorro", breed: "" });
+      setNewPet({ name: "", species: "cachorro", breed: "", temperament: "", allergies: "" });
       toast.success("Pet cadastrado");
     },
     onError: (error) => {
@@ -244,6 +254,20 @@ function Agendar() {
               value={newPet.breed}
               maxLength={60}
               onChange={(e) => setNewPet({ ...newPet, breed: e.target.value })}
+              className="col-span-2 h-10 rounded-xl"
+            />
+            <Input
+              placeholder="Temperamento (opcional)"
+              value={newPet.temperament}
+              maxLength={300}
+              onChange={(e) => setNewPet({ ...newPet, temperament: e.target.value })}
+              className="col-span-2 h-10 rounded-xl"
+            />
+            <Input
+              placeholder="Alergias (opcional)"
+              value={newPet.allergies}
+              maxLength={300}
+              onChange={(e) => setNewPet({ ...newPet, allergies: e.target.value })}
               className="col-span-2 h-10 rounded-xl"
             />
           </div>
