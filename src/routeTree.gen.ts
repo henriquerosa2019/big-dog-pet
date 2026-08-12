@@ -17,6 +17,7 @@ import { Route as LojaRouteImport } from './routes/loja'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAgendarRouteImport } from './routes/_authenticated/agendar'
 import { Route as AuthenticatedContaRouteImport } from './routes/_authenticated/conta'
+import { Route as AuthenticatedPetsPetIdRouteImport } from './routes/_authenticated/pets.$petId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -57,6 +58,11 @@ const AuthenticatedContaRoute = AuthenticatedContaRouteImport.update({
   path: '/conta',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPetsPetIdRoute = AuthenticatedPetsPetIdRouteImport.update({
+  id: '/pets/$petId',
+  path: '/pets/$petId',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRoute
   '/agendar': typeof AuthenticatedAgendarRoute
   '/conta': typeof AuthenticatedContaRoute
+  '/pets/$petId': typeof AuthenticatedPetsPetIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminRoute
   '/agendar': typeof AuthenticatedAgendarRoute
   '/conta': typeof AuthenticatedContaRoute
+  '/pets/$petId': typeof AuthenticatedPetsPetIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -86,13 +94,29 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/agendar': typeof AuthenticatedAgendarRoute
   '/_authenticated/conta': typeof AuthenticatedContaRoute
+  '/_authenticated/pets/$petId': typeof AuthenticatedPetsPetIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/auth' | '/carrinho' | '/loja' | '/admin' | '/agendar' | '/conta'
+    | '/'
+    | '/auth'
+    | '/carrinho'
+    | '/loja'
+    | '/admin'
+    | '/agendar'
+    | '/conta'
+    | '/pets/$petId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/carrinho' | '/loja' | '/admin' | '/agendar' | '/conta'
+  to:
+    | '/'
+    | '/auth'
+    | '/carrinho'
+    | '/loja'
+    | '/admin'
+    | '/agendar'
+    | '/conta'
+    | '/pets/$petId'
   id:
     | '__root__'
     | '/'
@@ -103,6 +127,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/agendar'
     | '/_authenticated/conta'
+    | '/_authenticated/pets/$petId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -171,6 +196,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedContaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/pets/$petId': {
+      id: '/_authenticated/pets/$petId'
+      path: '/pets/$petId'
+      fullPath: '/pets/$petId'
+      preLoaderRoute: typeof AuthenticatedPetsPetIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -178,12 +210,14 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAgendarRoute: typeof AuthenticatedAgendarRoute
   AuthenticatedContaRoute: typeof AuthenticatedContaRoute
+  AuthenticatedPetsPetIdRoute: typeof AuthenticatedPetsPetIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAgendarRoute: AuthenticatedAgendarRoute,
   AuthenticatedContaRoute: AuthenticatedContaRoute,
+  AuthenticatedPetsPetIdRoute: AuthenticatedPetsPetIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
