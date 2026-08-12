@@ -1,7 +1,15 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { AlertTriangle, ArrowLeft, Scissors, Stethoscope, Syringe } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Paperclip,
+  Printer,
+  Scissors,
+  Stethoscope,
+  Syringe,
+} from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -74,6 +82,56 @@ const reminderSchema = z.object({
   notes: z.string().trim().max(300),
 });
 
+const recordTypes = ["consulta", "exame", "cirurgia", "retorno", "emergencia", "vacina"] as const;
+
+const recordTypeLabels: Record<(typeof recordTypes)[number], string> = {
+  consulta: "Consulta",
+  exame: "Exame",
+  cirurgia: "Cirurgia",
+  retorno: "Retorno",
+  emergencia: "Emergência",
+  vacina: "Vacina",
+};
+
+function WeightChart({ points }: { points: { date: string; weight: number }[] }) {
+  if (points.length < 2) return null;
+  const width = 280;
+  const height = 56;
+  const weights = points.map((p) => p.weight);
+  const min = Math.min(...weights);
+  const max = Math.max(...weights);
+  const range = max - min || 1;
+  const stepX = width / (points.length - 1);
+  const coords = points.map((p, i) => {
+    const x = i * stepX;
+    const y = height - ((p.weight - min) / range) * (height - 12) - 6;
+    return { x, y };
+  });
+  const pointsAttr = coords.map((c) => `${c.x},${c.y}`).join(" ");
+
+  return (
+    <div className="rounded-2xl bg-card p-3 shadow-card">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Evolução de peso
+      </p>
+      <svg viewBox={`0 0 ${width} ${height}`} className="mt-2 w-full text-primary">
+        <polyline points={pointsAttr} fill="none" stroke="currentColor" strokeWidth="2" />
+        {coords.map((c, i) => (
+          <circle key={i} cx={c.x} cy={c.y} r="2.5" className="fill-primary" />
+        ))}
+      </svg>
+      <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+        <span>
+          {formatDate(points[0].date)} · {points[0].weight}kg
+        </span>
+        <span>
+          {formatDate(points[points.length - 1].date)} · {points[points.length - 1].weight}kg
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function PetFicha() {
   const { petId } = useParams({ from: "/_authenticated/pets/$petId" });
   const queryClient = useQueryClient();
@@ -111,7 +169,9 @@ function PetFicha() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("medical_records")
-        .select("id, visit_at, reason, diagnosis, treatment, prescription, weight_kg, vet_name")
+        .select(
+          "id, visit_at, reason, diagnosis, treatment, prescription, weight_kg, vet_name, record_type, medication, dosage, duration, attachments, next_return_date",
+        )
         .eq("pet_id", petId)
         .order("visit_at", { ascending: false });
       if (error) throw error;
@@ -295,6 +355,37 @@ function PetFicha() {
     },
     onError: () => toast.error("Não foi possível remover"),
   });
+
+  const [recordFilter, setRecordFilter] = useState<"todos" | (typeof recordTypes)[number]>(
+    "todos",
+  );
+  const [recordSearch, setRecordSearch] = useState("");
+
+  const filteredRecords = (records ?? []).filter((r) => {
+    const matchesType = recordFilter === "todos" || r.record_type === recordFilter;
+    const haystack = [r.reason, r.diagnosis, r.treatment, r.medication, r.prescription]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    const matchesSearch = !recordSearch.trim() || haystack.includes(recordSearch.trim().toLowerCase());
+    return matchesType && matchesSearch;
+  });
+
+  const weightPoints = (records ?? [])
+    .filter((r) => r.weight_kg != null)
+    .map((r) => ({ date: r.visit_at, weight: Number(r.weight_kg) }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  async function openAttachment(path: string) {
+    const { data, error } = await supabase.storage
+      .from("medical-attachments")
+      .createSignedUrl(path, 300);
+    if (error || !data) {
+      toast.error("Não foi possível abrir o anexo");
+      return;
+    }
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  }
 
   const vaccineAlerts = (vaccines ?? [])
     .filter((v) => v.next_due_at && daysUntil(v.next_due_at) <= 30)
@@ -678,15 +769,66 @@ function PetFicha() {
             </div>
           </TabsContent>
 
-          <TabsContent value="prontuario" className="mt-3">
-            <p className="text-xs text-muted-foreground">
-              Registros preenchidos pela equipe clínica do {CLINIC.name}.
-            </p>
-            <ul className="mt-3 space-y-2">
-              {(records ?? []).map((r) => (
+          <TabsContent value="prontuario" className="mt-3 space-y-3 print:mt-0">
+            <div className="flex items-center justify-between gap-2 print:hidden">
+              <p className="text-xs text-muted-foreground">
+                Registros preenchidos pela equipe clínica do {CLINIC.name}.
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 shrink-0 gap-1 text-xs"
+                onClick={() => window.print()}
+              >
+                <Printer className="h-3.5 w-3.5" />
+                Exportar
+              </Button>
+            </div>
+
+            <WeightChart points={weightPoints} />
+
+            <div className="flex gap-2 print:hidden">
+              <Select
+                value={recordFilter}
+                onValueChange={(value) =>
+                  setRecordFilter(value as "todos" | (typeof recordTypes)[number])
+                }
+              >
+                <SelectTrigger className="h-10 flex-1 rounded-xl text-xs">
+                  <SelectValue
+                    placeholder={
+                      recordFilter === "todos" ? "Todos os tipos" : recordTypeLabels[recordFilter]
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os tipos</SelectItem>
+                  {recordTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {recordTypeLabels[type]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Input
+              placeholder="Buscar no histórico..."
+              value={recordSearch}
+              onChange={(e) => setRecordSearch(e.target.value)}
+              className="h-10 rounded-xl text-xs print:hidden"
+            />
+
+            <ul className="space-y-2">
+              {filteredRecords.map((r) => (
                 <li key={r.id} className="rounded-2xl bg-card p-3 shadow-card">
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                    <p className="min-w-0 truncate text-sm font-semibold">{r.reason}</p>
+                    <div className="min-w-0">
+                      <Badge variant="outline" className="mb-1 text-[10px]">
+                        {recordTypeLabels[r.record_type as (typeof recordTypes)[number]] ??
+                          r.record_type}
+                      </Badge>
+                      <p className="truncate text-sm font-semibold">{r.reason}</p>
+                    </div>
                     <Badge variant="secondary" className="shrink-0">
                       {formatDateTime(r.visit_at)}
                     </Badge>
@@ -702,6 +844,18 @@ function PetFicha() {
                   {r.prescription && (
                     <p className="text-xs text-muted-foreground">Prescrição: {r.prescription}</p>
                   )}
+                  {r.medication && (
+                    <p className="text-xs text-muted-foreground">
+                      Medicação: {r.medication}
+                      {r.dosage ? ` · ${r.dosage}` : ""}
+                      {r.duration ? ` · ${r.duration}` : ""}
+                    </p>
+                  )}
+                  {r.next_return_date && (
+                    <p className="text-xs text-muted-foreground">
+                      Retorno previsto: {formatDate(r.next_return_date)}
+                    </p>
+                  )}
                   {(r.weight_kg != null || r.vet_name) && (
                     <p className="mt-1 text-[11px] text-muted-foreground">
                       {r.weight_kg != null ? `${r.weight_kg} kg` : ""}
@@ -709,11 +863,29 @@ function PetFicha() {
                       {r.vet_name ?? ""}
                     </p>
                   )}
+                  {(r.attachments ?? []).length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5 print:hidden">
+                      {(r.attachments ?? []).map((path, i) => (
+                        <Button
+                          key={path}
+                          variant="secondary"
+                          size="sm"
+                          className="h-7 gap-1 rounded-lg text-[11px]"
+                          onClick={() => openAttachment(path)}
+                        >
+                          <Paperclip className="h-3 w-3" />
+                          Anexo {i + 1}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                 </li>
               ))}
-              {(records ?? []).length === 0 && (
+              {filteredRecords.length === 0 && (
                 <li className="text-sm text-muted-foreground">
-                  Nenhum atendimento registrado ainda.
+                  {(records ?? []).length === 0
+                    ? "Nenhum atendimento registrado ainda."
+                    : "Nenhum registro encontrado para esse filtro."}
                 </li>
               )}
             </ul>
