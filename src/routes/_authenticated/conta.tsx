@@ -1,9 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ChevronRight, LogOut, PawPrint, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ChevronRight, LogOut, PawPrint } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth, useIsAdmin } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { CLINIC, daysUntil, formatBRL, formatDate, formatDateTime, whatsappLink } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +26,6 @@ export const Route = createFileRoute("/_authenticated/conta")({
 
 function Conta() {
   const { user } = useAuth();
-  const isAdmin = useIsAdmin(user?.id);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -120,15 +119,6 @@ function Conta() {
           <LogOut className="h-4 w-4" />
         </Button>
       </div>
-
-      {isAdmin && (
-        <Button asChild variant="secondary" className="mt-4 h-11 w-full rounded-2xl">
-          <Link to="/admin">
-            <ShieldCheck className="h-4 w-4" />
-            Painel administrativo
-          </Link>
-        </Button>
-      )}
 
       {(vaccineAlerts ?? []).length > 0 && (
         <section className="mt-5 space-y-2">
