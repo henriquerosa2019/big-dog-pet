@@ -30,11 +30,18 @@ const credentialsSchema = z.object({
   password: z.string().min(6, "A senha precisa ter ao menos 6 caracteres").max(72),
   fullName: z.string().trim().max(100).optional(),
   phone: z.string().trim().max(20).optional(),
+  birthDate: z.string().trim().max(10).optional(),
 });
 
 function Auth() {
   const [mode, setMode] = useState<"login" | "signup">("login");
-  const [form, setForm] = useState({ email: "", password: "", fullName: "", phone: "" });
+  const [form, setForm] = useState({
+    email: "",
+    password: "",
+    fullName: "",
+    phone: "",
+    birthDate: "",
+  });
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -58,7 +65,11 @@ function Auth() {
           password: parsed.data.password,
           options: {
             emailRedirectTo: window.location.origin,
-            data: { full_name: parsed.data.fullName, phone: parsed.data.phone },
+            data: {
+              full_name: parsed.data.fullName,
+              phone: parsed.data.phone,
+              birth_date: parsed.data.birthDate || undefined,
+            },
           },
         });
         if (error) throw error;
@@ -128,6 +139,19 @@ function Auth() {
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 className="mt-1 h-11 rounded-xl"
               />
+            </div>
+            <div>
+              <Label htmlFor="birthDate">Data de nascimento (opcional)</Label>
+              <Input
+                id="birthDate"
+                type="date"
+                value={form.birthDate}
+                onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
+                className="mt-1 h-11 rounded-xl"
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Usamos para te avisar de ofertas especiais no seu aniversário.
+              </p>
             </div>
           </>
         )}

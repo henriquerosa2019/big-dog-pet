@@ -19,6 +19,7 @@ export type Database = {
           created_at: string
           id: string
           notes: string | null
+          origin: string | null
           pet_id: string | null
           scheduled_at: string
           service_id: string | null
@@ -30,6 +31,7 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          origin?: string | null
           pet_id?: string | null
           scheduled_at: string
           service_id?: string | null
@@ -41,6 +43,7 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          origin?: string | null
           pet_id?: string | null
           scheduled_at?: string
           service_id?: string | null
@@ -354,6 +357,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          birth_date: string | null
           created_at: string
           full_name: string | null
           id: string
@@ -361,6 +365,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          birth_date?: string | null
           created_at?: string
           full_name?: string | null
           id: string
@@ -368,6 +373,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          birth_date?: string | null
           created_at?: string
           full_name?: string | null
           id?: string

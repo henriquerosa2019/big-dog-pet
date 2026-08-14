@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -13,6 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/agendar")({
+  validateSearch: (search: Record<string, unknown>): { campanha?: string } =>
+    typeof search["campanha"] === "string" ? { campanha: search["campanha"] as string } : {},
   head: () => ({
     meta: [
       { title: "Agendar serviço | PetCura" },
@@ -65,13 +67,17 @@ function Agendar() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { campanha } = useSearch({ from: "/_authenticated/agendar" });
+  const isBirthdayOffer = campanha === "niver";
 
   const [category, setCategory] = useState("banho");
   const [serviceId, setServiceId] = useState<string | null>(null);
   const [petId, setPetId] = useState<string | null>(null);
   const [date, setDate] = useState(todayISO());
   const [time, setTime] = useState("09:00");
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(
+    isBirthdayOffer ? "Cliente veio pela oferta de aniversário (20% de desconto)." : "",
+  );
 
   const availableHours = useMemo(() => hours.filter((h) => !isPastSlot(date, h)), [date]);
 
@@ -185,6 +191,16 @@ function Agendar() {
       <p className="mt-1 text-sm text-muted-foreground">
         Escolha o serviço, o pet e o melhor horário.
       </p>
+
+      {isBirthdayOffer && (
+        <div className="mt-3 rounded-2xl border-2 border-gold/50 bg-secondary p-3">
+          <p className="text-sm font-semibold">🎉 Oferta de aniversário</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            20% de desconto em banho ou tosa hoje. A equipe confirma o valor com desconto ao liberar
+            o agendamento pelo WhatsApp.
+          </p>
+        </div>
+      )}
 
       <div className="mt-4 flex gap-2">
         {categories.map((c) => (

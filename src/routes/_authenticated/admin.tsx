@@ -3,11 +3,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { CheckCircle2, MessageCircle, Syringe } from "lucide-react";
+import { CheckCircle2, Gift, MessageCircle, Syringe } from "lucide-react";
 import { startOfDay, startOfMonth, startOfWeek } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useIsAdmin } from "@/hooks/useAuth";
-import { CLINIC, formatBRL, formatDate, formatDateTime, whatsappLinkTo } from "@/lib/format";
+import {
+  CLINIC,
+  formatBRL,
+  formatDate,
+  formatDateTime,
+  formatPetAge,
+  isBirthdayToday,
+  whatsappLinkTo,
+} from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -54,6 +62,7 @@ const newClientSchema = z.object({
     .regex(/^[0-9()\-\s+]+$/, "Use apenas números e símbolos de telefone"),
   email: z.string().trim().email("E-mail inválido").max(255),
   password: z.string().min(6, "A senha precisa ter ao menos 6 caracteres").max(72),
+  birthDate: z.string().trim().max(10).optional(),
 });
 
 const newClientPetSchema = z.object({
@@ -62,6 +71,7 @@ const newClientPetSchema = z.object({
   breed: z.string().trim().max(60).optional(),
   temperament: z.string().trim().max(300).optional(),
   allergies: z.string().trim().max(300).optional(),
+  birthDate: z.string().trim().max(10).optional(),
 });
 
 const recordTypes = ["consulta", "exame", "cirurgia", "retorno", "emergencia", "vacina"] as const;
@@ -108,7 +118,7 @@ function Admin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("appointments")
-        .select("id, user_id, scheduled_at, status, notes, services(name), pets(name)")
+        .select("id, user_id, scheduled_at, status, notes, origin, services(name), pets(name)")
         .order("scheduled_at", { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -136,15 +146,21 @@ function Admin() {
     queryKey: ["admin-profiles"],
     enabled: isAdmin,
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("id, full_name, phone");
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, phone, birth_date, created_at");
       if (error) throw error;
       return data;
     },
   });
 
   const profileById = useMemo(() => {
-    const map = new Map<string, { full_name: string | null; phone: string | null }>();
-    for (const p of profiles ?? []) map.set(p.id, { full_name: p.full_name, phone: p.phone });
+    const map = new Map<
+      string,
+      { full_name: string | null; phone: string | null; birth_date: string | null }
+    >();
+    for (const p of profiles ?? [])
+      map.set(p.id, { full_name: p.full_name, phone: p.phone, birth_date: p.birth_date });
     return map;
   }, [profiles]);
 
@@ -189,7 +205,7 @@ function Admin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("appointments")
-        .select("id, scheduled_at, status, services(category)")
+        .select("id, scheduled_at, status, origin, services(category)")
         .gte("scheduled_at", dashboardBoundaries.earliest.toISOString())
         .neq("status", "cancelado");
       if (error) throw error;
@@ -217,7 +233,7 @@ function Admin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, created_at")
+        .select("id, full_name, created_at")
         .gte("created_at", dashboardBoundaries.earliest.toISOString());
       if (error) throw error;
       return data;
@@ -264,7 +280,12 @@ function Admin() {
 
     const newClients = bucketCounts(dashProfiles ?? [], (p) => p.created_at);
 
-    return { apptByCategory, apptTotal, orderCounts, orderRevenue, newClients };
+    const campaignAppointments = (dashAppointments ?? []).filter(
+      (a) => a.origin === "campanha_niver",
+    );
+    const campaignNiver = bucketCounts(campaignAppointments, (a) => a.scheduled_at);
+
+    return { apptByCategory, apptTotal, orderCounts, orderRevenue, newClients, campaignNiver };
   }, [dashAppointments, dashOrders, dashProfiles, dashboardBoundaries]);
 
   const pendingAppointments = useMemo(() => {
@@ -273,13 +294,20 @@ function Admin() {
       .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
   }, [appointments]);
 
-  const [newClient, setNewClient] = useState({ fullName: "", phone: "", email: "", password: "" });
+  const [newClient, setNewClient] = useState({
+    fullName: "",
+    phone: "",
+    email: "",
+    password: "",
+    birthDate: "",
+  });
   const [newClientPet, setNewClientPet] = useState({
     name: "",
     species: "cachorro",
     breed: "",
     temperament: "",
     allergies: "",
+    birthDate: "",
   });
   const [duplicateEmailNotice, setDuplicateEmailNotice] = useState(false);
 
@@ -291,7 +319,11 @@ function Admin() {
         password: client.password,
         options: {
           emailRedirectTo: window.location.origin,
-          data: { full_name: client.fullName, phone: client.phone },
+          data: {
+            full_name: client.fullName,
+            phone: client.phone,
+            birth_date: client.birthDate || undefined,
+          },
         },
       });
       if (error) {
@@ -320,6 +352,7 @@ function Admin() {
           breed: pet.breed || null,
           temperament: pet.temperament || null,
           allergies: pet.allergies || null,
+          birth_date: pet.birthDate || null,
         });
         if (petError) throw petError;
       }
@@ -335,8 +368,15 @@ function Admin() {
       queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
       queryClient.invalidateQueries({ queryKey: ["admin-pets"] });
       toast.success("Cliente cadastrado! Peça para confirmar o e-mail antes de usar o app.");
-      setNewClient({ fullName: "", phone: "", email: "", password: "" });
-      setNewClientPet({ name: "", species: "cachorro", breed: "", temperament: "", allergies: "" });
+      setNewClient({ fullName: "", phone: "", email: "", password: "", birthDate: "" });
+      setNewClientPet({
+        name: "",
+        species: "cachorro",
+        breed: "",
+        temperament: "",
+        allergies: "",
+        birthDate: "",
+      });
     },
     onError: (error) => {
       if (error instanceof z.ZodError) {
@@ -359,6 +399,20 @@ function Admin() {
       toast.success("Agendamento atualizado");
     },
     onError: () => toast.error("Não foi possível atualizar"),
+  });
+
+  // Marca/desmarca manualmente que um agendamento veio da campanha de aniversário,
+  // para aparecer no contador "Retorno da Campanha Niver" do Dashboard.
+  const setAppointmentOrigin = useMutation({
+    mutationFn: async ({ id, origin }: { id: string; origin: string | null }) => {
+      const { error } = await supabase.from("appointments").update({ origin }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-dash-appointments"] });
+    },
+    onError: () => toast.error("Não foi possível marcar a origem"),
   });
 
   const confirmAppointment = useMutation({
@@ -434,12 +488,76 @@ function Admin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pets")
-        .select("id, name, species, breed, temperament, allergies")
+        .select("id, name, species, breed, temperament, allergies, owner_id, birth_date")
         .order("name");
       if (error) throw error;
       return data;
     },
   });
+
+  // Nomes de pets agrupados por dono, usados na lista de "Clientes novos" do
+  // Dashboard (nome do tutor + pet) e não só a contagem.
+  const petNamesByOwner = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const pet of allPets ?? []) {
+      if (!pet.owner_id) continue;
+      const list = map.get(pet.owner_id) ?? [];
+      list.push(pet.name);
+      map.set(pet.owner_id, list);
+    }
+    return map;
+  }, [allPets]);
+
+  const newClientsList = useMemo(() => {
+    return (dashProfiles ?? [])
+      .map((p) => ({
+        id: p.id,
+        fullName: p.full_name ?? "Sem nome",
+        createdAt: p.created_at,
+        petNames: petNamesByOwner.get(p.id) ?? [],
+      }))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [dashProfiles, petNamesByOwner]);
+
+  // Aniversariantes de hoje (dono ou pet) para a campanha de niver do Dashboard.
+  const birthdaysToday = useMemo(() => {
+    type BirthdayEntry = {
+      key: string;
+      kind: "dono" | "pet";
+      ownerId: string;
+      ownerName: string;
+      phone: string | null;
+      petName?: string;
+      petAge?: string | null;
+    };
+    const entries: BirthdayEntry[] = [];
+    for (const p of profiles ?? []) {
+      if (isBirthdayToday(p.birth_date)) {
+        entries.push({
+          key: `owner-${p.id}`,
+          kind: "dono",
+          ownerId: p.id,
+          ownerName: p.full_name ?? "Cliente",
+          phone: p.phone,
+        });
+      }
+    }
+    for (const pet of allPets ?? []) {
+      if (isBirthdayToday(pet.birth_date) && pet.owner_id) {
+        const owner = profileById.get(pet.owner_id);
+        entries.push({
+          key: `pet-${pet.id}`,
+          kind: "pet",
+          ownerId: pet.owner_id,
+          ownerName: owner?.full_name ?? "Cliente",
+          phone: owner?.phone ?? null,
+          petName: pet.name,
+          petAge: formatPetAge(pet.birth_date),
+        });
+      }
+    }
+    return entries;
+  }, [profiles, allPets, profileById]);
 
   const [recordPetId, setRecordPetId] = useState<string | null>(null);
   const [record, setRecord] = useState({
@@ -711,6 +829,54 @@ function Admin() {
             </div>
           )}
 
+          {birthdaysToday.length > 0 && (
+            <div className="rounded-2xl border-2 border-gold/50 bg-secondary p-3">
+              <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Gift className="h-3.5 w-3.5 text-gold" />
+                Nivers de hoje!! ({birthdaysToday.length})
+              </p>
+              <div className="mt-2 space-y-2">
+                {birthdaysToday.map((entry) => {
+                  const message =
+                    entry.kind === "pet"
+                      ? `Feliz aniversário para ${entry.petName}! 🎉🐾 Para comemorar, o ${CLINIC.name} preparou 20% de desconto em banho ou tosa hoje. Quer aproveitar e já agendar?`
+                      : `Feliz aniversário, ${entry.ownerName}! 🎉 Para comemorar, o ${CLINIC.name} preparou 20% de desconto em banho ou tosa para o seu pet hoje. Quer aproveitar e já agendar?`;
+                  const link = whatsappLinkTo(entry.phone, message);
+                  return (
+                    <div key={entry.key} className="rounded-xl bg-card p-2.5 shadow-card">
+                      <p className="text-sm font-semibold">
+                        {entry.kind === "pet" ? entry.petName : entry.ownerName}
+                        {entry.kind === "pet" && (
+                          <span className="ml-1 font-normal text-muted-foreground">
+                            · {entry.ownerName}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {entry.kind === "pet"
+                          ? `Aniversário do pet${entry.petAge ? ` · ${entry.petAge} de vida` : ""}`
+                          : "Aniversário do dono"}
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="mt-2 h-9 w-full rounded-xl"
+                        disabled={!link}
+                        onClick={() => link && window.open(link, "_blank", "noopener,noreferrer")}
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                        {link ? "Enviar parabéns + oferta no WhatsApp" : "Sem telefone cadastrado"}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Revise a mensagem no WhatsApp antes de enviar — nada é enviado automaticamente.
+              </p>
+            </div>
+          )}
+
           <div className="rounded-2xl bg-card p-3 shadow-card">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Agendamentos
@@ -796,6 +962,56 @@ function Admin() {
                 </div>
               ))}
             </div>
+            {newClientsList.length > 0 ? (
+              <ul className="mt-3 space-y-1.5">
+                {newClientsList.map((client) => (
+                  <li
+                    key={client.id}
+                    className="flex items-center justify-between gap-2 rounded-xl surface-paper px-2.5 py-2 text-xs"
+                  >
+                    <span className="min-w-0 truncate">
+                      <span className="font-semibold">{client.fullName}</span>
+                      {client.petNames.length > 0 && (
+                        <span className="text-muted-foreground">
+                          {" "}
+                          · {client.petNames.join(", ")}
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-muted-foreground">
+                      {formatDate(client.createdAt.slice(0, 10))}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Nenhum cliente novo nesta semana/mês.
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-2xl bg-card p-3 shadow-card">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Retorno da Campanha Niver
+            </p>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {(
+                [
+                  ["Hoje", dashboardStats.campaignNiver.day],
+                  ["Semana", dashboardStats.campaignNiver.week],
+                  ["Mês", dashboardStats.campaignNiver.month],
+                ] as const
+              ).map(([label, count]) => (
+                <div key={label} className="rounded-xl surface-paper p-2 text-center">
+                  <p className="text-[11px] text-muted-foreground">{label}</p>
+                  <p className="font-display text-xl text-primary">{count}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Agendamentos marcados manualmente como "Campanha Niver" na aba Agendamentos.
+            </p>
           </div>
         </TabsContent>
 
@@ -864,6 +1080,19 @@ function Admin() {
                   Evite senhas óbvias (ex.: 123456) — o Supabase pode rejeitar senhas muito fracas.
                 </p>
               </div>
+              <div>
+                <Label htmlFor="nc-birth">Aniversário do dono (opcional)</Label>
+                <Input
+                  id="nc-birth"
+                  type="date"
+                  value={newClient.birthDate}
+                  onChange={(e) => setNewClient({ ...newClient, birthDate: e.target.value })}
+                  className="mt-1 h-10 rounded-xl"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Usado para a campanha de aniversário no Dashboard.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -907,6 +1136,18 @@ function Admin() {
                 onChange={(e) => setNewClientPet({ ...newClientPet, allergies: e.target.value })}
                 className="col-span-2 h-10 rounded-xl"
               />
+              <div className="col-span-2">
+                <Label htmlFor="nc-pet-birth" className="text-xs text-muted-foreground">
+                  Aniversário do pet (opcional)
+                </Label>
+                <Input
+                  id="nc-pet-birth"
+                  type="date"
+                  value={newClientPet.birthDate}
+                  onChange={(e) => setNewClientPet({ ...newClientPet, birthDate: e.target.value })}
+                  className="mt-1 h-10 rounded-xl"
+                />
+              </div>
             </div>
           </div>
 
@@ -1163,6 +1404,24 @@ function Admin() {
                   </button>
                 ))}
               </div>
+              <button
+                onClick={() =>
+                  setAppointmentOrigin.mutate({
+                    id: item.id,
+                    origin: item.origin === "campanha_niver" ? null : "campanha_niver",
+                  })
+                }
+                className={
+                  item.origin === "campanha_niver"
+                    ? "mt-1.5 flex items-center gap-1 rounded-lg bg-gold/20 px-2.5 py-1 text-[11px] font-semibold text-gold"
+                    : "mt-1.5 flex items-center gap-1 rounded-lg bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground"
+                }
+              >
+                <Gift className="h-3 w-3" />
+                {item.origin === "campanha_niver"
+                  ? "Veio da Campanha Niver ✓"
+                  : "Marcar como Campanha Niver"}
+              </button>
             </div>
           ))}
           {(appointments ?? []).length === 0 && (

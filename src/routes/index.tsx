@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   Bath,
+  Gift,
   Instagram,
   Mail,
   MapPin,
@@ -12,7 +13,8 @@ import {
 } from "lucide-react";
 import heroImage from "@/assets/hero-pets.jpg";
 import { supabase } from "@/integrations/supabase/client";
-import { CLINIC, formatBRL, whatsappLink } from "@/lib/format";
+import { useAuth } from "@/hooks/useAuth";
+import { CLINIC, formatBRL, isBirthdayToday, whatsappLink } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
@@ -47,6 +49,8 @@ const categoryLabels: Record<string, string> = {
 };
 
 function Home() {
+  const { user } = useAuth();
+
   const { data: services } = useQuery({
     queryKey: ["services", "home"],
     queryFn: async () => {
@@ -59,6 +63,38 @@ function Home() {
       return data;
     },
   });
+
+  const { data: ownProfile } = useQuery({
+    queryKey: ["profile-birthday", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name, birth_date")
+        .eq("id", user!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: ownPets } = useQuery({
+    queryKey: ["pets-birthday", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const { data, error } = await supabase.from("pets").select("name, birth_date");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const birthdayPet = (ownPets ?? []).find((p) => isBirthdayToday(p.birth_date));
+  const isOwnerBirthday = isBirthdayToday(ownProfile?.birth_date);
+  const birthdayName = birthdayPet
+    ? birthdayPet.name
+    : isOwnerBirthday
+      ? ownProfile?.full_name?.split(" ")[0]
+      : null;
 
   return (
     <div>
@@ -93,6 +129,25 @@ function Home() {
         </Button>
       </section>
 
+      {birthdayName && (
+        <section className="px-4 pb-2">
+          <div className="rounded-2xl border-2 border-gold/50 bg-secondary p-4">
+            <p className="flex items-center gap-1.5 font-display text-lg">
+              <Gift className="h-5 w-5 text-gold" />
+              Feliz aniversário, {birthdayName}! 🎉
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Ganhe 20% de desconto em banho ou tosa hoje, com carinho do {CLINIC.name}.
+            </p>
+            <Button asChild size="sm" className="mt-3 h-10 rounded-xl">
+              <Link to="/agendar" search={{ campanha: "niver" }}>
+                Aproveitar oferta
+              </Link>
+            </Button>
+          </div>
+        </section>
+      )}
+
       <section className="px-4 pb-2">
         <h2 className="font-display text-xl">Nossos serviços</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -118,8 +173,8 @@ function Home() {
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">{service.description}</p>
                   <p className="mt-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-                    {categoryLabels[service.category] ?? service.category} ·{" "}
-                    {service.duration_min} min
+                    {categoryLabels[service.category] ?? service.category} · {service.duration_min}{" "}
+                    min
                   </p>
                 </div>
               </li>

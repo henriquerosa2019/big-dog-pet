@@ -59,3 +59,33 @@ export function whatsappLinkTo(phone: string | null | undefined, message: string
   const withCountryCode = digits.startsWith("55") ? digits : `55${digits}`;
   return `https://wa.me/${withCountryCode}?text=${encodeURIComponent(message.slice(0, 1500))}`;
 }
+
+/**
+ * True when a YYYY-MM-DD birth date falls on today's month/day (any year).
+ * Compares local calendar date parts directly (not toISOString) to avoid the
+ * UTC-vs-Rio timezone day-shift documented elsewhere in this codebase.
+ */
+export function isBirthdayToday(birthDate: string | null | undefined): boolean {
+  if (!birthDate) return false;
+  const [, month, day] = birthDate.split("-");
+  const now = new Date();
+  return Number(month) === now.getMonth() + 1 && Number(day) === now.getDate();
+}
+
+/** Human-readable pet age ("3 anos", "8 meses", "recém-nascido") from a birth_date. */
+export function formatPetAge(birthDate: string | null | undefined): string | null {
+  if (!birthDate) return null;
+  const birth = new Date(`${birthDate}T12:00:00`);
+  if (Number.isNaN(birth.getTime())) return null;
+  const now = new Date();
+  let years = now.getFullYear() - birth.getFullYear();
+  let months = now.getMonth() - birth.getMonth();
+  if (now.getDate() < birth.getDate()) months -= 1;
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+  if (years >= 1) return `${years} ano${years === 1 ? "" : "s"}`;
+  if (months >= 1) return `${months} ${months === 1 ? "mês" : "meses"}`;
+  return "recém-nascido";
+}
