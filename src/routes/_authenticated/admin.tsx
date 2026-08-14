@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { CheckCircle2, MessageCircle, Syringe } from "lucide-react";
+import { startOfDay, startOfMonth, startOfWeek } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useIsAdmin } from "@/hooks/useAuth";
 import { CLINIC, formatBRL, formatDate, formatDateTime, whatsappLinkTo } from "@/lib/format";
@@ -63,6 +64,13 @@ const returnTypeLabels: Record<ReturnType, string> = {
   retorno: "Consulta de retorno",
   retirada_pontos: "Retirada de pontos",
   outro: "Outro",
+};
+
+const serviceCategories = ["banho", "tosa", "veterinario"] as const;
+const serviceCategoryLabels: Record<(typeof serviceCategories)[number], string> = {
+  banho: "Banho",
+  tosa: "Tosa",
+  veterinario: "Veterinário",
 };
 
 function todayISODate() {
@@ -145,6 +153,99 @@ function Admin() {
       return data;
     },
   });
+
+  const dashboardBoundaries = useMemo(() => {
+    const now = new Date();
+    const dayStart = startOfDay(now);
+    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const monthStart = startOfMonth(now);
+    const earliest = weekStart < monthStart ? weekStart : monthStart;
+    return { dayStart, weekStart, monthStart, earliest };
+  }, []);
+
+  const { data: dashAppointments } = useQuery({
+    queryKey: ["admin-dash-appointments", dashboardBoundaries.earliest.toISOString()],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("appointments")
+        .select("id, scheduled_at, status, services(category)")
+        .gte("scheduled_at", dashboardBoundaries.earliest.toISOString())
+        .neq("status", "cancelado");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: dashOrders } = useQuery({
+    queryKey: ["admin-dash-orders", dashboardBoundaries.earliest.toISOString()],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("id, created_at, status, total_cents")
+        .gte("created_at", dashboardBoundaries.earliest.toISOString())
+        .neq("status", "cancelado");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: dashProfiles } = useQuery({
+    queryKey: ["admin-dash-profiles", dashboardBoundaries.earliest.toISOString()],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, created_at")
+        .gte("created_at", dashboardBoundaries.earliest.toISOString());
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const dashboardStats = useMemo(() => {
+    const { dayStart, weekStart, monthStart } = dashboardBoundaries;
+
+    function bucketCounts<T>(items: T[], getDate: (item: T) => string) {
+      let day = 0;
+      let week = 0;
+      let month = 0;
+      for (const item of items) {
+        const d = new Date(getDate(item));
+        if (d >= monthStart) month += 1;
+        if (d >= weekStart) week += 1;
+        if (d >= dayStart) day += 1;
+      }
+      return { day, week, month };
+    }
+
+    const apptByCategory = {} as Record<
+      (typeof serviceCategories)[number],
+      { day: number; week: number; month: number }
+    >;
+    for (const cat of serviceCategories) {
+      const items = (dashAppointments ?? []).filter((a) => a.services?.category === cat);
+      apptByCategory[cat] = bucketCounts(items, (a) => a.scheduled_at);
+    }
+    const apptTotal = bucketCounts(dashAppointments ?? [], (a) => a.scheduled_at);
+
+    const orderCounts = bucketCounts(dashOrders ?? [], (o) => o.created_at);
+    function sumRevenue(since: Date) {
+      return (dashOrders ?? [])
+        .filter((o) => new Date(o.created_at) >= since)
+        .reduce((sum, o) => sum + o.total_cents, 0);
+    }
+    const orderRevenue = {
+      day: sumRevenue(dayStart),
+      week: sumRevenue(weekStart),
+      month: sumRevenue(monthStart),
+    };
+
+    const newClients = bucketCounts(dashProfiles ?? [], (p) => p.created_at);
+
+    return { apptByCategory, apptTotal, orderCounts, orderRevenue, newClients };
+  }, [dashAppointments, dashOrders, dashProfiles, dashboardBoundaries]);
 
   const updateAppointment = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -437,8 +538,11 @@ function Admin() {
     <div className="p-4">
       <h1 className="font-display text-2xl">Painel administrativo</h1>
 
-      <Tabs defaultValue="agenda" className="mt-4">
+      <Tabs defaultValue="dashboard" className="mt-4">
         <TabsList className="flex w-full items-center justify-start gap-1 overflow-x-auto">
+          <TabsTrigger value="dashboard" className="shrink-0">
+            Dashboard
+          </TabsTrigger>
           <TabsTrigger value="agenda" className="shrink-0">
             Agendamentos
           </TabsTrigger>
@@ -458,6 +562,95 @@ function Admin() {
             Produtos
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="dashboard" className="mt-4 space-y-3">
+          <div className="rounded-2xl bg-card p-3 shadow-card">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Agendamentos
+            </p>
+            <div className="mt-2 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-muted-foreground">
+                    <th className="py-1 pr-2 font-medium">Categoria</th>
+                    <th className="px-2 py-1 text-center font-medium">Hoje</th>
+                    <th className="px-2 py-1 text-center font-medium">Semana</th>
+                    <th className="px-2 py-1 text-center font-medium">Mês</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {serviceCategories.map((cat) => (
+                    <tr key={cat} className="border-t border-border/60">
+                      <td className="py-1.5 pr-2">{serviceCategoryLabels[cat]}</td>
+                      <td className="px-2 py-1.5 text-center font-semibold">
+                        {dashboardStats.apptByCategory[cat]?.day ?? 0}
+                      </td>
+                      <td className="px-2 py-1.5 text-center font-semibold">
+                        {dashboardStats.apptByCategory[cat]?.week ?? 0}
+                      </td>
+                      <td className="px-2 py-1.5 text-center font-semibold">
+                        {dashboardStats.apptByCategory[cat]?.month ?? 0}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="border-t border-border/60 font-semibold text-primary">
+                    <td className="py-1.5 pr-2">Total</td>
+                    <td className="px-2 py-1.5 text-center">{dashboardStats.apptTotal.day}</td>
+                    <td className="px-2 py-1.5 text-center">{dashboardStats.apptTotal.week}</td>
+                    <td className="px-2 py-1.5 text-center">{dashboardStats.apptTotal.month}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Não inclui agendamentos cancelados.
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-card p-3 shadow-card">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Vendas de produtos
+            </p>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {(
+                [
+                  ["Hoje", dashboardStats.orderCounts.day, dashboardStats.orderRevenue.day],
+                  ["Semana", dashboardStats.orderCounts.week, dashboardStats.orderRevenue.week],
+                  ["Mês", dashboardStats.orderCounts.month, dashboardStats.orderRevenue.month],
+                ] as const
+              ).map(([label, count, cents]) => (
+                <div key={label} className="rounded-xl surface-paper p-2 text-center">
+                  <p className="text-[11px] text-muted-foreground">{label}</p>
+                  <p className="font-display text-lg text-primary">{formatBRL(cents)}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {count} pedido{count === 1 ? "" : "s"}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">Não inclui pedidos cancelados.</p>
+          </div>
+
+          <div className="rounded-2xl bg-card p-3 shadow-card">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Clientes novos cadastrados
+            </p>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {(
+                [
+                  ["Hoje", dashboardStats.newClients.day],
+                  ["Semana", dashboardStats.newClients.week],
+                  ["Mês", dashboardStats.newClients.month],
+                ] as const
+              ).map(([label, count]) => (
+                <div key={label} className="rounded-xl surface-paper p-2 text-center">
+                  <p className="text-[11px] text-muted-foreground">{label}</p>
+                  <p className="font-display text-xl text-primary">{count}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </TabsContent>
 
         <TabsContent value="clinica" className="mt-4 space-y-3">
           <div className="rounded-2xl bg-card p-3 shadow-card">
