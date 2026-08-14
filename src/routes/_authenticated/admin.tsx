@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { CheckCircle2, Gift, MessageCircle, Syringe } from "lucide-react";
@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useIsAdmin } from "@/hooks/useAuth";
 import {
   CLINIC,
+  digitsOnly,
   formatBRL,
   formatDate,
   formatDateTime,
@@ -62,6 +63,20 @@ const newClientSchema = z.object({
     .regex(/^[0-9()\-\s+]+$/, "Use apenas números e símbolos de telefone"),
   email: z.string().trim().email("E-mail inválido").max(255),
   password: z.string().min(6, "A senha precisa ter ao menos 6 caracteres").max(72),
+  birthDate: z.string().trim().max(10).optional(),
+});
+
+// Reaproveitado para editar um cliente já cadastrado (sem e-mail/senha — ver
+// updateClient/sendPasswordReset mais abaixo, que tratam esses dois campos
+// separadamente por exigirem a API de admin do Supabase).
+const editClientSchema = z.object({
+  fullName: z.string().trim().min(2, "Informe o nome do cliente").max(100),
+  phone: z
+    .string()
+    .trim()
+    .min(10, "Informe um telefone válido")
+    .max(20)
+    .regex(/^[0-9()\-\s+]+$/, "Use apenas números e símbolos de telefone"),
   birthDate: z.string().trim().max(10).optional(),
 });
 
@@ -148,7 +163,7 @@ function Admin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, phone, birth_date, created_at");
+        .select("id, full_name, phone, birth_date, email, created_at");
       if (error) throw error;
       return data;
     },
@@ -157,10 +172,20 @@ function Admin() {
   const profileById = useMemo(() => {
     const map = new Map<
       string,
-      { full_name: string | null; phone: string | null; birth_date: string | null }
+      {
+        full_name: string | null;
+        phone: string | null;
+        birth_date: string | null;
+        email: string | null;
+      }
     >();
     for (const p of profiles ?? [])
-      map.set(p.id, { full_name: p.full_name, phone: p.phone, birth_date: p.birth_date });
+      map.set(p.id, {
+        full_name: p.full_name,
+        phone: p.phone,
+        birth_date: p.birth_date,
+        email: p.email,
+      });
     return map;
   }, [profiles]);
 
@@ -386,6 +411,106 @@ function Admin() {
       } else {
         toast.error("Não foi possível cadastrar");
       }
+    },
+  });
+
+  // Detecta um cliente já cadastrado enquanto o admin digita nome + telefone
+  // no formulário de "Novo Cliente", para oferecer edição em vez de duplicar.
+  const matchedClientPhoneDigits = digitsOnly(newClient.phone);
+  const { data: matchedClient } = useQuery({
+    queryKey: [
+      "admin-client-match",
+      newClient.fullName.trim().toLowerCase(),
+      matchedClientPhoneDigits,
+    ],
+    enabled:
+      isAdmin && newClient.fullName.trim().length >= 2 && matchedClientPhoneDigits.length >= 10,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, phone, birth_date, email")
+        .ilike("full_name", newClient.fullName.trim());
+      if (error) throw error;
+      return (
+        (data ?? []).find((p) => digitsOnly(p.phone ?? "") === matchedClientPhoneDigits) ?? null
+      );
+    },
+  });
+
+  const [ignoreMatch, setIgnoreMatch] = useState(false);
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
+  const [editClient, setEditClient] = useState({ fullName: "", phone: "", birthDate: "" });
+
+  // "Cadastrar novo mesmo assim" só deve valer para a busca atual — se o
+  // admin mexer no nome/telefone de novo, reabilita a detecção de cliente.
+  useEffect(() => {
+    setIgnoreMatch(false);
+  }, [newClient.fullName, newClient.phone]);
+
+  useEffect(() => {
+    if (matchedClient && !ignoreMatch) {
+      setEditingClientId(matchedClient.id);
+      setEditClient({
+        fullName: matchedClient.full_name ?? "",
+        phone: matchedClient.phone ?? "",
+        birthDate: matchedClient.birth_date ?? "",
+      });
+    } else {
+      setEditingClientId(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchedClient?.id, ignoreMatch]);
+
+  const updateClient = useMutation({
+    mutationFn: async () => {
+      if (!editingClientId) throw new Error("Nenhum cliente selecionado");
+      const client = editClientSchema.parse(editClient);
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: client.fullName,
+          phone: client.phone,
+          birth_date: client.birthDate || null,
+        })
+        .eq("id", editingClientId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-client-match"] });
+      toast.success("Dados do cliente atualizados!");
+      setNewClient({ fullName: "", phone: "", email: "", password: "", birthDate: "" });
+      setEditingClientId(null);
+      setIgnoreMatch(false);
+    },
+    onError: (error) => {
+      if (error instanceof z.ZodError) {
+        toast.error(error.issues[0]!.message);
+      } else if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error("Não foi possível salvar");
+      }
+    },
+  });
+
+  // Trocar a senha de OUTRO usuário exige a service role key do Supabase
+  // (API de admin), que só pode rodar em backend — não temos essa peça hoje.
+  // Em vez disso, disparamos o fluxo padrão de recuperação de senha por
+  // e-mail, que o próprio cliente usa para definir uma nova senha.
+  const sendPasswordReset = useMutation({
+    mutationFn: async () => {
+      if (!matchedClient?.email) throw new Error("Cliente sem e-mail cadastrado.");
+      const { error } = await supabase.auth.resetPasswordForEmail(matchedClient.email, {
+        redirectTo: window.location.origin,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Link de redefinição de senha enviado para o e-mail do cliente.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Não foi possível enviar o link");
     },
   });
 
@@ -1088,113 +1213,220 @@ function Admin() {
                   onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
                   className="mt-1 h-10 rounded-xl"
                 />
-              </div>
-              <div>
-                <Label htmlFor="nc-email">E-mail</Label>
-                <Input
-                  id="nc-email"
-                  type="email"
-                  value={newClient.email}
-                  maxLength={255}
-                  onChange={(e) => {
-                    setNewClient({ ...newClient, email: e.target.value });
-                    setDuplicateEmailNotice(false);
-                  }}
-                  className="mt-1 h-10 rounded-xl"
-                />
-              </div>
-              <div>
-                <Label htmlFor="nc-password">Senha inicial</Label>
-                <Input
-                  id="nc-password"
-                  value={newClient.password}
-                  maxLength={72}
-                  onChange={(e) => setNewClient({ ...newClient, password: e.target.value })}
-                  className="mt-1 h-10 rounded-xl"
-                />
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Combine essa senha com o cliente na hora — ele poderá trocar depois pelo app.
-                  Evite senhas óbvias (ex.: 123456) — o Supabase pode rejeitar senhas muito fracas.
+                  Se nome + telefone já pertencerem a um cliente cadastrado, os dados dele aparecem
+                  abaixo para edição em vez de um cadastro novo.
                 </p>
               </div>
-              <div>
-                <Label htmlFor="nc-birth">Aniversário do dono (opcional)</Label>
-                <Input
-                  id="nc-birth"
-                  type="date"
-                  value={newClient.birthDate}
-                  onChange={(e) => setNewClient({ ...newClient, birthDate: e.target.value })}
-                  className="mt-1 h-10 rounded-xl"
-                />
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Usado para a campanha de aniversário no Dashboard.
-                </p>
-              </div>
+
+              {!editingClientId && (
+                <>
+                  <div>
+                    <Label htmlFor="nc-email">E-mail</Label>
+                    <Input
+                      id="nc-email"
+                      type="email"
+                      value={newClient.email}
+                      maxLength={255}
+                      onChange={(e) => {
+                        setNewClient({ ...newClient, email: e.target.value });
+                        setDuplicateEmailNotice(false);
+                      }}
+                      className="mt-1 h-10 rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="nc-password">Senha inicial</Label>
+                    <Input
+                      id="nc-password"
+                      value={newClient.password}
+                      maxLength={72}
+                      onChange={(e) => setNewClient({ ...newClient, password: e.target.value })}
+                      className="mt-1 h-10 rounded-xl"
+                    />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Combine essa senha com o cliente na hora — ele poderá trocar depois pelo app.
+                      Evite senhas óbvias (ex.: 123456) — o Supabase pode rejeitar senhas muito
+                      fracas.
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="nc-birth">Aniversário do dono (opcional)</Label>
+                    <Input
+                      id="nc-birth"
+                      type="date"
+                      value={newClient.birthDate}
+                      onChange={(e) => setNewClient({ ...newClient, birthDate: e.target.value })}
+                      className="mt-1 h-10 rounded-xl"
+                    />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Usado para a campanha de aniversário no Dashboard.
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          <div className="rounded-2xl bg-card p-3 shadow-card">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Pet (opcional)
-            </p>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <Input
-                placeholder="Nome"
-                value={newClientPet.name}
-                maxLength={60}
-                onChange={(e) => setNewClientPet({ ...newClientPet, name: e.target.value })}
-                className="h-10 rounded-xl"
-              />
-              <Input
-                placeholder="Espécie"
-                value={newClientPet.species}
-                maxLength={30}
-                onChange={(e) => setNewClientPet({ ...newClientPet, species: e.target.value })}
-                className="h-10 rounded-xl"
-              />
-              <Input
-                placeholder="Raça (opcional)"
-                value={newClientPet.breed}
-                maxLength={60}
-                onChange={(e) => setNewClientPet({ ...newClientPet, breed: e.target.value })}
-                className="col-span-2 h-10 rounded-xl"
-              />
-              <Input
-                placeholder="Temperamento (opcional)"
-                value={newClientPet.temperament}
-                maxLength={300}
-                onChange={(e) => setNewClientPet({ ...newClientPet, temperament: e.target.value })}
-                className="col-span-2 h-10 rounded-xl"
-              />
-              <Input
-                placeholder="Alergias (opcional)"
-                value={newClientPet.allergies}
-                maxLength={300}
-                onChange={(e) => setNewClientPet({ ...newClientPet, allergies: e.target.value })}
-                className="col-span-2 h-10 rounded-xl"
-              />
-              <div className="col-span-2">
-                <Label htmlFor="nc-pet-birth" className="text-xs text-muted-foreground">
-                  Aniversário do pet (opcional)
-                </Label>
-                <Input
-                  id="nc-pet-birth"
-                  type="date"
-                  value={newClientPet.birthDate}
-                  onChange={(e) => setNewClientPet({ ...newClientPet, birthDate: e.target.value })}
-                  className="mt-1 h-10 rounded-xl"
-                />
+          {editingClientId ? (
+            <>
+              <div className="rounded-2xl border-2 border-gold/50 bg-secondary p-3">
+                <p className="text-sm font-semibold">✓ Cliente já cadastrado</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Confira e edite os dados abaixo. Não é este cliente?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setIgnoreMatch(true)}
+                    className="font-semibold text-primary underline"
+                  >
+                    Cadastrar novo mesmo assim
+                  </button>
+                  .
+                </p>
               </div>
-            </div>
-          </div>
 
-          <Button
-            className="h-11 w-full rounded-2xl"
-            disabled={createClient.isPending}
-            onClick={() => createClient.mutate()}
-          >
-            {createClient.isPending ? "Cadastrando..." : "Cadastrar cliente"}
-          </Button>
+              <div className="rounded-2xl bg-card p-3 shadow-card">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Editar dados do cliente
+                </p>
+                <div className="mt-2 space-y-2">
+                  <div>
+                    <Label htmlFor="ec-name">Nome completo</Label>
+                    <Input
+                      id="ec-name"
+                      value={editClient.fullName}
+                      maxLength={100}
+                      onChange={(e) => setEditClient({ ...editClient, fullName: e.target.value })}
+                      className="mt-1 h-10 rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="ec-phone">Telefone</Label>
+                    <Input
+                      id="ec-phone"
+                      inputMode="tel"
+                      value={editClient.phone}
+                      maxLength={20}
+                      onChange={(e) => setEditClient({ ...editClient, phone: e.target.value })}
+                      className="mt-1 h-10 rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="ec-email">E-mail</Label>
+                    <Input
+                      id="ec-email"
+                      value={matchedClient?.email ?? "Não informado"}
+                      disabled
+                      className="mt-1 h-10 rounded-xl bg-muted text-muted-foreground"
+                    />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      O e-mail só pode ser trocado pelo próprio cliente, logado na conta dele.
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="ec-birth">Aniversário do dono (opcional)</Label>
+                    <Input
+                      id="ec-birth"
+                      type="date"
+                      value={editClient.birthDate}
+                      onChange={(e) => setEditClient({ ...editClient, birthDate: e.target.value })}
+                      className="mt-1 h-10 rounded-xl"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-10 w-full rounded-xl"
+                    disabled={sendPasswordReset.isPending || !matchedClient?.email}
+                    onClick={() => sendPasswordReset.mutate()}
+                  >
+                    {sendPasswordReset.isPending
+                      ? "Enviando..."
+                      : "Enviar link de redefinição de senha"}
+                  </Button>
+                </div>
+              </div>
+
+              <Button
+                className="h-11 w-full rounded-2xl"
+                disabled={updateClient.isPending}
+                onClick={() => updateClient.mutate()}
+              >
+                {updateClient.isPending ? "Salvando..." : "Salvar alterações"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="rounded-2xl bg-card p-3 shadow-card">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Pet (opcional)
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <Input
+                    placeholder="Nome"
+                    value={newClientPet.name}
+                    maxLength={60}
+                    onChange={(e) => setNewClientPet({ ...newClientPet, name: e.target.value })}
+                    className="h-10 rounded-xl"
+                  />
+                  <Input
+                    placeholder="Espécie"
+                    value={newClientPet.species}
+                    maxLength={30}
+                    onChange={(e) => setNewClientPet({ ...newClientPet, species: e.target.value })}
+                    className="h-10 rounded-xl"
+                  />
+                  <Input
+                    placeholder="Raça (opcional)"
+                    value={newClientPet.breed}
+                    maxLength={60}
+                    onChange={(e) => setNewClientPet({ ...newClientPet, breed: e.target.value })}
+                    className="col-span-2 h-10 rounded-xl"
+                  />
+                  <Input
+                    placeholder="Temperamento (opcional)"
+                    value={newClientPet.temperament}
+                    maxLength={300}
+                    onChange={(e) =>
+                      setNewClientPet({ ...newClientPet, temperament: e.target.value })
+                    }
+                    className="col-span-2 h-10 rounded-xl"
+                  />
+                  <Input
+                    placeholder="Alergias (opcional)"
+                    value={newClientPet.allergies}
+                    maxLength={300}
+                    onChange={(e) =>
+                      setNewClientPet({ ...newClientPet, allergies: e.target.value })
+                    }
+                    className="col-span-2 h-10 rounded-xl"
+                  />
+                  <div className="col-span-2">
+                    <Label htmlFor="nc-pet-birth" className="text-xs text-muted-foreground">
+                      Aniversário do pet (opcional)
+                    </Label>
+                    <Input
+                      id="nc-pet-birth"
+                      type="date"
+                      value={newClientPet.birthDate}
+                      onChange={(e) =>
+                        setNewClientPet({ ...newClientPet, birthDate: e.target.value })
+                      }
+                      className="mt-1 h-10 rounded-xl"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                className="h-11 w-full rounded-2xl"
+                disabled={createClient.isPending}
+                onClick={() => createClient.mutate()}
+              >
+                {createClient.isPending ? "Cadastrando..." : "Cadastrar cliente"}
+              </Button>
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="clinica" className="mt-4 space-y-3">
