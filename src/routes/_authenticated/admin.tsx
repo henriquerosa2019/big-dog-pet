@@ -519,6 +519,18 @@ function Admin() {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [dashProfiles, petNamesByOwner]);
 
+  // Filtro de período (dia/semana/mês) para a lista de "Clientes novos" do
+  // Dashboard — os contadores continuam mostrando os três períodos sempre,
+  // só a lista abaixo muda para não poluir a tela quando há muitos clientes.
+  const [newClientsFilter, setNewClientsFilter] = useState<"day" | "week" | "month">("day");
+
+  const filteredNewClients = useMemo(() => {
+    const { dayStart, weekStart, monthStart } = dashboardBoundaries;
+    const since =
+      newClientsFilter === "day" ? dayStart : newClientsFilter === "week" ? weekStart : monthStart;
+    return newClientsList.filter((client) => new Date(client.createdAt) >= since);
+  }, [newClientsList, newClientsFilter, dashboardBoundaries]);
+
   // Aniversariantes de hoje (dono ou pet) para a campanha de niver do Dashboard.
   const birthdaysToday = useMemo(() => {
     type BirthdayEntry = {
@@ -951,20 +963,45 @@ function Admin() {
             <div className="mt-2 grid grid-cols-3 gap-2">
               {(
                 [
-                  ["Hoje", dashboardStats.newClients.day],
-                  ["Semana", dashboardStats.newClients.week],
-                  ["Mês", dashboardStats.newClients.month],
+                  ["Hoje", "day", dashboardStats.newClients.day],
+                  ["Semana", "week", dashboardStats.newClients.week],
+                  ["Mês", "month", dashboardStats.newClients.month],
                 ] as const
-              ).map(([label, count]) => (
-                <div key={label} className="rounded-xl surface-paper p-2 text-center">
-                  <p className="text-[11px] text-muted-foreground">{label}</p>
-                  <p className="font-display text-xl text-primary">{count}</p>
-                </div>
+              ).map(([label, key, count]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setNewClientsFilter(key)}
+                  className={
+                    newClientsFilter === key
+                      ? "rounded-xl bg-primary p-2 text-center text-primary-foreground shadow-card"
+                      : "rounded-xl surface-paper p-2 text-center transition-colors"
+                  }
+                >
+                  <p
+                    className={
+                      newClientsFilter === key
+                        ? "text-[11px] text-primary-foreground/80"
+                        : "text-[11px] text-muted-foreground"
+                    }
+                  >
+                    {label}
+                  </p>
+                  <p
+                    className={
+                      newClientsFilter === key
+                        ? "font-display text-xl"
+                        : "font-display text-xl text-primary"
+                    }
+                  >
+                    {count}
+                  </p>
+                </button>
               ))}
             </div>
-            {newClientsList.length > 0 ? (
+            {filteredNewClients.length > 0 ? (
               <ul className="mt-3 space-y-1.5">
-                {newClientsList.map((client) => (
+                {filteredNewClients.map((client) => (
                   <li
                     key={client.id}
                     className="flex items-center justify-between gap-2 rounded-xl surface-paper px-2.5 py-2 text-xs"
@@ -986,7 +1023,7 @@ function Admin() {
               </ul>
             ) : (
               <p className="mt-3 text-xs text-muted-foreground">
-                Nenhum cliente novo nesta semana/mês.
+                Nenhum cliente novo nesse período.
               </p>
             )}
           </div>
