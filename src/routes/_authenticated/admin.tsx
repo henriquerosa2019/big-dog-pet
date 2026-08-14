@@ -44,6 +44,26 @@ const orderStatuses = ["novo", "em_preparo", "entregue", "cancelado"];
 
 const priceSchema = z.coerce.number().min(0).max(1000000);
 
+const newClientSchema = z.object({
+  fullName: z.string().trim().min(2, "Informe o nome do cliente").max(100),
+  phone: z
+    .string()
+    .trim()
+    .min(10, "Informe um telefone válido")
+    .max(20)
+    .regex(/^[0-9()\-\s+]+$/, "Use apenas números e símbolos de telefone"),
+  email: z.string().trim().email("E-mail inválido").max(255),
+  password: z.string().min(6, "A senha precisa ter ao menos 6 caracteres").max(72),
+});
+
+const newClientPetSchema = z.object({
+  name: z.string().trim().min(2, "Informe o nome do pet").max(60),
+  species: z.string().trim().min(2).max(30),
+  breed: z.string().trim().max(60).optional(),
+  temperament: z.string().trim().max(300).optional(),
+  allergies: z.string().trim().max(300).optional(),
+});
+
 const recordTypes = ["consulta", "exame", "cirurgia", "retorno", "emergencia", "vacina"] as const;
 
 const recordTypeLabels: Record<(typeof recordTypes)[number], string> = {
@@ -246,6 +266,74 @@ function Admin() {
 
     return { apptByCategory, apptTotal, orderCounts, orderRevenue, newClients };
   }, [dashAppointments, dashOrders, dashProfiles, dashboardBoundaries]);
+
+  const pendingAppointments = useMemo(() => {
+    return (appointments ?? [])
+      .filter((a) => a.status === "pendente")
+      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+  }, [appointments]);
+
+  const [newClient, setNewClient] = useState({ fullName: "", phone: "", email: "", password: "" });
+  const [newClientPet, setNewClientPet] = useState({
+    name: "",
+    species: "cachorro",
+    breed: "",
+    temperament: "",
+    allergies: "",
+  });
+  const [duplicateEmailNotice, setDuplicateEmailNotice] = useState(false);
+
+  const createClient = useMutation({
+    mutationFn: async () => {
+      const client = newClientSchema.parse(newClient);
+      const { data, error } = await supabase.auth.signUp({
+        email: client.email,
+        password: client.password,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: { full_name: client.fullName, phone: client.phone },
+        },
+      });
+      if (error) throw error;
+      // Supabase retorna um usuário "fantasma" com identities vazio quando o
+      // e-mail já pertence a uma conta confirmada — não cria duplicata nem envia
+      // e-mail novo, então usamos isso para detectar o cliente já existente.
+      const alreadyExists = (data.user?.identities?.length ?? 0) === 0;
+      if (alreadyExists) return { duplicate: true as const };
+
+      if (newClientPet.name.trim()) {
+        const pet = newClientPetSchema.parse(newClientPet);
+        const { error: petError } = await supabase.from("pets").insert({
+          owner_id: data.user!.id,
+          name: pet.name,
+          species: pet.species,
+          breed: pet.breed || null,
+          temperament: pet.temperament || null,
+          allergies: pet.allergies || null,
+        });
+        if (petError) throw petError;
+      }
+      return { duplicate: false as const };
+    },
+    onSuccess: (result) => {
+      if (result.duplicate) {
+        setDuplicateEmailNotice(true);
+        toast.error("Esse e-mail já tem conta cadastrada no Petcura.");
+        return;
+      }
+      setDuplicateEmailNotice(false);
+      queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-pets"] });
+      toast.success("Cliente cadastrado! Peça para confirmar o e-mail antes de usar o app.");
+      setNewClient({ fullName: "", phone: "", email: "", password: "" });
+      setNewClientPet({ name: "", species: "cachorro", breed: "", temperament: "", allergies: "" });
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof z.ZodError ? error.issues[0]!.message : "Não foi possível cadastrar",
+      );
+    },
+  });
 
   const updateAppointment = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -543,6 +631,9 @@ function Admin() {
           <TabsTrigger value="dashboard" className="shrink-0">
             Dashboard
           </TabsTrigger>
+          <TabsTrigger value="novo-cliente" className="shrink-0">
+            Novo Cliente
+          </TabsTrigger>
           <TabsTrigger value="agenda" className="shrink-0">
             Agendamentos
           </TabsTrigger>
@@ -564,6 +655,48 @@ function Admin() {
         </TabsList>
 
         <TabsContent value="dashboard" className="mt-4 space-y-3">
+          {pendingAppointments.length > 0 ? (
+            <div className="rounded-2xl border-2 border-primary/40 bg-secondary p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Novos agendamentos ({pendingAppointments.length})
+              </p>
+              <div className="mt-2 space-y-2">
+                {pendingAppointments.slice(0, 6).map((item) => (
+                  <div key={item.id} className="rounded-xl bg-card p-2.5 shadow-card">
+                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                      <p className="text-sm font-semibold">{item.services?.name ?? "Serviço"}</p>
+                      <Badge variant="secondary" className="shrink-0 capitalize">
+                        {item.status}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDateTime(item.scheduled_at)}
+                      {item.pets?.name ? ` · ${item.pets.name}` : ""}
+                    </p>
+                    <Button
+                      size="sm"
+                      className="mt-2 h-9 w-full rounded-xl"
+                      disabled={confirmAppointment.isPending}
+                      onClick={() => confirmAppointment.mutate(item)}
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      Confirmar e avisar no WhatsApp
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              {pendingAppointments.length > 6 && (
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  + {pendingAppointments.length - 6} na aba Agendamentos.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-2xl bg-card p-3 shadow-card">
+              <p className="text-sm text-muted-foreground">Nenhum agendamento novo no momento.</p>
+            </div>
+          )}
+
           <div className="rounded-2xl bg-card p-3 shadow-card">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Agendamentos
@@ -650,6 +783,125 @@ function Admin() {
               ))}
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="novo-cliente" className="mt-4 space-y-3">
+          {duplicateEmailNotice && (
+            <div className="rounded-2xl border-2 border-primary/40 bg-secondary p-3">
+              <p className="text-sm font-semibold">Esse e-mail já tem conta no Petcura</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Peça para o cliente entrar com e-mail e senha na aba Conta, no aparelho dele. Não é
+                possível fazer login por essa tela sem encerrar sua sessão de administrador.
+              </p>
+            </div>
+          )}
+
+          <div className="rounded-2xl bg-card p-3 shadow-card">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Dados do cliente
+            </p>
+            <div className="mt-2 space-y-2">
+              <div>
+                <Label htmlFor="nc-name">Nome completo</Label>
+                <Input
+                  id="nc-name"
+                  value={newClient.fullName}
+                  maxLength={100}
+                  onChange={(e) => setNewClient({ ...newClient, fullName: e.target.value })}
+                  className="mt-1 h-10 rounded-xl"
+                />
+              </div>
+              <div>
+                <Label htmlFor="nc-phone">Telefone</Label>
+                <Input
+                  id="nc-phone"
+                  inputMode="tel"
+                  value={newClient.phone}
+                  maxLength={20}
+                  onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
+                  className="mt-1 h-10 rounded-xl"
+                />
+              </div>
+              <div>
+                <Label htmlFor="nc-email">E-mail</Label>
+                <Input
+                  id="nc-email"
+                  type="email"
+                  value={newClient.email}
+                  maxLength={255}
+                  onChange={(e) => {
+                    setNewClient({ ...newClient, email: e.target.value });
+                    setDuplicateEmailNotice(false);
+                  }}
+                  className="mt-1 h-10 rounded-xl"
+                />
+              </div>
+              <div>
+                <Label htmlFor="nc-password">Senha inicial</Label>
+                <Input
+                  id="nc-password"
+                  value={newClient.password}
+                  maxLength={72}
+                  onChange={(e) => setNewClient({ ...newClient, password: e.target.value })}
+                  className="mt-1 h-10 rounded-xl"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Combine essa senha com o cliente na hora — ele poderá trocar depois pelo app.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-card p-3 shadow-card">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Pet (opcional)
+            </p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Input
+                placeholder="Nome"
+                value={newClientPet.name}
+                maxLength={60}
+                onChange={(e) => setNewClientPet({ ...newClientPet, name: e.target.value })}
+                className="h-10 rounded-xl"
+              />
+              <Input
+                placeholder="Espécie"
+                value={newClientPet.species}
+                maxLength={30}
+                onChange={(e) => setNewClientPet({ ...newClientPet, species: e.target.value })}
+                className="h-10 rounded-xl"
+              />
+              <Input
+                placeholder="Raça (opcional)"
+                value={newClientPet.breed}
+                maxLength={60}
+                onChange={(e) => setNewClientPet({ ...newClientPet, breed: e.target.value })}
+                className="col-span-2 h-10 rounded-xl"
+              />
+              <Input
+                placeholder="Temperamento (opcional)"
+                value={newClientPet.temperament}
+                maxLength={300}
+                onChange={(e) => setNewClientPet({ ...newClientPet, temperament: e.target.value })}
+                className="col-span-2 h-10 rounded-xl"
+              />
+              <Input
+                placeholder="Alergias (opcional)"
+                value={newClientPet.allergies}
+                maxLength={300}
+                onChange={(e) => setNewClientPet({ ...newClientPet, allergies: e.target.value })}
+                className="col-span-2 h-10 rounded-xl"
+              />
+            </div>
+          </div>
+
+          <Button
+            className="h-11 w-full rounded-2xl"
+            disabled={createClient.isPending}
+            onClick={() => createClient.mutate()}
+          >
+            {createClient.isPending ? "Cadastrando..." : "Cadastrar cliente"}
+          </Button>
         </TabsContent>
 
         <TabsContent value="clinica" className="mt-4 space-y-3">
