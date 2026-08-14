@@ -294,10 +294,20 @@ function Admin() {
           data: { full_name: client.fullName, phone: client.phone },
         },
       });
-      if (error) throw error;
-      // Supabase retorna um usuário "fantasma" com identities vazio quando o
-      // e-mail já pertence a uma conta confirmada — não cria duplicata nem envia
-      // e-mail novo, então usamos isso para detectar o cliente já existente.
+      if (error) {
+        // Dependendo da config. de confirmação de e-mail do projeto, e-mail
+        // duplicado pode vir como erro explícito (em vez do usuário "fantasma"
+        // tratado abaixo) — trata os dois casos como "cliente já existe".
+        const msg = error.message.toLowerCase();
+        if (msg.includes("already registered") || msg.includes("already exists")) {
+          return { duplicate: true as const };
+        }
+        throw error;
+      }
+      // Quando a confirmação de e-mail está ativa, o Supabase retorna um
+      // usuário "fantasma" com identities vazio para e-mail já cadastrado —
+      // não cria duplicata nem envia e-mail novo, então usamos isso também
+      // para detectar o cliente já existente.
       const alreadyExists = (data.user?.identities?.length ?? 0) === 0;
       if (alreadyExists) return { duplicate: true as const };
 
@@ -329,9 +339,13 @@ function Admin() {
       setNewClientPet({ name: "", species: "cachorro", breed: "", temperament: "", allergies: "" });
     },
     onError: (error) => {
-      toast.error(
-        error instanceof z.ZodError ? error.issues[0]!.message : "Não foi possível cadastrar",
-      );
+      if (error instanceof z.ZodError) {
+        toast.error(error.issues[0]!.message);
+      } else if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error("Não foi possível cadastrar");
+      }
     },
   });
 
@@ -847,6 +861,7 @@ function Admin() {
                 />
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   Combine essa senha com o cliente na hora — ele poderá trocar depois pelo app.
+                  Evite senhas óbvias (ex.: 123456) — o Supabase pode rejeitar senhas muito fracas.
                 </p>
               </div>
             </div>
