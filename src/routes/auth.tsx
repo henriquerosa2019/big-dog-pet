@@ -119,7 +119,7 @@ function Auth() {
     setResetLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(parsed.data, {
-        redirectTo: window.location.origin,
+        redirectTo: `${window.location.origin}/redefinir-senha`,
       });
       if (error) throw error;
       toast.success("Enviamos um link para você redefinir a senha nesse e-mail.");

@@ -16,7 +16,6 @@ import { AppShell } from "@/components/AppShell";
 import { CartProvider } from "@/lib/cart";
 import { supabase } from "@/integrations/supabase/client";
 
-
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -134,6 +133,15 @@ function RootComponent() {
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      // Link de "esqueci minha senha": o Supabase autentica com uma sessão de
+      // recuperação e dispara esse evento — manda direto pra tela de definir
+      // nova senha, mesmo se o link redirecionou pra outra página (defensivo,
+      // já que redirectTo aponta pra /redefinir-senha, mas cobre variações de
+      // fragmento/URL entre provedores de e-mail).
+      if (event === "PASSWORD_RECOVERY") {
+        router.navigate({ to: "/redefinir-senha" });
+        return;
+      }
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       router.invalidate();
       if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
@@ -153,4 +161,3 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
-

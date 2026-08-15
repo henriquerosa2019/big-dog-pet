@@ -505,7 +505,7 @@ function Admin() {
     mutationFn: async () => {
       if (!matchedClient?.email) throw new Error("Cliente sem e-mail cadastrado.");
       const { error } = await supabase.auth.resetPasswordForEmail(matchedClient.email, {
-        redirectTo: window.location.origin,
+        redirectTo: `${window.location.origin}/redefinir-senha`,
       });
       if (error) throw error;
     },
