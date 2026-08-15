@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { lovable } from "@/integrations/lovable/index";
@@ -43,6 +44,8 @@ function Auth() {
     birthDate: "",
   });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -107,6 +110,26 @@ function Auth() {
     navigate({ to: "/conta" });
   }
 
+  async function handleForgotPassword() {
+    const parsed = credentialsSchema.shape.email.safeParse(form.email);
+    if (!parsed.success) {
+      toast.error("Informe seu e-mail no campo acima para receber o link");
+      return;
+    }
+    setResetLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(parsed.data, {
+        redirectTo: window.location.origin,
+      });
+      if (error) throw error;
+      toast.success("Enviamos um link para você redefinir a senha nesse e-mail.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível enviar o link");
+    } finally {
+      setResetLoading(false);
+    }
+  }
+
   return (
     <div className="p-5">
       <h1 className="font-display text-2xl">
@@ -169,15 +192,35 @@ function Auth() {
         </div>
         <div>
           <Label htmlFor="password">Senha</Label>
-          <Input
-            id="password"
-            type="password"
-            autoComplete={mode === "login" ? "current-password" : "new-password"}
-            value={form.password}
-            maxLength={72}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-            className="mt-1 h-11 rounded-xl"
-          />
+          <div className="relative mt-1">
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              value={form.password}
+              maxLength={72}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              className="h-11 rounded-xl pr-11"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          {mode === "login" && (
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={resetLoading}
+              className="mt-1.5 text-xs font-semibold text-primary underline"
+            >
+              {resetLoading ? "Enviando..." : "Esqueci minha senha"}
+            </button>
+          )}
         </div>
         <Button type="submit" disabled={loading} className="h-12 w-full rounded-2xl">
           {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { CheckCircle2, Gift, MessageCircle, Syringe } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, Gift, MessageCircle, Syringe } from "lucide-react";
 import { startOfDay, startOfMonth, startOfWeek } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useIsAdmin } from "@/hooks/useAuth";
@@ -326,6 +326,7 @@ function Admin() {
     password: "",
     birthDate: "",
   });
+  const [showNewClientPassword, setShowNewClientPassword] = useState(false);
   const [newClientPet, setNewClientPet] = useState({
     name: "",
     species: "cachorro",
@@ -1237,13 +1238,28 @@ function Admin() {
                   </div>
                   <div>
                     <Label htmlFor="nc-password">Senha inicial</Label>
-                    <Input
-                      id="nc-password"
-                      value={newClient.password}
-                      maxLength={72}
-                      onChange={(e) => setNewClient({ ...newClient, password: e.target.value })}
-                      className="mt-1 h-10 rounded-xl"
-                    />
+                    <div className="relative mt-1">
+                      <Input
+                        id="nc-password"
+                        type={showNewClientPassword ? "text" : "password"}
+                        value={newClient.password}
+                        maxLength={72}
+                        onChange={(e) => setNewClient({ ...newClient, password: e.target.value })}
+                        className="h-10 rounded-xl pr-11"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewClientPassword((v) => !v)}
+                        aria-label={showNewClientPassword ? "Ocultar senha" : "Mostrar senha"}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                      >
+                        {showNewClientPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                     <p className="mt-1 text-[11px] text-muted-foreground">
                       Combine essa senha com o cliente na hora — ele poderá trocar depois pelo app.
                       Evite senhas óbvias (ex.: 123456) — o Supabase pode rejeitar senhas muito
