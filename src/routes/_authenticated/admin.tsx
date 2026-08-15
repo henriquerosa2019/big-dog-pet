@@ -9,12 +9,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useIsAdmin } from "@/hooks/useAuth";
 import {
   CLINIC,
+  daysUntil,
   digitsOnly,
   formatBRL,
   formatDate,
   formatDateTime,
   formatPetAge,
   isBirthdayToday,
+  isBirthdayTomorrow,
   whatsappLinkTo,
 } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -657,11 +659,13 @@ function Admin() {
     return newClientsList.filter((client) => new Date(client.createdAt) >= since);
   }, [newClientsList, newClientsFilter, dashboardBoundaries]);
 
-  // Aniversariantes de hoje (dono ou pet) para a campanha de niver do Dashboard.
-  const birthdaysToday = useMemo(() => {
+  // Aniversariantes de hoje E amanhã (dono ou pet) para a campanha de niver
+  // do Dashboard — pedido do Henrique 2026-08-14 pra dar um dia de antecedência.
+  const birthdaysSoon = useMemo(() => {
     type BirthdayEntry = {
       key: string;
       kind: "dono" | "pet";
+      when: "hoje" | "amanha";
       ownerId: string;
       ownerName: string;
       phone: string | null;
@@ -670,10 +674,16 @@ function Admin() {
     };
     const entries: BirthdayEntry[] = [];
     for (const p of profiles ?? []) {
-      if (isBirthdayToday(p.birth_date)) {
+      const when = isBirthdayToday(p.birth_date)
+        ? "hoje"
+        : isBirthdayTomorrow(p.birth_date)
+          ? "amanha"
+          : null;
+      if (when) {
         entries.push({
           key: `owner-${p.id}`,
           kind: "dono",
+          when,
           ownerId: p.id,
           ownerName: p.full_name ?? "Cliente",
           phone: p.phone,
@@ -681,11 +691,17 @@ function Admin() {
       }
     }
     for (const pet of allPets ?? []) {
-      if (isBirthdayToday(pet.birth_date) && pet.owner_id) {
+      const when = isBirthdayToday(pet.birth_date)
+        ? "hoje"
+        : isBirthdayTomorrow(pet.birth_date)
+          ? "amanha"
+          : null;
+      if (when && pet.owner_id) {
         const owner = profileById.get(pet.owner_id);
         entries.push({
           key: `pet-${pet.id}`,
           kind: "pet",
+          when,
           ownerId: pet.owner_id,
           ownerName: owner?.full_name ?? "Cliente",
           phone: owner?.phone ?? null,
@@ -694,7 +710,8 @@ function Admin() {
         });
       }
     }
-    return entries;
+    // Hoje primeiro, depois amanhã.
+    return entries.sort((a, b) => (a.when === b.when ? 0 : a.when === "hoje" ? -1 : 1));
   }, [profiles, allPets, profileById]);
 
   const [recordPetId, setRecordPetId] = useState<string | null>(null);
@@ -871,6 +888,17 @@ function Admin() {
     return [...fromVaccines, ...fromReminders].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   }, [vaccinesDue, careReminders]);
 
+  // Vacinas + retornos dos próximos 30 dias para o card do Dashboard (pedido
+  // do Henrique 2026-08-14) — allReturns acima não tem limite de data, então
+  // filtramos aqui só para essa janela, igual ao painel do tutor em Conta.tsx.
+  const returnsNext30Days = useMemo(() => {
+    const limit = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+    const today = todayISODate();
+    return allReturns
+      .filter((item) => item.dueDate >= today && item.dueDate <= limit)
+      .map((item) => ({ ...item, days: daysUntil(item.dueDate) }));
+  }, [allReturns]);
+
   const selectedReturnDateISO = returnDate.toISOString().slice(0, 10);
 
   const filteredReturns = allReturns.filter((item) => {
@@ -967,29 +995,38 @@ function Admin() {
             </div>
           )}
 
-          {birthdaysToday.length > 0 && (
+          {birthdaysSoon.length > 0 && (
             <div className="rounded-2xl border-2 border-gold/50 bg-secondary p-3">
               <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <Gift className="h-3.5 w-3.5 text-gold" />
-                Nivers de hoje!! ({birthdaysToday.length})
+                Nivers de hoje e amanhã ({birthdaysSoon.length})
               </p>
               <div className="mt-2 space-y-2">
-                {birthdaysToday.map((entry) => {
-                  const message =
-                    entry.kind === "pet"
+                {birthdaysSoon.map((entry) => {
+                  const isToday = entry.when === "hoje";
+                  const message = isToday
+                    ? entry.kind === "pet"
                       ? `Feliz aniversário para ${entry.petName}! 🎉🐾 Para comemorar, o ${CLINIC.name} preparou 20% de desconto em banho ou tosa hoje. Quer aproveitar e já agendar?`
-                      : `Feliz aniversário, ${entry.ownerName}! 🎉 Para comemorar, o ${CLINIC.name} preparou 20% de desconto em banho ou tosa para o seu pet hoje. Quer aproveitar e já agendar?`;
+                      : `Feliz aniversário, ${entry.ownerName}! 🎉 Para comemorar, o ${CLINIC.name} preparou 20% de desconto em banho ou tosa para o seu pet hoje. Quer aproveitar e já agendar?`
+                    : entry.kind === "pet"
+                      ? `Oi! Passando pra avisar que amanhã é aniversário do(a) ${entry.petName} 🎉🐾 Já vamos preparar 20% de desconto em banho ou tosa pra comemorar — quer garantir o horário?`
+                      : `Oi, ${entry.ownerName}! Amanhã é seu aniversário 🎉 Já vamos preparar 20% de desconto em banho ou tosa pro seu pet pra comemorar — quer garantir o horário?`;
                   const link = whatsappLinkTo(entry.phone, message);
                   return (
                     <div key={entry.key} className="rounded-xl bg-card p-2.5 shadow-card">
-                      <p className="text-sm font-semibold">
-                        {entry.kind === "pet" ? entry.petName : entry.ownerName}
-                        {entry.kind === "pet" && (
-                          <span className="ml-1 font-normal text-muted-foreground">
-                            · {entry.ownerName}
-                          </span>
-                        )}
-                      </p>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-semibold">
+                          {entry.kind === "pet" ? entry.petName : entry.ownerName}
+                          {entry.kind === "pet" && (
+                            <span className="ml-1 font-normal text-muted-foreground">
+                              · {entry.ownerName}
+                            </span>
+                          )}
+                        </p>
+                        <Badge variant={isToday ? "default" : "secondary"} className="shrink-0">
+                          {isToday ? "Hoje" : "Amanhã"}
+                        </Badge>
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {entry.kind === "pet"
                           ? `Aniversário do pet${entry.petAge ? ` · ${entry.petAge} de vida` : ""}`
@@ -1003,7 +1040,11 @@ function Admin() {
                         onClick={() => link && window.open(link, "_blank", "noopener,noreferrer")}
                       >
                         <MessageCircle className="h-4 w-4" />
-                        {link ? "Enviar parabéns + oferta no WhatsApp" : "Sem telefone cadastrado"}
+                        {link
+                          ? isToday
+                            ? "Enviar parabéns + oferta no WhatsApp"
+                            : "Avisar + oferta no WhatsApp"
+                          : "Sem telefone cadastrado"}
                       </Button>
                     </div>
                   );
@@ -1012,6 +1053,42 @@ function Admin() {
               <p className="mt-2 text-[11px] text-muted-foreground">
                 Revise a mensagem no WhatsApp antes de enviar — nada é enviado automaticamente.
               </p>
+            </div>
+          )}
+
+          {returnsNext30Days.length > 0 && (
+            <div className="rounded-2xl bg-card p-3 shadow-card">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Vacinas e retornos (30 dias) · {returnsNext30Days.length}
+              </p>
+              <div className="mt-2 space-y-1.5">
+                {returnsNext30Days.slice(0, 8).map((item) => (
+                  <div
+                    key={item.key}
+                    className="flex items-center justify-between gap-2 rounded-xl surface-paper px-2.5 py-2 text-xs"
+                  >
+                    <span className="min-w-0 truncate">
+                      <span className="font-semibold">{item.petName}</span>{" "}
+                      <span className="text-muted-foreground">· {item.title}</span>
+                    </span>
+                    <Badge
+                      variant={item.days <= 1 ? "default" : "secondary"}
+                      className="shrink-0 whitespace-nowrap"
+                    >
+                      {item.days === 0
+                        ? "Hoje"
+                        : item.days === 1
+                          ? "Amanhã"
+                          : `Em ${item.days} dias`}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+              {returnsNext30Days.length > 8 && (
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  + {returnsNext30Days.length - 8} na aba Retornos.
+                </p>
+              )}
             </div>
           )}
 

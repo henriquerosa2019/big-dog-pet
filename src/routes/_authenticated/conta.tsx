@@ -1,10 +1,20 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ChevronRight, LogOut, PawPrint } from "lucide-react";
+import { useMemo } from "react";
+import { AlertTriangle, ChevronRight, Gift, LogOut, PawPrint } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { CLINIC, daysUntil, formatBRL, formatDate, formatDateTime, whatsappLink } from "@/lib/format";
+import {
+  CLINIC,
+  daysUntil,
+  formatBRL,
+  formatDate,
+  formatDateTime,
+  isBirthdayToday,
+  isBirthdayTomorrow,
+  whatsappLink,
+} from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -35,7 +45,7 @@ function Conta() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("full_name, phone")
+        .select("full_name, phone, birth_date")
         .eq("id", user!.id)
         .maybeSingle();
       if (error) throw error;
@@ -75,7 +85,7 @@ function Conta() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pets")
-        .select("id, name, species, breed, allergies");
+        .select("id, name, species, breed, allergies, birth_date");
       if (error) throw error;
       return data;
     },
@@ -97,6 +107,98 @@ function Conta() {
     },
   });
 
+  const { data: returnAlerts } = useQuery({
+    queryKey: ["return-alerts", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const limit = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+      const { data, error } = await supabase
+        .from("care_reminders")
+        .select("id, reminder_type, title, due_date, pet_id, pets(name)")
+        .eq("completed", false)
+        .lte("due_date", limit)
+        .order("due_date");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Junta vacina + retorno + aniversário (dono e pets) num único painel de
+  // avisos, com destaque para "hoje"/"amanhã" — pedido do Henrique 2026-08-14
+  // pra o tutor ver tudo relevante assim que loga, num período de 30 dias.
+  type Aviso = {
+    key: string;
+    kind: "vacina" | "retorno" | "aniversario";
+    label: string;
+    petName?: string;
+    days: number;
+    dueDate?: string;
+    whatsappMessage?: string;
+  };
+
+  const avisos = useMemo(() => {
+    const items: Aviso[] = [];
+
+    for (const v of vaccineAlerts ?? []) {
+      items.push({
+        key: `vacina-${v.id}`,
+        kind: "vacina",
+        label: v.vaccine_name,
+        petName: v.pets?.name,
+        days: daysUntil(v.next_due_at!),
+        dueDate: v.next_due_at!,
+        whatsappMessage: `Olá, ${CLINIC.name}! Quero agendar o reforço da vacina ${v.vaccine_name} do meu pet ${v.pets?.name ?? ""}.`,
+      });
+    }
+
+    for (const r of returnAlerts ?? []) {
+      items.push({
+        key: `retorno-${r.id}`,
+        kind: "retorno",
+        label: r.title,
+        petName: r.pets?.name,
+        days: daysUntil(r.due_date),
+        dueDate: r.due_date,
+        whatsappMessage: `Olá, ${CLINIC.name}! Quero agendar: ${r.title} do meu pet ${r.pets?.name ?? ""}.`,
+      });
+    }
+
+    if (isBirthdayToday(profile?.birth_date)) {
+      items.push({
+        key: "aniversario-dono",
+        kind: "aniversario",
+        label: "Seu aniversário",
+        days: 0,
+      });
+    } else if (isBirthdayTomorrow(profile?.birth_date)) {
+      items.push({
+        key: "aniversario-dono",
+        kind: "aniversario",
+        label: "Seu aniversário",
+        days: 1,
+      });
+    }
+
+    for (const pet of pets ?? []) {
+      if (isBirthdayToday(pet.birth_date)) {
+        items.push({
+          key: `aniversario-pet-${pet.id}`,
+          kind: "aniversario",
+          label: `Aniversário de ${pet.name}`,
+          days: 0,
+        });
+      } else if (isBirthdayTomorrow(pet.birth_date)) {
+        items.push({
+          key: `aniversario-pet-${pet.id}`,
+          kind: "aniversario",
+          label: `Aniversário de ${pet.name}`,
+          days: 1,
+        });
+      }
+    }
+
+    return items.sort((a, b) => a.days - b.days);
+  }, [vaccineAlerts, returnAlerts, profile?.birth_date, pets]);
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -120,42 +222,59 @@ function Conta() {
         </Button>
       </div>
 
-      {(vaccineAlerts ?? []).length > 0 && (
+      {avisos.length > 0 && (
         <section className="mt-5 space-y-2">
-          <h2 className="font-display text-lg">Alertas de vacina</h2>
-          {(vaccineAlerts ?? []).map((v) => {
-            const days = daysUntil(v.next_due_at!);
-            return (
-              <div
-                key={v.id}
-                className="flex items-start gap-2 rounded-2xl border-2 border-primary/30 bg-secondary p-3"
-              >
+          <h2 className="font-display text-lg">Avisos</h2>
+          <p className="text-xs text-muted-foreground">
+            Vacinas e retornos dos próximos 30 dias, e aniversários de hoje e amanhã.
+          </p>
+          {avisos.map((item) => (
+            <div
+              key={item.key}
+              className="flex items-start gap-2 rounded-2xl border-2 border-primary/30 bg-secondary p-3"
+            >
+              {item.kind === "aniversario" ? (
+                <Gift className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              ) : (
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <div className="min-w-0 text-xs">
+              )}
+              <div className="min-w-0 flex-1 text-xs">
+                <div className="flex items-start justify-between gap-2">
                   <p className="font-semibold">
-                    {v.pets?.name ? `${v.pets.name} · ` : ""}
-                    {days < 0
-                      ? `${v.vaccine_name} atrasada`
-                      : `${v.vaccine_name} vence em ${days} dia(s)`}
+                    {item.petName ? `${item.petName} · ` : ""}
+                    {item.label}
                   </p>
-                  <p className="text-muted-foreground">Retorno: {formatDate(v.next_due_at!)}</p>
+                  <Badge
+                    variant={item.days <= 1 ? "default" : "secondary"}
+                    className="shrink-0 whitespace-nowrap"
+                  >
+                    {item.days < 0
+                      ? "Atrasado"
+                      : item.days === 0
+                        ? "Hoje"
+                        : item.days === 1
+                          ? "Amanhã"
+                          : `Em ${item.days} dias`}
+                  </Badge>
+                </div>
+                {item.dueDate && (
+                  <p className="text-muted-foreground">Data: {formatDate(item.dueDate)}</p>
+                )}
+                {item.whatsappMessage && (
                   <a
                     className="mt-1 inline-block font-semibold text-primary underline"
-                    href={whatsappLink(
-                      `Olá, ${CLINIC.name}! Quero agendar o reforço da vacina ${v.vaccine_name} do meu pet ${v.pets?.name ?? ""}.`,
-                    )}
+                    href={whatsappLink(item.whatsappMessage)}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
                     Falar no WhatsApp
                   </a>
-                </div>
+                )}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </section>
       )}
-
 
       <section className="mt-6">
         <div className="flex items-center justify-between">
@@ -246,7 +365,6 @@ function Conta() {
           )}
         </ul>
       </section>
-
     </div>
   );
 }

@@ -89,3 +89,12 @@ export function formatPetAge(birthDate: string | null | undefined): string | nul
   if (months >= 1) return `${months} ${months === 1 ? "mês" : "meses"}`;
   return "recém-nascido";
 }
+
+/** True when a YYYY-MM-DD birth date falls on tomorrow's month/day (any year). */
+export function isBirthdayTomorrow(birthDate: string | null | undefined): boolean {
+  if (!birthDate) return false;
+  const [, month, day] = birthDate.split("-");
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return Number(month) === tomorrow.getMonth() + 1 && Number(day) === tomorrow.getDate();
+}
