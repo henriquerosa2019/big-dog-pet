@@ -266,7 +266,7 @@ function Agendar() {
     [zones, selectedAddress],
   );
   const feeResult = useMemo(() => {
-    if (!needsAddress(logisticsType)) return { feeCents: 0, freeApplied: false };
+    if (!needsAddress(logisticsType)) return { feeCents: 0, freeApplied: false, zoneMatched: true };
     return computeTransportFeeCents(zone, selectedService?.price_cents ?? 0);
   }, [logisticsType, zone, selectedService]);
   const outOfArea = needsAddress(logisticsType) && Boolean(selectedAddress) && !zone;
@@ -280,16 +280,16 @@ function Agendar() {
         throw new Error("Esse horário já passou. Escolha outro horário ou outra data.");
 
       const wantsTransport = needsAddress(logisticsType);
-      if (wantsTransport) {
-        if (!addressId) throw new Error("Escolha ou cadastre um endereço para retirada/devolução");
-        if (!feeResult)
-          throw new Error(
-            "Ainda não atendemos esse bairro para retirada/devolução. Fale com a gente pelo WhatsApp.",
-          );
+      if (wantsTransport && !addressId) {
+        throw new Error("Escolha ou cadastre um endereço para retirada/devolução");
       }
 
       const servicePriceCents = selectedService?.price_cents ?? 0;
-      const transportPriceCents = feeResult?.feeCents ?? 0;
+      const transportPriceCents = feeResult.feeCents;
+      // Bairro fora das zonas cadastradas: agenda mesmo assim com valor 0 e um
+      // aviso no pedido — o petshop confirma/ajusta o valor manualmente (aba
+      // "Retirada/Entrega" do admin) em vez de travar o tutor no agendamento.
+      const zoneNotCovered = wantsTransport && !feeResult.zoneMatched;
 
       const { data: appt, error } = await supabase
         .from("appointments")
@@ -315,6 +315,9 @@ function Agendar() {
           address_id: addressId,
           zone_id: zone?.id ?? null,
           price_cents: transportPriceCents,
+          pickup_notes: zoneNotCovered
+            ? `Bairro "${selectedAddress?.district ?? ""}" fora das zonas cadastradas — confirmar valor da retirada/devolução manualmente.`
+            : null,
         });
         if (transportError) throw transportError;
       }
@@ -328,15 +331,16 @@ function Agendar() {
       });
       if (historyError) console.error(historyError);
 
-      return { scheduled, transportPriceCents, wantsTransport };
+      return { scheduled, transportPriceCents, wantsTransport, zoneNotCovered };
     },
-    onSuccess: ({ scheduled, transportPriceCents, wantsTransport }) => {
+    onSuccess: ({ scheduled, transportPriceCents, wantsTransport, zoneNotCovered }) => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       const serviceName = (services ?? []).find((s) => s.id === serviceId)?.name ?? "serviço";
       const petName = (pets ?? []).find((p) => p.id === petId)?.name;
+      const feeLine = zoneNotCovered ? "a confirmar" : formatBRL(transportPriceCents);
       const addressLine =
         wantsTransport && selectedAddress
-          ? `\n• Retirada: ${selectedAddress.street}${selectedAddress.number ? `, ${selectedAddress.number}` : ""} - ${selectedAddress.district}\n• Modalidade: ${logisticsTypeLabels[logisticsType]}\n• Taxa: ${formatBRL(transportPriceCents)}`
+          ? `\n• Retirada: ${selectedAddress.street}${selectedAddress.number ? `, ${selectedAddress.number}` : ""} - ${selectedAddress.district}\n• Modalidade: ${logisticsTypeLabels[logisticsType]}\n• Taxa: ${feeLine}`
           : "";
       const message = `Olá, ${CLINIC.name}! Solicito a liberação/autorização do agendamento:\n• Serviço: ${serviceName}\n• Pet: ${petName ?? "não informado"}\n• Data: ${formatDateTime(scheduled)}${addressLine}${notes.trim() ? `\n• Observações: ${notes.trim()}` : ""}`;
       window.open(whatsappLink(message), "_blank", "noopener,noreferrer");
@@ -633,11 +637,12 @@ function Agendar() {
             {selectedAddress && (
               <div className="rounded-2xl border-2 border-primary/30 bg-secondary p-3 text-sm">
                 {outOfArea ? (
-                  <p className="font-semibold text-destructive">
-                    Ainda não atendemos o bairro "{selectedAddress.district}" para
-                    retirada/devolução. Fale com a gente pelo WhatsApp para combinar.
+                  <p className="font-semibold text-primary">
+                    Ainda não temos uma zona cadastrada para o bairro "{selectedAddress.district}
+                    ". Pode agendar normalmente — vamos confirmar o valor da retirada/devolução com
+                    você antes do atendimento.
                   </p>
-                ) : feeResult ? (
+                ) : (
                   <p>
                     Taxa de retirada/devolução:{" "}
                     <span className="font-display text-primary">
@@ -645,7 +650,7 @@ function Agendar() {
                     </span>
                     {feeResult.freeApplied && " (grátis para esse valor de serviço!)"}
                   </p>
-                ) : null}
+                )}
               </div>
             )}
           </div>
@@ -658,7 +663,7 @@ function Agendar() {
           createAppointment.isPending ||
           !serviceId ||
           availableHours.length === 0 ||
-          (needsAddress(logisticsType) && (!addressId || !feeResult))
+          (needsAddress(logisticsType) && !addressId)
         }
         onClick={() => createAppointment.mutate()}
       >

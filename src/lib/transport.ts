@@ -106,20 +106,30 @@ function normalize(value: string): string {
     .toLowerCase();
 }
 
+export type TransportFeeResult = {
+  feeCents: number;
+  freeApplied: boolean;
+  /** false quando o bairro informado não bate com nenhuma zona cadastrada —
+   * o agendamento segue mesmo assim, com o valor a ser confirmado pelo
+   * petshop (ajuste manual no painel admin), em vez de travar o tutor. */
+  zoneMatched: boolean;
+};
+
 /**
  * Calcula o valor da retirada/devolução a partir da zona encontrada e do preço
  * do serviço escolhido (para aplicar o "grátis acima de X" da própria zona).
- * Retorna null quando não há zona correspondente (bairro fora de área de
- * atendimento) — a tela deve tratar isso como "fale com a gente pelo WhatsApp"
- * em vez de deixar agendar com um valor errado.
+ * Quando não há zona correspondente (bairro fora das zonas cadastradas), NÃO
+ * bloqueia o agendamento — retorna zoneMatched: false com feeCents: 0, para o
+ * petshop confirmar/ajustar o valor manualmente depois (ver TransportPriceEditor
+ * em admin.tsx).
  */
 export function computeTransportFeeCents(
   zone: DeliveryZone | null,
   servicePriceCents: number,
-): { feeCents: number; freeApplied: boolean } | null {
-  if (!zone) return null;
+): TransportFeeResult {
+  if (!zone) return { feeCents: 0, freeApplied: false, zoneMatched: false };
   if (zone.free_above_cents != null && servicePriceCents >= zone.free_above_cents) {
-    return { feeCents: 0, freeApplied: true };
+    return { feeCents: 0, freeApplied: true, zoneMatched: true };
   }
-  return { feeCents: zone.price_cents, freeApplied: false };
+  return { feeCents: zone.price_cents, freeApplied: false, zoneMatched: true };
 }
