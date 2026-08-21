@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/select";
 import { TransportHistoryList } from "@/components/TransportHistoryList";
 import type { TablesUpdate } from "@/integrations/supabase/types";
+import { cn } from "@/lib/utils";
 import {
   logisticsTypeLabels,
   nextOpsStatus,
@@ -269,6 +270,80 @@ function Admin() {
       if (error) throw error;
       return data;
     },
+  });
+
+  const { data: transportSettings } = useQuery({
+    queryKey: ["admin-transport-settings"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transport_settings")
+        .select("*")
+        .eq("id", true)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: coupons } = useQuery({
+    queryKey: ["admin-transport-coupons"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transport_coupons")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const updateTransportSettings = useMutation({
+    mutationFn: async (percent: number | null) => {
+      const { error } = await supabase
+        .from("transport_settings")
+        .update({ returning_client_discount_percent: percent })
+        .eq("id", true);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-transport-settings"] });
+      toast.success("Desconto de cliente recorrente atualizado");
+    },
+    onError: () => toast.error("Não foi possível atualizar o desconto"),
+  });
+
+  const createCoupon = useMutation({
+    mutationFn: async (input: {
+      code: string;
+      discountType: "percent" | "fixed";
+      discountValue: number;
+    }) => {
+      const { error } = await supabase.from("transport_coupons").insert({
+        code: input.code.trim().toUpperCase(),
+        discount_type: input.discountType,
+        discount_value: input.discountValue,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-transport-coupons"] });
+      toast.success("Cupom criado");
+    },
+    onError: () => toast.error("Não foi possível criar o cupom (código já existe?)"),
+  });
+
+  const toggleCoupon = useMutation({
+    mutationFn: async (vars: { id: string; active: boolean }) => {
+      const { error } = await supabase
+        .from("transport_coupons")
+        .update({ active: vars.active })
+        .eq("id", vars.id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-transport-coupons"] }),
+    onError: () => toast.error("Não foi possível atualizar o cupom"),
   });
 
   const drivers = useMemo(
@@ -2029,6 +2104,52 @@ function Admin() {
             </div>
           </div>
 
+          <ReturningClientDiscountEditor
+            percent={transportSettings?.returning_client_discount_percent ?? null}
+            isPending={updateTransportSettings.isPending}
+            onSave={(percent) => updateTransportSettings.mutate(percent)}
+          />
+
+          <div className="rounded-2xl bg-card p-3 shadow-card">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Cupons de desconto
+            </p>
+            <div className="mt-2 space-y-2">
+              {(coupons ?? []).map((coupon) => (
+                <div
+                  key={coupon.id}
+                  className="flex items-center justify-between gap-2 rounded-xl bg-secondary px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{coupon.code}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {coupon.discount_type === "percent"
+                        ? `${coupon.discount_value}% de desconto`
+                        : `${formatBRL(coupon.discount_value)} de desconto`}
+                      {coupon.expires_at ? ` · expira em ${formatDateTime(coupon.expires_at)}` : ""}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={coupon.active ? "secondary" : "outline"}
+                    className="h-8 shrink-0 rounded-lg text-[11px]"
+                    disabled={toggleCoupon.isPending}
+                    onClick={() => toggleCoupon.mutate({ id: coupon.id, active: !coupon.active })}
+                  >
+                    {coupon.active ? "Ativo" : "Inativo"}
+                  </Button>
+                </div>
+              ))}
+              {(coupons ?? []).length === 0 && (
+                <p className="text-xs text-muted-foreground">Nenhum cupom cadastrado.</p>
+              )}
+            </div>
+            <NewCouponForm
+              isPending={createCoupon.isPending}
+              onCreate={(input) => createCoupon.mutate(input)}
+            />
+          </div>
+
           <p className="text-xs text-muted-foreground">
             Pedidos de retirada/devolução. Designe um motorista e avance o status conforme o
             andamento — o tutor recebe um aviso no WhatsApp nas etapas principais.
@@ -2492,6 +2613,159 @@ function ZoneRow({
         </Button>
         <Button size="sm" variant="secondary" className="h-9 rounded-xl" onClick={onToggle}>
           {active ? "Desativar" : "Ativar"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ReturningClientDiscountEditor({
+  percent,
+  isPending,
+  onSave,
+}: {
+  percent: number | null;
+  isPending: boolean;
+  onSave: (percent: number | null) => void;
+}) {
+  const [value, setValue] = useState(percent != null ? String(percent) : "");
+
+  return (
+    <div className="rounded-2xl bg-card p-3 shadow-card">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Desconto para cliente recorrente
+      </p>
+      <p className="mt-1 text-[11px] text-muted-foreground">
+        Aplicado automaticamente na taxa de retirada/devolução de tutores com pelo menos um
+        agendamento concluído antes.
+      </p>
+      <div className="mt-2 flex items-center gap-2">
+        <Input
+          inputMode="numeric"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="Ex.: 10"
+          className="h-9 w-24 rounded-xl text-xs"
+        />
+        <span className="text-xs text-muted-foreground">%</span>
+        <Button
+          size="sm"
+          className="h-9 rounded-xl"
+          disabled={isPending}
+          onClick={() => {
+            if (!value.trim()) {
+              onSave(null);
+              return;
+            }
+            const parsed = z.coerce.number().int().min(0).max(100).safeParse(value);
+            if (!parsed.success) {
+              toast.error("Informe um percentual entre 0 e 100");
+              return;
+            }
+            onSave(parsed.data);
+          }}
+        >
+          Salvar
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function NewCouponForm({
+  isPending,
+  onCreate,
+}: {
+  isPending: boolean;
+  onCreate: (input: {
+    code: string;
+    discountType: "percent" | "fixed";
+    discountValue: number;
+  }) => void;
+}) {
+  const [code, setCode] = useState("");
+  const [discountType, setDiscountType] = useState<"percent" | "fixed">("percent");
+  const [value, setValue] = useState("");
+
+  return (
+    <div className="mt-3 border-t border-border pt-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Novo cupom
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Input
+          placeholder="Código (ex.: BEMVINDO10)"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          className="h-9 flex-1 rounded-xl text-xs uppercase"
+        />
+        <div className="flex overflow-hidden rounded-xl border border-border">
+          <button
+            type="button"
+            onClick={() => setDiscountType("percent")}
+            className={cn(
+              "px-2.5 py-1.5 text-xs font-semibold",
+              discountType === "percent"
+                ? "bg-primary text-primary-foreground"
+                : "bg-secondary text-secondary-foreground",
+            )}
+          >
+            %
+          </button>
+          <button
+            type="button"
+            onClick={() => setDiscountType("fixed")}
+            className={cn(
+              "px-2.5 py-1.5 text-xs font-semibold",
+              discountType === "fixed"
+                ? "bg-primary text-primary-foreground"
+                : "bg-secondary text-secondary-foreground",
+            )}
+          >
+            R$
+          </button>
+        </div>
+        <Input
+          inputMode="decimal"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={discountType === "percent" ? "Ex.: 15" : "Ex.: 10,00"}
+          className="h-9 w-24 rounded-xl text-xs"
+        />
+        <Button
+          size="sm"
+          className="h-9 rounded-xl"
+          disabled={isPending}
+          onClick={() => {
+            const trimmedCode = code.trim();
+            if (trimmedCode.length < 3) {
+              toast.error("Informe um código de pelo menos 3 caracteres");
+              return;
+            }
+            if (discountType === "percent") {
+              const parsed = z.coerce.number().int().min(1).max(100).safeParse(value);
+              if (!parsed.success) {
+                toast.error("Informe um percentual entre 1 e 100");
+                return;
+              }
+              onCreate({ code: trimmedCode, discountType, discountValue: parsed.data });
+            } else {
+              const parsed = priceSchema.safeParse(value.replace(",", "."));
+              if (!parsed.success) {
+                toast.error("Valor inválido");
+                return;
+              }
+              onCreate({
+                code: trimmedCode,
+                discountType,
+                discountValue: Math.round(parsed.data * 100),
+              });
+            }
+            setCode("");
+            setValue("");
+          }}
+        >
+          Criar
         </Button>
       </div>
     </div>

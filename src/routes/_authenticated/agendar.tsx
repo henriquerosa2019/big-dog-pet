@@ -4,13 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
 import { CLINIC, formatBRL, formatDateTime, whatsappLink } from "@/lib/format";
 import {
   computeTransportFeeCents,
   findZoneForDistrict,
+  isCouponUsable,
   logisticsTypeLabels,
   needsAddress,
+  type Coupon,
   type LogisticsType,
 } from "@/lib/transport";
 import { Button } from "@/components/ui/button";
@@ -130,6 +133,9 @@ function Agendar() {
     district: "",
     reference: "",
   });
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
 
   const { data: services } = useQuery({
     queryKey: ["services"],
@@ -182,6 +188,58 @@ function Agendar() {
         .eq("active", true);
       if (error) throw error;
       return data;
+    },
+  });
+
+  const { data: transportSettings } = useQuery({
+    queryKey: ["transport-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transport_settings")
+        .select("returning_client_discount_percent")
+        .eq("id", true)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // "Cliente recorrente": já teve pelo menos um agendamento concluído antes.
+  const { data: priorCompletedCount } = useQuery({
+    queryKey: ["prior-completed-appointments", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("appointments")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user!.id)
+        .eq("status", "concluido");
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+  const isReturningClient = (priorCompletedCount ?? 0) > 0;
+
+  const applyCoupon = useMutation({
+    mutationFn: async (code: string) => {
+      const trimmed = code.trim().toUpperCase();
+      if (!trimmed) throw new Error("Informe um código de cupom");
+      const { data, error } = await supabase
+        .from("transport_coupons")
+        .select("*")
+        .eq("code", trimmed)
+        .maybeSingle();
+      if (error) throw error;
+      if (!isCouponUsable(data)) throw new Error("Cupom inválido, inativo ou expirado");
+      return data;
+    },
+    onSuccess: (coupon) => {
+      setAppliedCoupon(coupon);
+      setCouponError(null);
+    },
+    onError: (error) => {
+      setAppliedCoupon(null);
+      setCouponError(error instanceof Error ? error.message : "Cupom inválido");
     },
   });
 
@@ -266,9 +324,15 @@ function Agendar() {
     [zones, selectedAddress],
   );
   const feeResult = useMemo(() => {
-    if (!needsAddress(logisticsType)) return { feeCents: 0, freeApplied: false, zoneMatched: true };
-    return computeTransportFeeCents(zone, selectedService?.price_cents ?? 0);
-  }, [logisticsType, zone, selectedService]);
+    if (!needsAddress(logisticsType)) {
+      return { feeCents: 0, freeApplied: false, zoneMatched: true, breakdown: [] };
+    }
+    return computeTransportFeeCents(zone, selectedService?.price_cents ?? 0, {
+      isReturningClient,
+      returningClientDiscountPercent: transportSettings?.returning_client_discount_percent ?? null,
+      coupon: appliedCoupon,
+    });
+  }, [logisticsType, zone, selectedService, isReturningClient, transportSettings, appliedCoupon]);
   const outOfArea = needsAddress(logisticsType) && Boolean(selectedAddress) && !zone;
 
   const createAppointment = useMutation({
@@ -315,6 +379,7 @@ function Agendar() {
           address_id: addressId,
           zone_id: zone?.id ?? null,
           price_cents: transportPriceCents,
+          fee_breakdown: feeResult.breakdown as unknown as Json,
           pickup_notes: zoneNotCovered
             ? `Bairro "${selectedAddress?.district ?? ""}" fora das zonas cadastradas — confirmar valor da retirada/devolução manualmente.`
             : null,
@@ -634,6 +699,39 @@ function Agendar() {
               </Button>
             </div>
 
+            {selectedAddress && !outOfArea && (
+              <div className="rounded-2xl bg-card p-3 shadow-card">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Cupom de desconto (opcional)
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <Input
+                    placeholder="Código do cupom"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value)}
+                    className="h-10 flex-1 rounded-xl uppercase"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-10 shrink-0 rounded-xl px-4"
+                    disabled={applyCoupon.isPending || !couponCode.trim()}
+                    onClick={() => applyCoupon.mutate(couponCode)}
+                  >
+                    Aplicar
+                  </Button>
+                </div>
+                {appliedCoupon && (
+                  <p className="mt-1.5 text-xs font-semibold text-primary">
+                    Cupom {appliedCoupon.code} aplicado!
+                  </p>
+                )}
+                {couponError && (
+                  <p className="mt-1.5 text-xs font-semibold text-destructive">{couponError}</p>
+                )}
+              </div>
+            )}
+
             {selectedAddress && (
               <div className="rounded-2xl border-2 border-primary/30 bg-secondary p-3 text-sm">
                 {outOfArea ? (
@@ -643,13 +741,27 @@ function Agendar() {
                     você antes do atendimento.
                   </p>
                 ) : (
-                  <p>
-                    Taxa de retirada/devolução:{" "}
-                    <span className="font-display text-primary">
-                      {formatBRL(feeResult.feeCents)}
-                    </span>
-                    {feeResult.freeApplied && " (grátis para esse valor de serviço!)"}
-                  </p>
+                  <div className="space-y-1">
+                    {feeResult.breakdown.map((step, i) => (
+                      <p
+                        key={i}
+                        className={cn(
+                          "flex justify-between text-xs",
+                          i === 0 ? "text-muted-foreground" : "text-primary",
+                        )}
+                      >
+                        <span>{step.label}</span>
+                        <span>
+                          {step.deltaCents > 0 ? "" : step.deltaCents < 0 ? "− " : ""}
+                          {formatBRL(Math.abs(step.deltaCents))}
+                        </span>
+                      </p>
+                    ))}
+                    <p className="flex justify-between border-t border-primary/20 pt-1 font-display text-primary">
+                      <span>Taxa de retirada/devolução</span>
+                      <span>{formatBRL(feeResult.feeCents)}</span>
+                    </p>
+                  </div>
                 )}
               </div>
             )}

@@ -106,6 +106,11 @@ function normalize(value: string): string {
     .toLowerCase();
 }
 
+export type Coupon = Tables<"transport_coupons">;
+export type TransportSettings = Tables<"transport_settings">;
+
+export type FeeBreakdownStep = { label: string; deltaCents: number };
+
 export type TransportFeeResult = {
   feeCents: number;
   freeApplied: boolean;
@@ -113,23 +118,71 @@ export type TransportFeeResult = {
    * o agendamento segue mesmo assim, com o valor a ser confirmado pelo
    * petshop (ajuste manual no painel admin), em vez de travar o tutor. */
   zoneMatched: boolean;
+  /** Passo a passo de como o valor final foi calculado (base da zona, desconto
+   * de cliente recorrente, cupom) — mostrado ao tutor e salvo em
+   * transport_orders.fee_breakdown para transparência e auditoria. */
+  breakdown: FeeBreakdownStep[];
 };
 
+/** Um cupom é utilizável se estiver ativo e não expirado. */
+export function isCouponUsable(coupon: Coupon | null | undefined): coupon is Coupon {
+  if (!coupon || !coupon.active) return false;
+  if (coupon.expires_at && new Date(coupon.expires_at).getTime() < Date.now()) return false;
+  return true;
+}
+
 /**
- * Calcula o valor da retirada/devolução a partir da zona encontrada e do preço
- * do serviço escolhido (para aplicar o "grátis acima de X" da própria zona).
- * Quando não há zona correspondente (bairro fora das zonas cadastradas), NÃO
- * bloqueia o agendamento — retorna zoneMatched: false com feeCents: 0, para o
- * petshop confirmar/ajustar o valor manualmente depois (ver TransportPriceEditor
- * em admin.tsx).
+ * Calcula o valor da retirada/devolução a partir de três fatores, todos
+ * configuráveis pelo admin: a zona/bairro (proxy de distância — price_cents e
+ * free_above_cents por zona), um desconto padrão para cliente recorrente
+ * (transport_settings.returning_client_discount_percent) e um cupom opcional
+ * informado pelo tutor (transport_coupons). Quando não há zona correspondente
+ * (bairro fora das zonas cadastradas), NÃO bloqueia o agendamento — retorna
+ * zoneMatched: false com feeCents: 0, para o petshop confirmar/ajustar o valor
+ * manualmente depois (ver TransportPriceEditor em admin.tsx).
  */
 export function computeTransportFeeCents(
   zone: DeliveryZone | null,
   servicePriceCents: number,
+  options?: {
+    isReturningClient?: boolean;
+    returningClientDiscountPercent?: number | null;
+    coupon?: Coupon | null;
+  },
 ): TransportFeeResult {
-  if (!zone) return { feeCents: 0, freeApplied: false, zoneMatched: false };
+  if (!zone) return { feeCents: 0, freeApplied: false, zoneMatched: false, breakdown: [] };
+
+  const breakdown: FeeBreakdownStep[] = [{ label: zone.name, deltaCents: zone.price_cents }];
+  let cents = zone.price_cents;
+
   if (zone.free_above_cents != null && servicePriceCents >= zone.free_above_cents) {
-    return { feeCents: 0, freeApplied: true, zoneMatched: true };
+    breakdown.push({ label: "Grátis para esse valor de serviço", deltaCents: -cents });
+    return { feeCents: 0, freeApplied: true, zoneMatched: true, breakdown };
   }
-  return { feeCents: zone.price_cents, freeApplied: false, zoneMatched: true };
+
+  if (options?.isReturningClient && options.returningClientDiscountPercent) {
+    const discount = Math.round((cents * options.returningClientDiscountPercent) / 100);
+    if (discount > 0) {
+      breakdown.push({
+        label: `Desconto cliente recorrente (${options.returningClientDiscountPercent}%)`,
+        deltaCents: -discount,
+      });
+      cents -= discount;
+    }
+  }
+
+  if (isCouponUsable(options?.coupon)) {
+    const coupon = options!.coupon!;
+    const discount =
+      coupon.discount_type === "percent"
+        ? Math.round((cents * coupon.discount_value) / 100)
+        : coupon.discount_value;
+    const applied = Math.min(Math.max(discount, 0), cents);
+    if (applied > 0) {
+      breakdown.push({ label: `Cupom ${coupon.code}`, deltaCents: -applied });
+      cents -= applied;
+    }
+  }
+
+  return { feeCents: Math.max(0, cents), freeApplied: false, zoneMatched: true, breakdown };
 }

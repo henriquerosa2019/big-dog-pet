@@ -198,6 +198,7 @@ export type Database = {
           driver_id: string | null;
           en_route_pickup_at: string | null;
           en_route_return_at: string | null;
+          fee_breakdown: Json | null;
           id: string;
           pickup_condition: string | null;
           pickup_confirmed_by: string | null;
@@ -230,6 +231,7 @@ export type Database = {
           driver_id?: string | null;
           en_route_pickup_at?: string | null;
           en_route_return_at?: string | null;
+          fee_breakdown?: Json | null;
           id?: string;
           pickup_condition?: string | null;
           pickup_confirmed_by?: string | null;
@@ -262,6 +264,7 @@ export type Database = {
           driver_id?: string | null;
           en_route_pickup_at?: string | null;
           en_route_return_at?: string | null;
+          fee_breakdown?: Json | null;
           id?: string;
           pickup_condition?: string | null;
           pickup_confirmed_by?: string | null;
@@ -382,6 +385,54 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      transport_settings: {
+        Row: {
+          id: boolean;
+          returning_client_discount_percent: number | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: boolean;
+          returning_client_discount_percent?: number | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: boolean;
+          returning_client_discount_percent?: number | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      transport_coupons: {
+        Row: {
+          active: boolean;
+          code: string;
+          created_at: string;
+          discount_type: string;
+          discount_value: number;
+          expires_at: string | null;
+          id: string;
+        };
+        Insert: {
+          active?: boolean;
+          code: string;
+          created_at?: string;
+          discount_type: string;
+          discount_value: number;
+          expires_at?: string | null;
+          id?: string;
+        };
+        Update: {
+          active?: boolean;
+          code?: string;
+          created_at?: string;
+          discount_type?: string;
+          discount_value?: number;
+          expires_at?: string | null;
+          id?: string;
+        };
+        Relationships: [];
       };
       care_reminders: {
         Row: {
