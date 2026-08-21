@@ -1,8 +1,16 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { CalendarPlus, Home, ShieldCheck, ShoppingBag, ShoppingCart, User } from "lucide-react";
+import {
+  CalendarPlus,
+  Home,
+  ShieldCheck,
+  ShoppingBag,
+  ShoppingCart,
+  Truck,
+  User,
+} from "lucide-react";
 import logo from "@/assets/petcura-logo.png";
 import { useCart } from "@/lib/cart";
-import { useAuth, useIsAdmin } from "@/hooks/useAuth";
+import { useAuth, useIsAdmin, useIsDriver } from "@/hooks/useAuth";
 import { CLINIC } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -15,13 +23,23 @@ const baseTabs = [
 ];
 
 const adminTab = { to: "/admin", label: "Admin", icon: ShieldCheck };
+const driverTab = { to: "/motorista", label: "Motorista", icon: Truck };
+
+// Tailwind's JIT purges unused classes, so the grid-cols class must be one of
+// these literal strings — never an interpolated `grid-cols-${n}` template.
+function gridColsClass(count: number): string {
+  if (count >= 7) return "grid-cols-7";
+  if (count === 6) return "grid-cols-6";
+  return "grid-cols-5";
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { count } = useCart();
   const { user } = useAuth();
   const isAdmin = useIsAdmin(user?.id);
-  const tabs = isAdmin ? [...baseTabs, adminTab] : baseTabs;
+  const isDriver = useIsDriver(user?.id);
+  const tabs = [...baseTabs, ...(isAdmin ? [adminTab] : []), ...(isDriver ? [driverTab] : [])];
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background shadow-soft">
@@ -58,7 +76,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main className="flex-1 pb-24">{children}</main>
 
       <nav className="fixed bottom-0 z-30 w-full max-w-md border-t border-border/60 bg-card/95 backdrop-blur">
-        <ul className={cn("grid", isAdmin ? "grid-cols-6" : "grid-cols-5")}>
+        <ul className={cn("grid", gridColsClass(tabs.length))}>
           {tabs.map((tab) => {
             const active = pathname === tab.to;
             return (

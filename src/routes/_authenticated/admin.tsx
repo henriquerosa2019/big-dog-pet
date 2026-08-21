@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { CheckCircle2, Eye, EyeOff, Gift, MessageCircle, Syringe } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, Gift, MessageCircle, Syringe, Truck } from "lucide-react";
 import { startOfDay, startOfMonth, startOfWeek } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useIsAdmin } from "@/hooks/useAuth";
@@ -33,6 +33,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TransportHistoryList } from "@/components/TransportHistoryList";
+import type { TablesUpdate } from "@/integrations/supabase/types";
+import {
+  logisticsTypeLabels,
+  nextOpsStatus,
+  opsStatusLabels,
+  opsStatusOrder,
+  opsStatusTimestampColumn,
+  opsStatusTutorMessage,
+  type LogisticsType,
+  type OpsStatus,
+} from "@/lib/transport";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -216,6 +228,58 @@ function Admin() {
       return data;
     },
   });
+
+  const { data: transportOrders } = useQuery({
+    queryKey: ["admin-transport-orders"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transport_orders")
+        .select(
+          "id, code, appointment_id, driver_id, price_cents, assigned_at, en_route_pickup_at, picked_up_at, arrived_shop_at, en_route_return_at, delivered_at, pickup_notes, return_notes, pickup_condition, return_condition, tutor_confirmed_at, appointments(user_id, pet_id, scheduled_at, status, ops_status, logistics_type, notes, service_price_cents, services(name), pets(name)), addresses(label, street, number, complement, district, reference), delivery_zones(name)",
+        )
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: driverRoles } = useQuery({
+    queryKey: ["admin-drivers"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "motorista");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: zones } = useQuery({
+    queryKey: ["admin-delivery-zones"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("delivery_zones")
+        .select("id, name, districts, price_cents, free_above_cents, eta_minutes, active, notes")
+        .order("price_cents");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const drivers = useMemo(
+    () =>
+      (driverRoles ?? []).map((r) => ({
+        id: r.user_id,
+        full_name: profileById.get(r.user_id)?.full_name ?? null,
+        phone: profileById.get(r.user_id)?.phone ?? null,
+      })),
+    [driverRoles, profileById],
+  );
 
   const dashboardBoundaries = useMemo(() => {
     const now = new Date();
@@ -571,6 +635,146 @@ function Admin() {
       }
     },
     onError: () => toast.error("N\u00e3o foi poss\u00edvel confirmar"),
+  });
+
+  // Advances an appointment's ops_status by one step (or to an explicitly picked
+  // status), stamps the matching transport_orders timestamp column when there is
+  // one, and writes a pet_status_history row — the audit trail for "segurança na
+  // retirada". For the transitions that matter to the tutor, also opens a
+  // WhatsApp link, mirroring confirmAppointment's "advance + notify" pattern.
+  const advanceOpsStatus = useMutation({
+    mutationFn: async (vars: {
+      appointmentId: string;
+      transportOrderId: string;
+      status: OpsStatus;
+      userId: string;
+      petName?: string | null;
+    }) => {
+      const { error: apptError } = await supabase
+        .from("appointments")
+        .update({ ops_status: vars.status })
+        .eq("id", vars.appointmentId);
+      if (apptError) throw apptError;
+
+      const timestampColumn = opsStatusTimestampColumn[vars.status];
+      if (timestampColumn) {
+        const { error: transportError } = await supabase
+          .from("transport_orders")
+          .update({
+            [timestampColumn]: new Date().toISOString(),
+          } as TablesUpdate<"transport_orders">)
+          .eq("id", vars.transportOrderId);
+        if (transportError) throw transportError;
+      }
+
+      const { error: historyError } = await supabase.from("pet_status_history").insert({
+        appointment_id: vars.appointmentId,
+        status: vars.status,
+        created_by: user!.id,
+      });
+      if (historyError) throw historyError;
+
+      return vars;
+    },
+    onSuccess: (vars) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
+      toast.success("Status atualizado");
+      const notifyOn: OpsStatus[] = ["em_deslocamento_retirada", "pet_retirado", "pet_entregue"];
+      if (notifyOn.includes(vars.status)) {
+        const client = profileById.get(vars.userId);
+        const message = `Olá${client?.full_name ? `, ${client.full_name}` : ""}! ${opsStatusTutorMessage[vars.status]}${vars.petName ? ` (${vars.petName})` : ""}`;
+        const link = whatsappLinkTo(client?.phone, message);
+        if (link) window.open(link, "_blank", "noopener,noreferrer");
+      }
+    },
+    onError: () => toast.error("Não foi possível atualizar o status"),
+  });
+
+  const assignDriver = useMutation({
+    mutationFn: async (vars: {
+      transportOrderId: string;
+      appointmentId: string;
+      driverId: string;
+      currentStatus: string;
+      userId: string;
+      petName?: string | null;
+    }) => {
+      const { error: transportError } = await supabase
+        .from("transport_orders")
+        .update({ driver_id: vars.driverId, assigned_at: new Date().toISOString() })
+        .eq("id", vars.transportOrderId);
+      if (transportError) throw transportError;
+
+      if (vars.currentStatus === "agendado") {
+        const { error: apptError } = await supabase
+          .from("appointments")
+          .update({ ops_status: "motorista_designado" })
+          .eq("id", vars.appointmentId);
+        if (apptError) throw apptError;
+        await supabase.from("pet_status_history").insert({
+          appointment_id: vars.appointmentId,
+          status: "motorista_designado",
+          created_by: user!.id,
+        });
+      }
+      return vars;
+    },
+    onSuccess: (vars) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
+      toast.success("Motorista designado");
+      const client = profileById.get(vars.userId);
+      const driver = profileById.get(vars.driverId);
+      const message = `Olá${client?.full_name ? `, ${client.full_name}` : ""}! O motorista ${driver?.full_name ?? ""} foi designado para buscar${vars.petName ? ` ${vars.petName}` : " seu pet"}.`;
+      const link = whatsappLinkTo(client?.phone, message);
+      if (link) window.open(link, "_blank", "noopener,noreferrer");
+    },
+    onError: () => toast.error("Não foi possível designar o motorista"),
+  });
+
+  const updateTransportPrice = useMutation({
+    mutationFn: async (vars: {
+      transportOrderId: string;
+      appointmentId: string;
+      priceCents: number;
+      servicePriceCents: number;
+    }) => {
+      const { error: transportError } = await supabase
+        .from("transport_orders")
+        .update({ price_cents: vars.priceCents })
+        .eq("id", vars.transportOrderId);
+      if (transportError) throw transportError;
+      const { error: apptError } = await supabase
+        .from("appointments")
+        .update({
+          transport_price_cents: vars.priceCents,
+          total_cents: vars.servicePriceCents + vars.priceCents,
+        })
+        .eq("id", vars.appointmentId);
+      if (apptError) throw apptError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
+      toast.success("Valor atualizado");
+    },
+    onError: () => toast.error("Não foi possível atualizar o valor"),
+  });
+
+  const updateZone = useMutation({
+    mutationFn: async ({
+      id,
+      values,
+    }: {
+      id: string;
+      values: Partial<{ price_cents: number; free_above_cents: number | null; active: boolean }>;
+    }) => {
+      const { error } = await supabase.from("delivery_zones").update(values).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-delivery-zones"] });
+      toast.success("Zona atualizada");
+    },
+    onError: () => toast.error("Não foi possível atualizar a zona"),
   });
 
   const updateOrder = useMutation({
@@ -934,6 +1138,9 @@ function Admin() {
           </TabsTrigger>
           <TabsTrigger value="agenda" className="shrink-0">
             Agendamentos
+          </TabsTrigger>
+          <TabsTrigger value="retirada-entrega" className="shrink-0">
+            Retirada/Entrega
           </TabsTrigger>
           <TabsTrigger value="retornos" className="shrink-0">
             Retornos
@@ -1791,6 +1998,177 @@ function Admin() {
           )}
         </TabsContent>
 
+        <TabsContent value="retirada-entrega" className="mt-4 space-y-4">
+          <div className="rounded-2xl bg-card p-3 shadow-card">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Zonas de entrega (preço por bairro)
+            </p>
+            <div className="mt-2 space-y-2">
+              {(zones ?? []).map((zone) => (
+                <ZoneRow
+                  key={zone.id}
+                  name={zone.name}
+                  districts={zone.districts}
+                  priceCents={zone.price_cents}
+                  freeAboveCents={zone.free_above_cents}
+                  active={zone.active}
+                  onSave={(priceCents, freeAboveCents) =>
+                    updateZone.mutate({
+                      id: zone.id,
+                      values: { price_cents: priceCents, free_above_cents: freeAboveCents },
+                    })
+                  }
+                  onToggle={() =>
+                    updateZone.mutate({ id: zone.id, values: { active: !zone.active } })
+                  }
+                />
+              ))}
+              {(zones ?? []).length === 0 && (
+                <p className="text-xs text-muted-foreground">Nenhuma zona cadastrada.</p>
+              )}
+            </div>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Pedidos de retirada/devolução. Designe um motorista e avance o status conforme o
+            andamento — o tutor recebe um aviso no WhatsApp nas etapas principais.
+          </p>
+
+          {(transportOrders ?? []).map((item) => {
+            const appt = item.appointments;
+            const currentStatus = (appt?.ops_status ?? "agendado") as OpsStatus;
+            const next = nextOpsStatus(currentStatus);
+            const client = appt ? profileById.get(appt.user_id) : undefined;
+            const address = item.addresses;
+            return (
+              <div key={item.id} className="rounded-2xl bg-card p-3 shadow-card">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">
+                      #{item.code} · {appt?.services?.name ?? "Serviço"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {appt ? formatDateTime(appt.scheduled_at) : ""}
+                      {appt?.pets?.name ? ` · ${appt.pets.name}` : ""}
+                      {client?.full_name ? ` · ${client.full_name}` : ""}
+                    </p>
+                  </div>
+                  <Badge className="shrink-0">{opsStatusLabels[currentStatus]}</Badge>
+                </div>
+
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {appt ? logisticsTypeLabels[appt.logistics_type as LogisticsType] : ""}
+                  {item.delivery_zones?.name ? ` · Zona: ${item.delivery_zones.name}` : ""}
+                </p>
+                {address && (
+                  <p className="text-xs text-muted-foreground">
+                    <Truck className="mr-1 inline h-3.5 w-3.5" />
+                    {address.street}
+                    {address.number ? `, ${address.number}` : ""}
+                    {address.complement ? ` - ${address.complement}` : ""} — {address.district}
+                    {address.reference ? ` (${address.reference})` : ""}
+                  </p>
+                )}
+
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Select
+                    {...(item.driver_id ? { value: item.driver_id } : {})}
+                    onValueChange={(driverId) =>
+                      appt &&
+                      assignDriver.mutate({
+                        transportOrderId: item.id,
+                        appointmentId: item.appointment_id,
+                        driverId,
+                        currentStatus,
+                        userId: appt.user_id,
+                        petName: appt.pets?.name ?? null,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="h-9 w-44 rounded-xl text-xs">
+                      <SelectValue placeholder="Motorista" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {drivers.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.full_name ?? d.phone ?? d.id.slice(0, 8)}
+                        </SelectItem>
+                      ))}
+                      {drivers.length === 0 && (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                          Nenhum motorista cadastrado
+                        </div>
+                      )}
+                    </SelectContent>
+                  </Select>
+
+                  <TransportPriceEditor
+                    priceCents={item.price_cents}
+                    onSave={(cents) =>
+                      appt &&
+                      updateTransportPrice.mutate({
+                        transportOrderId: item.id,
+                        appointmentId: item.appointment_id,
+                        priceCents: cents,
+                        servicePriceCents: appt.service_price_cents ?? 0,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {opsStatusOrder.map((status) => (
+                    <button
+                      key={status}
+                      onClick={() =>
+                        appt &&
+                        advanceOpsStatus.mutate({
+                          appointmentId: item.appointment_id,
+                          transportOrderId: item.id,
+                          status,
+                          userId: appt.user_id,
+                          petName: appt.pets?.name ?? null,
+                        })
+                      }
+                      className={
+                        currentStatus === status
+                          ? "rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground"
+                          : "rounded-lg bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground"
+                      }
+                    >
+                      {opsStatusLabels[status]}
+                    </button>
+                  ))}
+                </div>
+                {next && (
+                  <Button
+                    size="sm"
+                    className="mt-2 h-9 w-full rounded-xl"
+                    disabled={advanceOpsStatus.isPending}
+                    onClick={() =>
+                      appt &&
+                      advanceOpsStatus.mutate({
+                        appointmentId: item.appointment_id,
+                        transportOrderId: item.id,
+                        status: next,
+                        userId: appt.user_id,
+                        petName: appt.pets?.name ?? null,
+                      })
+                    }
+                  >
+                    Avançar: {opsStatusLabels[next]}
+                  </Button>
+                )}
+
+                <TransportHistoryList appointmentId={item.appointment_id} />
+              </div>
+            );
+          })}
+          {(transportOrders ?? []).length === 0 && (
+            <p className="text-sm text-muted-foreground">Nenhum pedido de retirada/devolução.</p>
+          )}
+        </TabsContent>
+
         <TabsContent value="retornos" className="mt-4 space-y-3">
           <p className="text-xs text-muted-foreground">
             Mensagens de retorno do dia. Escolha um tipo para liberar o calendário e ver outras
@@ -2037,6 +2415,121 @@ function CatalogRow({
           {active ? "Desativar" : "Ativar"}
         </Button>
       </div>
+    </div>
+  );
+}
+
+function ZoneRow({
+  name,
+  districts,
+  priceCents,
+  freeAboveCents,
+  active,
+  onSave,
+  onToggle,
+}: {
+  name: string;
+  districts: string[];
+  priceCents: number;
+  freeAboveCents: number | null;
+  active: boolean;
+  onSave: (priceCents: number, freeAboveCents: number | null) => void;
+  onToggle: () => void;
+}) {
+  const [price, setPrice] = useState((priceCents / 100).toFixed(2));
+  const [freeAbove, setFreeAbove] = useState(
+    freeAboveCents != null ? (freeAboveCents / 100).toFixed(2) : "",
+  );
+
+  return (
+    <div className="rounded-xl border border-border p-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-xs font-semibold">{name}</p>
+          <p className="truncate text-[11px] text-muted-foreground">{districts.join(", ")}</p>
+        </div>
+        <Badge variant={active ? "default" : "secondary"} className="shrink-0">
+          {active ? "ativa" : "inativa"}
+        </Badge>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Input
+          inputMode="decimal"
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          placeholder="Preço"
+          className="h-9 w-20 rounded-xl text-xs"
+        />
+        <Input
+          inputMode="decimal"
+          value={freeAbove}
+          onChange={(e) => setFreeAbove(e.target.value)}
+          placeholder="Grátis acima de"
+          className="h-9 w-28 rounded-xl text-xs"
+        />
+        <Button
+          size="sm"
+          className="h-9 rounded-xl"
+          onClick={() => {
+            const parsedPrice = priceSchema.safeParse(price.replace(",", "."));
+            if (!parsedPrice.success) {
+              toast.error("Preço inválido");
+              return;
+            }
+            let freeAboveCentsValue: number | null = null;
+            if (freeAbove.trim()) {
+              const parsedFree = priceSchema.safeParse(freeAbove.replace(",", "."));
+              if (!parsedFree.success) {
+                toast.error("Valor de isenção inválido");
+                return;
+              }
+              freeAboveCentsValue = Math.round(parsedFree.data * 100);
+            }
+            onSave(Math.round(parsedPrice.data * 100), freeAboveCentsValue);
+          }}
+        >
+          Salvar
+        </Button>
+        <Button size="sm" variant="secondary" className="h-9 rounded-xl" onClick={onToggle}>
+          {active ? "Desativar" : "Ativar"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function TransportPriceEditor({
+  priceCents,
+  onSave,
+}: {
+  priceCents: number;
+  onSave: (priceCents: number) => void;
+}) {
+  const [price, setPrice] = useState((priceCents / 100).toFixed(2));
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <Input
+        inputMode="decimal"
+        value={price}
+        onChange={(e) => setPrice(e.target.value)}
+        className="h-9 w-20 rounded-xl text-xs"
+      />
+      <Button
+        size="sm"
+        variant="secondary"
+        className="h-9 rounded-xl text-xs"
+        onClick={() => {
+          const parsed = priceSchema.safeParse(price.replace(",", "."));
+          if (!parsed.success) {
+            toast.error("Valor inválido");
+            return;
+          }
+          onSave(Math.round(parsed.data * 100));
+        }}
+      >
+        Ajustar taxa
+      </Button>
     </div>
   );
 }

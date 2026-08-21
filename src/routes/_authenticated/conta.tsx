@@ -17,6 +17,13 @@ import {
 } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { TransportHistoryList } from "@/components/TransportHistoryList";
+import {
+  logisticsTypeLabels,
+  opsStatusLabels,
+  type LogisticsType,
+  type OpsStatus,
+} from "@/lib/transport";
 
 export const Route = createFileRoute("/_authenticated/conta")({
   head: () => ({
@@ -59,7 +66,9 @@ function Conta() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("appointments")
-        .select("id, scheduled_at, status, notes, services(name, price_cents), pets(name)")
+        .select(
+          "id, scheduled_at, status, notes, logistics_type, ops_status, transport_price_cents, services(name, price_cents), pets(name)",
+        )
         .order("scheduled_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -284,24 +293,42 @@ function Conta() {
           </Link>
         </div>
         <ul className="mt-3 space-y-2">
-          {(appointments ?? []).map((item) => (
-            <li key={item.id} className="rounded-2xl bg-card p-3 shadow-card">
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">
-                    {item.services?.name ?? "Serviço"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatDateTime(item.scheduled_at)}
-                    {item.pets?.name ? ` · ${item.pets.name}` : ""}
-                  </p>
+          {(appointments ?? []).map((item) => {
+            const hasTransport = item.logistics_type && item.logistics_type !== "levar";
+            return (
+              <li key={item.id} className="rounded-2xl bg-card p-3 shadow-card">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">
+                      {item.services?.name ?? "Serviço"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDateTime(item.scheduled_at)}
+                      {item.pets?.name ? ` · ${item.pets.name}` : ""}
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="shrink-0 capitalize">
+                    {item.status}
+                  </Badge>
                 </div>
-                <Badge variant="secondary" className="shrink-0 capitalize">
-                  {item.status}
-                </Badge>
-              </div>
-            </li>
-          ))}
+                {hasTransport && (
+                  <div className="mt-2 border-t border-border pt-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        {logisticsTypeLabels[item.logistics_type as LogisticsType]}
+                        {item.transport_price_cents > 0 &&
+                          ` · ${formatBRL(item.transport_price_cents)}`}
+                      </p>
+                      <Badge className="shrink-0">
+                        {opsStatusLabels[item.ops_status as OpsStatus] ?? item.ops_status}
+                      </Badge>
+                    </div>
+                    <TransportHistoryList appointmentId={item.id} />
+                  </div>
+                )}
+              </li>
+            );
+          })}
           {(appointments ?? []).length === 0 && (
             <li className="text-sm text-muted-foreground">Nenhum agendamento ainda.</li>
           )}

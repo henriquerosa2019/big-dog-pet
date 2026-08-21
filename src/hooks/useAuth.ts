@@ -46,3 +46,29 @@ export function useIsAdmin(userId?: string | null) {
 
   return isAdmin;
 }
+
+export function useIsDriver(userId?: string | null) {
+  const [isDriver, setIsDriver] = useState(false);
+
+  useEffect(() => {
+    if (!userId) {
+      setIsDriver(false);
+      return;
+    }
+    let active = true;
+    supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "motorista")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (active) setIsDriver(Boolean(data));
+      });
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
+  return isDriver;
+}
