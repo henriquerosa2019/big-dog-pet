@@ -14,6 +14,8 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { CLINIC, daysUntil, formatDate, formatDateTime, whatsappLink } from "@/lib/format";
+import { petSizeLabels, type PetSize } from "@/lib/transport";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,6 +52,7 @@ export const Route = createFileRoute("/_authenticated/pets/$petId")({
 const fichaSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome do pet").max(60),
   species: z.string().trim().min(2, "Informe a espécie").max(30),
+  size: z.enum(["pequeno", "medio", "grande"]),
   breed: z.string().trim().max(60),
   sex: z.string().trim().max(20),
   birth_date: z.string().trim().max(10),
@@ -58,6 +61,8 @@ const fichaSchema = z.object({
   allergies: z.string().trim().max(300),
   notes: z.string().trim().max(500),
 });
+
+const petSizeOptions: PetSize[] = ["pequeno", "medio", "grande"];
 
 const vaccineSchema = z.object({
   vaccine_name: z.string().trim().min(2, "Informe a vacina").max(80),
@@ -142,7 +147,7 @@ function PetFicha() {
       const { data, error } = await supabase
         .from("pets")
         .select(
-          "id, name, species, breed, sex, birth_date, weight_kg, temperament, allergies, notes",
+          "id, name, species, size, breed, sex, birth_date, weight_kg, temperament, allergies, notes",
         )
         .eq("id", petId)
         .maybeSingle();
@@ -195,6 +200,7 @@ function PetFicha() {
   const [form, setForm] = useState({
     name: "",
     species: "",
+    size: "medio" as PetSize,
     breed: "",
     sex: "",
     birth_date: "",
@@ -209,6 +215,7 @@ function PetFicha() {
     setForm({
       name: pet.name ?? "",
       species: pet.species ?? "",
+      size: (pet.size as PetSize) ?? "medio",
       breed: pet.breed ?? "",
       sex: pet.sex ?? "",
       birth_date: pet.birth_date ?? "",
@@ -227,6 +234,7 @@ function PetFicha() {
         .update({
           name: parsed.name,
           species: parsed.species,
+          size: parsed.size,
           breed: parsed.breed || null,
           sex: parsed.sex || null,
           birth_date: parsed.birth_date || null,
@@ -356,9 +364,7 @@ function PetFicha() {
     onError: () => toast.error("Não foi possível remover"),
   });
 
-  const [recordFilter, setRecordFilter] = useState<"todos" | (typeof recordTypes)[number]>(
-    "todos",
-  );
+  const [recordFilter, setRecordFilter] = useState<"todos" | (typeof recordTypes)[number]>("todos");
   const [recordSearch, setRecordSearch] = useState("");
 
   const filteredRecords = (records ?? []).filter((r) => {
@@ -367,7 +373,8 @@ function PetFicha() {
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
-    const matchesSearch = !recordSearch.trim() || haystack.includes(recordSearch.trim().toLowerCase());
+    const matchesSearch =
+      !recordSearch.trim() || haystack.includes(recordSearch.trim().toLowerCase());
     return matchesType && matchesSearch;
   });
 
@@ -419,7 +426,10 @@ function PetFicha() {
 
   return (
     <div className="p-4">
-      <Link to="/conta" className="inline-flex items-center gap-1 text-xs font-semibold text-primary">
+      <Link
+        to="/conta"
+        className="inline-flex items-center gap-1 text-xs font-semibold text-primary"
+      >
         <ArrowLeft className="h-3.5 w-3.5" />
         Voltar para a conta
       </Link>
@@ -493,6 +503,29 @@ function PetFicha() {
                     onChange={(e) => setForm({ ...form, species: e.target.value })}
                     className="mt-1 h-11 rounded-xl"
                   />
+                </div>
+                <div className="col-span-2">
+                  <Label>Porte</Label>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    Define se pode ser transportado de moto na retirada/devolução.
+                  </p>
+                  <div className="mt-1 flex gap-2">
+                    {petSizeOptions.map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => setForm({ ...form, size })}
+                        className={cn(
+                          "flex-1 rounded-xl px-3 py-2 text-xs font-semibold",
+                          form.size === size
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-secondary text-secondary-foreground",
+                        )}
+                      >
+                        {petSizeLabels[size]}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="breed">Raça</Label>
@@ -676,9 +709,7 @@ function PetFicha() {
                         {reminderTypeLabels[r.reminder_type as (typeof reminderTypes)[number]]} ·{" "}
                         {r.completed ? "concluído" : formatDate(r.due_date)}
                       </p>
-                      {r.notes && (
-                        <p className="mt-1 text-xs text-muted-foreground">{r.notes}</p>
-                      )}
+                      {r.notes && <p className="mt-1 text-xs text-muted-foreground">{r.notes}</p>}
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
                       {!r.completed && (
@@ -834,9 +865,7 @@ function PetFicha() {
                     </Badge>
                   </div>
                   {r.diagnosis && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Diagnóstico: {r.diagnosis}
-                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">Diagnóstico: {r.diagnosis}</p>
                   )}
                   {r.treatment && (
                     <p className="text-xs text-muted-foreground">Tratamento: {r.treatment}</p>

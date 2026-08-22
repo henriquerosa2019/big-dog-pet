@@ -651,7 +651,7 @@ export type Database = {
           photo_url: string | null;
           preferred_vet: string | null;
           sex: string | null;
-          size: string | null;
+          size: string;
           special_care: string | null;
           species: string;
           temperament: string | null;
@@ -670,7 +670,7 @@ export type Database = {
           photo_url?: string | null;
           preferred_vet?: string | null;
           sex?: string | null;
-          size?: string | null;
+          size?: string;
           special_care?: string | null;
           species?: string;
           temperament?: string | null;
@@ -689,7 +689,7 @@ export type Database = {
           photo_url?: string | null;
           preferred_vet?: string | null;
           sex?: string | null;
-          size?: string | null;
+          size?: string;
           special_care?: string | null;
           species?: string;
           temperament?: string | null;
@@ -747,6 +747,7 @@ export type Database = {
           phone: string | null;
           preferred_payment: string | null;
           updated_at: string;
+          vehicle_type: string | null;
         };
         Insert: {
           birth_date?: string | null;
@@ -758,6 +759,7 @@ export type Database = {
           phone?: string | null;
           preferred_payment?: string | null;
           updated_at?: string;
+          vehicle_type?: string | null;
         };
         Update: {
           birth_date?: string | null;
@@ -769,6 +771,7 @@ export type Database = {
           phone?: string | null;
           preferred_payment?: string | null;
           updated_at?: string;
+          vehicle_type?: string | null;
         };
         Relationships: [];
       };

@@ -37,14 +37,19 @@ import { TransportHistoryList } from "@/components/TransportHistoryList";
 import type { TablesUpdate } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
 import {
+  isVehicleAllowedForPet,
   logisticsTypeLabels,
   nextOpsStatus,
   opsStatusLabels,
   opsStatusOrder,
   opsStatusTimestampColumn,
   opsStatusTutorMessage,
+  petSizeLabels,
+  vehicleTypeLabels,
   type LogisticsType,
   type OpsStatus,
+  type PetSize,
+  type VehicleType,
 } from "@/lib/transport";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -178,7 +183,7 @@ function Admin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, phone, birth_date, email, created_at");
+        .select("id, full_name, phone, birth_date, email, vehicle_type, created_at");
       if (error) throw error;
       return data;
     },
@@ -192,6 +197,7 @@ function Admin() {
         phone: string | null;
         birth_date: string | null;
         email: string | null;
+        vehicle_type: string | null;
       }
     >();
     for (const p of profiles ?? [])
@@ -200,6 +206,7 @@ function Admin() {
         phone: p.phone,
         birth_date: p.birth_date,
         email: p.email,
+        vehicle_type: p.vehicle_type,
       });
     return map;
   }, [profiles]);
@@ -237,7 +244,7 @@ function Admin() {
       const { data, error } = await supabase
         .from("transport_orders")
         .select(
-          "id, code, appointment_id, driver_id, price_cents, assigned_at, en_route_pickup_at, picked_up_at, arrived_shop_at, en_route_return_at, delivered_at, pickup_notes, return_notes, pickup_condition, return_condition, tutor_confirmed_at, appointments(user_id, pet_id, scheduled_at, status, ops_status, logistics_type, notes, service_price_cents, services(name), pets(name)), addresses(label, street, number, complement, district, reference), delivery_zones(name)",
+          "id, code, appointment_id, driver_id, price_cents, assigned_at, en_route_pickup_at, picked_up_at, arrived_shop_at, en_route_return_at, delivered_at, pickup_notes, return_notes, pickup_condition, return_condition, tutor_confirmed_at, appointments(user_id, pet_id, scheduled_at, status, ops_status, logistics_type, notes, service_price_cents, services(name), pets(name, size)), addresses(label, street, number, complement, district, reference), delivery_zones(name)",
         )
         .order("created_at", { ascending: false })
         .limit(100);
@@ -352,6 +359,7 @@ function Admin() {
         id: r.user_id,
         full_name: profileById.get(r.user_id)?.full_name ?? null,
         phone: profileById.get(r.user_id)?.phone ?? null,
+        vehicle_type: profileById.get(r.user_id)?.vehicle_type ?? null,
       })),
     [driverRoles, profileById],
   );
@@ -850,6 +858,21 @@ function Admin() {
       toast.success("Zona atualizada");
     },
     onError: () => toast.error("Não foi possível atualizar a zona"),
+  });
+
+  const updateDriverVehicle = useMutation({
+    mutationFn: async (vars: { driverId: string; vehicleType: VehicleType }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ vehicle_type: vars.vehicleType })
+        .eq("id", vars.driverId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
+      toast.success("Veículo do motorista atualizado");
+    },
+    onError: () => toast.error("Não foi possível atualizar o veículo"),
   });
 
   const updateOrder = useMutation({
@@ -2104,6 +2127,51 @@ function Admin() {
             </div>
           </div>
 
+          <div className="rounded-2xl bg-card p-3 shadow-card">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Motoristas e veículos
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Moto só pode ser designada para pets de porte pequeno. Pets médios/grandes exigem
+              carro.
+            </p>
+            <div className="mt-2 space-y-2">
+              {drivers.map((driver) => (
+                <div
+                  key={driver.id}
+                  className="flex items-center justify-between gap-2 rounded-xl bg-secondary px-3 py-2"
+                >
+                  <p className="min-w-0 truncate text-xs font-semibold">
+                    {driver.full_name ?? driver.phone ?? driver.id.slice(0, 8)}
+                  </p>
+                  <div className="flex shrink-0 overflow-hidden rounded-lg border border-border">
+                    {(["moto", "carro"] as VehicleType[]).map((vehicle) => (
+                      <button
+                        key={vehicle}
+                        type="button"
+                        disabled={updateDriverVehicle.isPending}
+                        onClick={() =>
+                          updateDriverVehicle.mutate({ driverId: driver.id, vehicleType: vehicle })
+                        }
+                        className={cn(
+                          "px-2.5 py-1 text-[11px] font-semibold",
+                          driver.vehicle_type === vehicle
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-card text-muted-foreground",
+                        )}
+                      >
+                        {vehicleTypeLabels[vehicle]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {drivers.length === 0 && (
+                <p className="text-xs text-muted-foreground">Nenhum motorista cadastrado.</p>
+              )}
+            </div>
+          </div>
+
           <ReturningClientDiscountEditor
             percent={transportSettings?.returning_client_discount_percent ?? null}
             isPending={updateTransportSettings.isPending}
@@ -2161,6 +2229,8 @@ function Admin() {
             const next = nextOpsStatus(currentStatus);
             const client = appt ? profileById.get(appt.user_id) : undefined;
             const address = item.addresses;
+            const petSize = (appt?.pets?.size as PetSize | undefined) ?? "medio";
+            const requiresCar = !isVehicleAllowedForPet("moto", petSize);
             return (
               <div key={item.id} className="rounded-2xl bg-card p-3 shadow-card">
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
@@ -2180,6 +2250,7 @@ function Admin() {
                 <p className="mt-1 text-xs text-muted-foreground">
                   {appt ? logisticsTypeLabels[appt.logistics_type as LogisticsType] : ""}
                   {item.delivery_zones?.name ? ` · Zona: ${item.delivery_zones.name}` : ""}
+                  {` · Porte ${petSizeLabels[petSize].toLowerCase()} · exige ${requiresCar ? "carro" : "moto ou carro"}`}
                 </p>
                 {address && (
                   <p className="text-xs text-muted-foreground">
@@ -2194,8 +2265,18 @@ function Admin() {
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <Select
                     {...(item.driver_id ? { value: item.driver_id } : {})}
-                    onValueChange={(driverId) =>
-                      appt &&
+                    onValueChange={(driverId) => {
+                      if (!appt) return;
+                      const driver = drivers.find((d) => d.id === driverId);
+                      if (
+                        driver?.vehicle_type &&
+                        !isVehicleAllowedForPet(driver.vehicle_type as VehicleType, petSize)
+                      ) {
+                        toast.error(
+                          `${driver.full_name ?? "Esse motorista"} está com veículo moto, mas o pet é de porte ${petSizeLabels[petSize].toLowerCase()} — designe um motorista de carro.`,
+                        );
+                        return;
+                      }
                       assignDriver.mutate({
                         transportOrderId: item.id,
                         appointmentId: item.appointment_id,
@@ -2203,18 +2284,27 @@ function Admin() {
                         currentStatus,
                         userId: appt.user_id,
                         petName: appt.pets?.name ?? null,
-                      })
-                    }
+                      });
+                    }}
                   >
                     <SelectTrigger className="h-9 w-44 rounded-xl text-xs">
                       <SelectValue placeholder="Motorista" />
                     </SelectTrigger>
                     <SelectContent>
-                      {drivers.map((d) => (
-                        <SelectItem key={d.id} value={d.id}>
-                          {d.full_name ?? d.phone ?? d.id.slice(0, 8)}
-                        </SelectItem>
-                      ))}
+                      {drivers.map((d) => {
+                        const blocked =
+                          d.vehicle_type != null &&
+                          !isVehicleAllowedForPet(d.vehicle_type as VehicleType, petSize);
+                        return (
+                          <SelectItem key={d.id} value={d.id}>
+                            {blocked ? "⚠️ " : ""}
+                            {d.full_name ?? d.phone ?? d.id.slice(0, 8)}
+                            {d.vehicle_type
+                              ? ` (${vehicleTypeLabels[d.vehicle_type as VehicleType]})`
+                              : ""}
+                          </SelectItem>
+                        );
+                      })}
                       {drivers.length === 0 && (
                         <div className="px-2 py-1.5 text-xs text-muted-foreground">
                           Nenhum motorista cadastrado

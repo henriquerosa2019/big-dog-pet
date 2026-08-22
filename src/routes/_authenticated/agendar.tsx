@@ -13,8 +13,10 @@ import {
   isCouponUsable,
   logisticsTypeLabels,
   needsAddress,
+  petSizeLabels,
   type Coupon,
   type LogisticsType,
+  type PetSize,
 } from "@/lib/transport";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,10 +56,13 @@ const hours = ["08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "1
 const petSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome do pet").max(60),
   species: z.string().trim().min(2).max(30),
+  size: z.enum(["pequeno", "medio", "grande"]),
   breed: z.string().trim().max(60).optional(),
   temperament: z.string().trim().max(300).optional(),
   allergies: z.string().trim().max(300).optional(),
 });
+
+const petSizeOptions: PetSize[] = ["pequeno", "medio", "grande"];
 
 const addressSchema = z.object({
   label: z.string().trim().max(40).optional(),
@@ -117,6 +122,7 @@ function Agendar() {
   const [newPet, setNewPet] = useState({
     name: "",
     species: "cachorro",
+    size: "medio" as PetSize,
     breed: "",
     temperament: "",
     allergies: "",
@@ -279,6 +285,7 @@ function Agendar() {
           owner_id: user.id,
           name: parsed.name,
           species: parsed.species,
+          size: parsed.size,
           breed: parsed.breed || null,
           temperament: parsed.temperament || null,
           allergies: parsed.allergies || null,
@@ -291,7 +298,14 @@ function Agendar() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["pets"] });
       setPetId(data.id);
-      setNewPet({ name: "", species: "cachorro", breed: "", temperament: "", allergies: "" });
+      setNewPet({
+        name: "",
+        species: "cachorro",
+        size: "medio",
+        breed: "",
+        temperament: "",
+        allergies: "",
+      });
       toast.success("Pet cadastrado");
     },
     onError: (error) => {
@@ -559,6 +573,28 @@ function Agendar() {
               onChange={(e) => setNewPet({ ...newPet, species: e.target.value })}
               className="h-10 rounded-xl"
             />
+            <div className="col-span-2">
+              <p className="mb-1 text-[11px] font-medium text-muted-foreground">
+                Porte (define se pode ser transportado de moto na retirada/devolução)
+              </p>
+              <div className="flex gap-2">
+                {petSizeOptions.map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => setNewPet({ ...newPet, size })}
+                    className={cn(
+                      "flex-1 rounded-xl px-3 py-2 text-xs font-semibold",
+                      newPet.size === size
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-secondary-foreground",
+                    )}
+                  >
+                    {petSizeLabels[size]}
+                  </button>
+                ))}
+              </div>
+            </div>
             <Input
               placeholder="Raça (opcional)"
               value={newPet.breed}

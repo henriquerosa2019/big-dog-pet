@@ -14,6 +14,38 @@ export function needsAddress(mode: LogisticsType): boolean {
   return mode !== "levar";
 }
 
+/** Porte do pet (pets.size), usado para decidir quais veículos podem
+ * transportá-lo na retirada/devolução. */
+export type PetSize = "pequeno" | "medio" | "grande";
+
+export const petSizeLabels: Record<PetSize, string> = {
+  pequeno: "Pequeno",
+  medio: "Médio",
+  grande: "Grande",
+};
+
+/** Veículo do motorista (profiles.vehicle_type). */
+export type VehicleType = "moto" | "carro";
+
+export const vehicleTypeLabels: Record<VehicleType, string> = {
+  moto: "Moto",
+  carro: "Carro",
+};
+
+/**
+ * Moto só é permitida para pets de porte pequeno (com caixa de transporte
+ * apropriada); médio e grande exigem carro. Um porte desconhecido/inválido é
+ * tratado como "não pequeno" — mais seguro exigir carro do que liberar moto
+ * por dado ausente.
+ */
+export function isVehicleAllowedForPet(
+  vehicleType: VehicleType,
+  petSize: string | null | undefined,
+): boolean {
+  if (vehicleType === "carro") return true;
+  return petSize === "pequeno";
+}
+
 /**
  * Escada canônica de status operacional (appointments.ops_status). Não é um enum
  * do banco (a coluna é texto livre), então esta lista é a fonte da verdade usada

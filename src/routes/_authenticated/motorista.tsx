@@ -8,13 +8,17 @@ import type { TablesUpdate } from "@/integrations/supabase/types";
 import { useAuth, useIsDriver } from "@/hooks/useAuth";
 import { formatDateTime, whatsappLinkTo } from "@/lib/format";
 import {
+  isVehicleAllowedForPet,
   logisticsTypeLabels,
   nextOpsStatus,
   opsStatusLabels,
   opsStatusTimestampColumn,
   opsStatusTutorMessage,
+  petSizeLabels,
   type LogisticsType,
   type OpsStatus,
+  type PetSize,
+  type VehicleType,
 } from "@/lib/transport";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,15 +40,21 @@ function Motorista() {
     queryKey: ["driver-profiles"],
     enabled: isDriver,
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("id, full_name, phone");
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, phone, vehicle_type");
       if (error) throw error;
       return data;
     },
   });
 
   const profileById = useMemo(() => {
-    const map = new Map<string, { full_name: string | null; phone: string | null }>();
-    for (const p of profiles ?? []) map.set(p.id, { full_name: p.full_name, phone: p.phone });
+    const map = new Map<
+      string,
+      { full_name: string | null; phone: string | null; vehicle_type: string | null }
+    >();
+    for (const p of profiles ?? [])
+      map.set(p.id, { full_name: p.full_name, phone: p.phone, vehicle_type: p.vehicle_type });
     return map;
   }, [profiles]);
 
@@ -55,7 +65,7 @@ function Motorista() {
       const { data, error } = await supabase
         .from("transport_orders")
         .select(
-          "id, code, appointment_id, driver_id, pickup_notes, appointments(user_id, scheduled_at, ops_status, logistics_type, notes, services(name), pets(name)), addresses(label, street, number, complement, district, reference)",
+          "id, code, appointment_id, driver_id, pickup_notes, appointments(user_id, scheduled_at, ops_status, logistics_type, notes, services(name), pets(name, size)), addresses(label, street, number, complement, district, reference)",
         )
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -138,6 +148,8 @@ function Motorista() {
 
   const myRoutes = (routes ?? []).filter((r) => r.driver_id === user?.id);
   const available = (routes ?? []).filter((r) => r.driver_id === null);
+  const myVehicleType = (user?.id ? profileById.get(user.id)?.vehicle_type : null) as
+    VehicleType | null | undefined;
 
   return (
     <div className="p-4">
@@ -176,33 +188,44 @@ function Motorista() {
       <section className="mt-6">
         <h2 className="font-display text-lg">Disponíveis para aceitar</h2>
         <div className="mt-2 space-y-2">
-          {available.map((item) => (
-            <div key={item.id} className="rounded-2xl bg-card p-3 shadow-card">
-              <p className="text-sm font-semibold">
-                #{item.code} · {item.appointments?.services?.name ?? "Serviço"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {item.appointments ? formatDateTime(item.appointments.scheduled_at) : ""}
-                {item.appointments?.pets?.name ? ` · ${item.appointments.pets.name}` : ""}
-              </p>
-              {item.addresses && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  <MapPin className="mr-1 inline h-3.5 w-3.5" />
-                  {item.addresses.street}
-                  {item.addresses.number ? `, ${item.addresses.number}` : ""} —{" "}
-                  {item.addresses.district}
+          {available.map((item) => {
+            const petSize = (item.appointments?.pets?.size as PetSize | undefined) ?? "medio";
+            const blocked =
+              myVehicleType != null && !isVehicleAllowedForPet(myVehicleType, petSize);
+            return (
+              <div key={item.id} className="rounded-2xl bg-card p-3 shadow-card">
+                <p className="text-sm font-semibold">
+                  #{item.code} · {item.appointments?.services?.name ?? "Serviço"}
                 </p>
-              )}
-              <Button
-                size="sm"
-                className="mt-2 h-9 w-full rounded-xl"
-                disabled={claimRoute.isPending}
-                onClick={() => claimRoute.mutate(item.id)}
-              >
-                Aceitar rota
-              </Button>
-            </div>
-          ))}
+                <p className="text-xs text-muted-foreground">
+                  {item.appointments ? formatDateTime(item.appointments.scheduled_at) : ""}
+                  {item.appointments?.pets?.name ? ` · ${item.appointments.pets.name}` : ""}
+                  {` · Porte ${petSizeLabels[petSize].toLowerCase()}`}
+                </p>
+                {item.addresses && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    <MapPin className="mr-1 inline h-3.5 w-3.5" />
+                    {item.addresses.street}
+                    {item.addresses.number ? `, ${item.addresses.number}` : ""} —{" "}
+                    {item.addresses.district}
+                  </p>
+                )}
+                {blocked && (
+                  <p className="mt-1 text-xs font-semibold text-destructive">
+                    Seu veículo é moto — esse pet exige carro.
+                  </p>
+                )}
+                <Button
+                  size="sm"
+                  className="mt-2 h-9 w-full rounded-xl"
+                  disabled={claimRoute.isPending || blocked}
+                  onClick={() => claimRoute.mutate(item.id)}
+                >
+                  Aceitar rota
+                </Button>
+              </div>
+            );
+          })}
           {available.length === 0 && (
             <p className="text-sm text-muted-foreground">Nenhuma rota disponível no momento.</p>
           )}
@@ -230,7 +253,7 @@ function RouteCard({
       logistics_type: string;
       notes: string | null;
       services: { name: string } | null;
-      pets: { name: string } | null;
+      pets: { name: string; size: string | null } | null;
     } | null;
     addresses: {
       label: string;
@@ -271,6 +294,9 @@ function RouteCard({
       <p className="mt-1 text-xs text-muted-foreground">
         {item.appointments
           ? logisticsTypeLabels[item.appointments.logistics_type as LogisticsType]
+          : ""}
+        {item.appointments?.pets?.size
+          ? ` · Porte ${petSizeLabels[item.appointments.pets.size as PetSize].toLowerCase()}`
           : ""}
       </p>
       {item.addresses && (
