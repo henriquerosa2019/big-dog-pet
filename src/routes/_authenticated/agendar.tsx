@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -137,6 +137,15 @@ function Agendar() {
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
 
+  // Aberta de forma síncrona no clique do botão "Confirmar agendamento" (ver
+  // onClick abaixo), antes de qualquer await. Isso preserva a autorização de
+  // gesto do usuário: se window.open só fosse chamado depois dos awaits do
+  // createAppointment (dentro do onSuccess), Safari/Chrome mobile bloqueiam o
+  // pop-up. Guardamos a referência e só definimos o destino (o link do
+  // WhatsApp) quando a resposta chega — a aba já está aberta, então isso não
+  // conta como um novo pop-up.
+  const whatsappWindowRef = useRef<Window | null>(null);
+
   const { data: services } = useQuery({
     queryKey: ["services"],
     queryFn: async () => {
@@ -176,6 +185,23 @@ function Agendar() {
       return data;
     },
   });
+
+  // Autosseleção do pet só quando há exatamente um cadastrado: poupa um toque
+  // sem risco de agendar silenciosamente para o pet errado quando há vários.
+  useEffect(() => {
+    if (pets && pets.length === 1 && !petId) {
+      setPetId(pets[0]!.id);
+    }
+  }, [pets, petId]);
+
+  // Autosseleção do endereço padrão (ou o mais recente, já que a query acima
+  // ordena is_default primeiro) assim que a lista carrega.
+  useEffect(() => {
+    if (addresses && addresses.length > 0 && !addressId) {
+      const defaultAddress = addresses.find((a) => a.is_default) ?? addresses[0]!;
+      setAddressId(defaultAddress.id);
+    }
+  }, [addresses, addressId]);
 
   const { data: zones } = useQuery({
     queryKey: ["delivery-zones"],
@@ -245,11 +271,12 @@ function Agendar() {
 
   const createPet = useMutation({
     mutationFn: async () => {
+      if (!user?.id) throw new Error("Usuário não autenticado.");
       const parsed = petSchema.parse(newPet);
       const { data, error } = await supabase
         .from("pets")
         .insert({
-          owner_id: user!.id,
+          owner_id: user.id,
           name: parsed.name,
           species: parsed.species,
           breed: parsed.breed || null,
@@ -276,11 +303,12 @@ function Agendar() {
 
   const createAddress = useMutation({
     mutationFn: async () => {
+      if (!user?.id) throw new Error("Usuário não autenticado.");
       const parsed = addressSchema.parse(newAddress);
       const { data, error } = await supabase
         .from("addresses")
         .insert({
-          user_id: user!.id,
+          user_id: user.id,
           label: parsed.label || "Casa",
           cep: parsed.cep || null,
           street: parsed.street,
@@ -337,6 +365,7 @@ function Agendar() {
 
   const createAppointment = useMutation({
     mutationFn: async () => {
+      if (!user?.id) throw new Error("Usuário não autenticado.");
       if (!serviceId) throw new Error("Escolha um serviço");
       const scheduled = new Date(`${date}T${time}:00`);
       if (Number.isNaN(scheduled.getTime())) throw new Error("Data inválida");
@@ -358,7 +387,7 @@ function Agendar() {
       const { data: appt, error } = await supabase
         .from("appointments")
         .insert({
-          user_id: user!.id,
+          user_id: user.id,
           service_id: serviceId,
           pet_id: petId,
           scheduled_at: scheduled.toISOString(),
@@ -392,7 +421,7 @@ function Agendar() {
       const { error: historyError } = await supabase.from("pet_status_history").insert({
         appointment_id: appt.id,
         status: "agendado",
-        created_by: user!.id,
+        created_by: user.id,
       });
       if (historyError) console.error(historyError);
 
@@ -408,11 +437,22 @@ function Agendar() {
           ? `\n• Retirada: ${selectedAddress.street}${selectedAddress.number ? `, ${selectedAddress.number}` : ""} - ${selectedAddress.district}\n• Modalidade: ${logisticsTypeLabels[logisticsType]}\n• Taxa: ${feeLine}`
           : "";
       const message = `Olá, ${CLINIC.name}! Solicito a liberação/autorização do agendamento:\n• Serviço: ${serviceName}\n• Pet: ${petName ?? "não informado"}\n• Data: ${formatDateTime(scheduled)}${addressLine}${notes.trim() ? `\n• Observações: ${notes.trim()}` : ""}`;
-      window.open(whatsappLink(message), "_blank", "noopener,noreferrer");
+      const link = whatsappLink(message);
+      const preOpened = whatsappWindowRef.current;
+      if (preOpened && !preOpened.closed) {
+        // A aba já foi aberta de forma síncrona no clique do botão — só
+        // definir o destino agora não conta como um novo pop-up.
+        preOpened.location.href = link;
+      } else {
+        // Pop-up bloqueado mesmo assim (ex.: configuração restritiva do
+        // navegador): não perde a confirmação, mas navega a própria aba.
+        window.location.href = link;
+      }
       toast.success("Agendamento enviado! Confirme a liberação pelo WhatsApp.");
       navigate({ to: "/conta" });
     },
     onError: (error) => {
+      whatsappWindowRef.current?.close();
       toast.error(error instanceof Error ? error.message : "Não foi possível agendar");
     },
   });
@@ -607,7 +647,17 @@ function Agendar() {
           {logisticsOptions.map((option) => (
             <button
               key={option.value}
-              onClick={() => setLogisticsType(option.value)}
+              onClick={() => {
+                setLogisticsType(option.value);
+                if (!needsAddress(option.value)) {
+                  // Sem transporte, o cupom não tem efeito nenhum — limpa pra
+                  // não reaparecer "magicamente" aplicado se o tutor voltar
+                  // para um modo com retirada/devolução mais tarde.
+                  setAppliedCoupon(null);
+                  setCouponCode("");
+                  setCouponError(null);
+                }
+              }}
               className={cn(
                 "rounded-xl px-3 py-2 text-left text-xs font-semibold",
                 logisticsType === option.value
@@ -777,7 +827,14 @@ function Agendar() {
           availableHours.length === 0 ||
           (needsAddress(logisticsType) && !addressId)
         }
-        onClick={() => createAppointment.mutate()}
+        onClick={() => {
+          // Abre a aba do WhatsApp já aqui, de forma síncrona no clique —
+          // antes dos awaits do createAppointment — para não ser bloqueada
+          // como pop-up pelo navegador. O destino é definido depois, no
+          // onSuccess, quando já temos o texto da mensagem.
+          whatsappWindowRef.current = window.open("", "_blank");
+          createAppointment.mutate();
+        }}
       >
         {createAppointment.isPending ? "Enviando..." : "Confirmar agendamento"}
       </Button>
