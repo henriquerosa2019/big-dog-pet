@@ -81,17 +81,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "PetCura | Consultório Veterinário na Tijuca" },
+      { title: "Big Dog Pet | Banho e Tosa em Franco da Rocha" },
       {
         name: "description",
         content:
-          "Agende banho, tosa e consultas veterinárias e compre produtos para o seu pet no PetCura, na Tijuca.",
+          "Agende banho e tosa e compre acessórios e produtos para o seu pet na Big Dog Pet, em Franco da Rocha.",
       },
-      { name: "author", content: "Consultório Veterinário PetCura" },
-      { property: "og:title", content: "PetCura | Consultório Veterinário na Tijuca" },
+      { name: "author", content: "Big Dog Pet" },
+      { name: "theme-color", content: "#1d76bd" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      { name: "apple-mobile-web-app-title", content: "Big Dog Pet" },
+      { property: "og:title", content: "Big Dog Pet | Banho e Tosa em Franco da Rocha" },
       {
         property: "og:description",
-        content: "Agendamento online de banho, tosa e veterinário + loja para o seu pet.",
+        content: "Agendamento online de banho e tosa + loja de acessórios para o seu pet.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -105,6 +110,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700;9..144,900&family=DM+Sans:wght@400;500;700&display=swap",
       },
       { rel: "icon", type: "image/png", href: "/favicon.png" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
     ],
   }),
   shellComponent: RootShell,
@@ -130,6 +137,13 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+
+  // Registers the service worker so the browser offers "Instalar app" /
+  // "Adicionar à tela inicial" when the link is opened (PWA install prompt).
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  }, []);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {

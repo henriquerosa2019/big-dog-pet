@@ -13,16 +13,16 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/loja")({
   head: () => ({
     meta: [
-      { title: "Loja PetCura | Ração, higiene e acessórios para pets" },
+      { title: "Loja Big Dog Pet | Ração, higiene e acessórios para pets" },
       {
         name: "description",
         content:
-          "Compre ração, medicamentos, produtos de higiene e acessórios para cães e gatos na loja do PetCura, na Tijuca.",
+          "Compre ração, medicamentos, produtos de higiene e acessórios para cães e gatos na loja do Big Dog Pet, em Franco da Rocha.",
       },
-      { property: "og:title", content: "Loja PetCura | Produtos para cães e gatos" },
+      { property: "og:title", content: "Loja Big Dog Pet | Produtos para cães e gatos" },
       {
         property: "og:description",
-        content: "Monte seu pedido e finalize pelo WhatsApp do PetCura.",
+        content: "Monte seu pedido e finalize pelo WhatsApp do Big Dog Pet.",
       },
     ],
   }),
@@ -63,7 +63,7 @@ function Loja() {
 
   return (
     <div className="p-4">
-      <h1 className="font-display text-2xl">Loja PetCura</h1>
+      <h1 className="font-display text-2xl">Loja Big Dog Pet</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Monte seu pedido e finalize pelo WhatsApp com a nossa equipe.
       </p>

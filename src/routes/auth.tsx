@@ -13,14 +13,14 @@ import { Label } from "@/components/ui/label";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Entrar | PetCura" },
+      { title: "Entrar | Big Dog Pet" },
       {
         name: "description",
         content:
-          "Acesse sua conta PetCura para agendar banho, tosa e consultas veterinárias e acompanhar seus pedidos.",
+          "Acesse sua conta Big Dog Pet para agendar banho e tosa e acompanhar seus pedidos.",
       },
-      { property: "og:title", content: "Entrar | PetCura" },
-      { property: "og:description", content: "Acesse sua conta PetCura." },
+      { property: "og:title", content: "Entrar | Big Dog Pet" },
+      { property: "og:description", content: "Acesse sua conta Big Dog Pet." },
     ],
   }),
   component: Auth,

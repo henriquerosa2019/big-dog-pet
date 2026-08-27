@@ -12,6 +12,12 @@ CREATE TABLE IF NOT EXISTS public.care_reminders (
   updated_at timestamp with time zone NOT NULL DEFAULT now()
 );
 
+-- NOTE (clone big-dog-pet, 2026-08-27): CREATE TABLE IF NOT EXISTS above is a
+-- no-op when care_reminders already exists (created by an earlier migration
+-- in this same clone run), so source_record_id needs an explicit backfill.
+ALTER TABLE public.care_reminders
+  ADD COLUMN IF NOT EXISTS source_record_id uuid REFERENCES public.medical_records(id) ON DELETE SET NULL;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.care_reminders TO authenticated;
 GRANT ALL ON public.care_reminders TO service_role;
 ALTER TABLE public.care_reminders ENABLE ROW LEVEL SECURITY;

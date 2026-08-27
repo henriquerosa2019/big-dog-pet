@@ -12,10 +12,10 @@ import { Label } from "@/components/ui/label";
 export const Route = createFileRoute("/redefinir-senha")({
   head: () => ({
     meta: [
-      { title: "Redefinir senha | PetCura" },
+      { title: "Redefinir senha | Big Dog Pet" },
       {
         name: "description",
-        content: "Defina uma nova senha para sua conta PetCura.",
+        content: "Defina uma nova senha para sua conta Big Dog Pet.",
       },
     ],
   }),
@@ -85,7 +85,7 @@ function RedefinirSenha() {
     <div className="p-5">
       <h1 className="font-display text-2xl">Definir nova senha</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Escolha uma nova senha para sua conta PetCura.
+        Escolha uma nova senha para sua conta Big Dog Pet.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-3">

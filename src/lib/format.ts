@@ -30,14 +30,13 @@ export function daysUntil(value: string): number {
 }
 
 export const CLINIC = {
-  name: "PetCura",
-  fullName: "Consultório Veterinário PetCura",
-  address: "Rua Uruguai, 283 - loja A - Tijuca, Rio de Janeiro",
-  phoneDisplay: "(21) 99379-3746",
-  whatsapp: "5521993793746",
-  email: "petcuraveterinaria@gmail.com",
-  instagram: "@PetcuraVet",
-  responsible: "Dr. Rafael Barbi - CRMV-RJ 19329",
+  name: "Big Dog Pet",
+  fullName: "Big Dog Pet - Banho e Tosa",
+  tagline: "Acessórios | Banho e Tosa | Produtos p/ Pet",
+  unit: "Loja 3",
+  address: "Rua Rangel Pestana, 56 - Vila Bazú, Franco da Rocha - SP",
+  phoneDisplay: "(11) 4819-7915",
+  whatsapp: "5511971845125",
 } as const;
 
 export function whatsappLink(message: string): string {

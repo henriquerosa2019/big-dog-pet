@@ -55,13 +55,13 @@ import {
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
     meta: [
-      { title: "Painel administrativo | PetCura" },
+      { title: "Painel administrativo | Big Dog Pet" },
       {
         name: "description",
         content:
-          "Gerencie agendamentos, pedidos, serviços e produtos do Consultório Veterinário PetCura.",
+          "Gerencie agendamentos, pedidos, serviços e produtos do Big Dog Pet.",
       },
-      { property: "og:title", content: "Painel administrativo | PetCura" },
+      { property: "og:title", content: "Painel administrativo | Big Dog Pet" },
       { property: "og:description", content: "Gestão de serviços, produtos e atendimentos." },
     ],
   }),
@@ -536,7 +536,7 @@ function Admin() {
     onSuccess: (result) => {
       if (result.duplicate) {
         setDuplicateEmailNotice(true);
-        toast.error("Esse e-mail já tem conta cadastrada no Petcura.");
+        toast.error("Esse e-mail já tem conta cadastrada no Big Dog Pet.");
         return;
       }
       setDuplicateEmailNotice(false);
@@ -1214,7 +1214,7 @@ function Admin() {
       <div className="p-8 text-center">
         <h1 className="font-display text-xl">Acesso restrito</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Esta área é exclusiva da equipe do PetCura.
+          Esta área é exclusiva da equipe do Big Dog Pet.
         </p>
       </div>
     );
@@ -1563,7 +1563,7 @@ function Admin() {
         <TabsContent value="novo-cliente" className="mt-4 space-y-3">
           {duplicateEmailNotice && (
             <div className="rounded-2xl border-2 border-primary/40 bg-secondary p-3">
-              <p className="text-sm font-semibold">Esse e-mail já tem conta no Petcura</p>
+              <p className="text-sm font-semibold">Esse e-mail já tem conta no Big Dog Pet</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 Peça para o cliente entrar com e-mail e senha na aba Conta, no aparelho dele. Não é
                 possível fazer login por essa tela sem encerrar sua sessão de administrador.

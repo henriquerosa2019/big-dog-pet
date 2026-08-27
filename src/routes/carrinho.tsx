@@ -15,14 +15,14 @@ import { Textarea } from "@/components/ui/textarea";
 export const Route = createFileRoute("/carrinho")({
   head: () => ({
     meta: [
-      { title: "Carrinho | Loja PetCura" },
+      { title: "Carrinho | Loja Big Dog Pet" },
       {
         name: "description",
         content:
-          "Revise os produtos escolhidos e finalize o pedido pelo WhatsApp do Consultório Veterinário PetCura.",
+          "Revise os produtos escolhidos e finalize o pedido pelo WhatsApp do Big Dog Pet.",
       },
-      { property: "og:title", content: "Carrinho | Loja PetCura" },
-      { property: "og:description", content: "Finalize seu pedido pelo WhatsApp do PetCura." },
+      { property: "og:title", content: "Carrinho | Loja Big Dog Pet" },
+      { property: "og:description", content: "Finalize seu pedido pelo WhatsApp do Big Dog Pet." },
     ],
   }),
   component: Carrinho,

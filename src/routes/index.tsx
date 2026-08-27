@@ -1,16 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Bath,
-  Gift,
-  Instagram,
-  Mail,
-  MapPin,
-  MessageCircle,
-  Scissors,
-  Stethoscope,
-  Syringe,
-} from "lucide-react";
+import { Bath, Gift, MapPin, MessageCircle, Scissors, Sparkles, Stethoscope } from "lucide-react";
 import heroImage from "@/assets/hero-pets.jpg";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,16 +10,16 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "PetCura Tijuca | Banho, Tosa e Veterinário com agendamento online" },
+      { title: "Big Dog Pet | Banho, Tosa e Acessórios em Franco da Rocha" },
       {
         name: "description",
         content:
-          "Consultório Veterinário PetCura na Tijuca: consultas, vacinas, exames, microchipagem, banho e tosa. Agende online e compre produtos para o seu pet.",
+          "Big Dog Pet, em Franco da Rocha: banho, tosa, acessórios e produtos para o seu pet. Agende online.",
       },
-      { property: "og:title", content: "PetCura Tijuca | Banho, Tosa e Veterinário" },
+      { property: "og:title", content: "Big Dog Pet | Banho e Tosa em Franco da Rocha" },
       {
         property: "og:description",
-        content: "Agendamento online de serviços e loja virtual do seu pet na Tijuca.",
+        content: "Agendamento online de banho e tosa + loja de acessórios pro seu pet.",
       },
     ],
   }),
@@ -101,7 +91,7 @@ function Home() {
       <section className="relative">
         <img
           src={heroImage}
-          alt="Veterinária cuidando de um cão e um gato no consultório PetCura"
+          alt="Profissional cuidando de um cão e um gato na Big Dog Pet"
           width={1200}
           height={912}
           className="h-60 w-full object-cover"
@@ -109,13 +99,13 @@ function Home() {
         <div className="absolute inset-0 bg-gradient-to-t from-primary/85 via-primary/40 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 p-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gold">
-            Tijuca · Rio de Janeiro
+            {CLINIC.unit} · Vila Bazú, Franco da Rocha
           </p>
           <h1 className="mt-1 font-display text-3xl leading-tight text-primary-foreground">
-            Cuidado completo para quem faz parte da família
+            A vida do seu pet em boas mãos
           </h1>
           <p className="mt-2 text-sm text-primary-foreground/85">
-            Consultas, vacinas, exames, microchipagem, banho e tosa.
+            {CLINIC.tagline}.
           </p>
         </div>
       </section>
@@ -155,7 +145,7 @@ function Home() {
         </p>
         <ul className="mt-4 space-y-3">
           {(services ?? []).map((service) => {
-            const Icon = categoryIcons[service.category] ?? Syringe;
+            const Icon = categoryIcons[service.category] ?? Sparkles;
             return (
               <li
                 key={service.id}
@@ -188,28 +178,15 @@ function Home() {
         <ul className="mt-3 space-y-3 text-sm">
           <li className="flex items-start gap-2">
             <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-            {CLINIC.address}
+            {CLINIC.unit}: {CLINIC.address}
           </li>
           <li className="flex items-center gap-2">
             <MessageCircle className="h-4 w-4 shrink-0 text-primary" />
-            <a href={whatsappLink("Olá! Vim pelo app do PetCura.")} className="underline">
+            <a href={whatsappLink("Olá! Vim pelo app da Big Dog Pet.")} className="underline">
               {CLINIC.phoneDisplay}
             </a>
           </li>
-          <li className="flex items-center gap-2">
-            <Mail className="h-4 w-4 shrink-0 text-primary" />
-            <a href={`mailto:${CLINIC.email}`} className="break-all underline">
-              {CLINIC.email}
-            </a>
-          </li>
-          <li className="flex items-center gap-2">
-            <Instagram className="h-4 w-4 shrink-0 text-primary" />
-            {CLINIC.instagram}
-          </li>
         </ul>
-        <p className="mt-4 text-xs text-muted-foreground">
-          Responsável técnico: {CLINIC.responsible}
-        </p>
       </section>
     </div>
   );

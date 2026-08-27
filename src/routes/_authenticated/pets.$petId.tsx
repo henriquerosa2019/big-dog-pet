@@ -33,16 +33,16 @@ import {
 export const Route = createFileRoute("/_authenticated/pets/$petId")({
   head: () => ({
     meta: [
-      { title: "Ficha do pet | PetCura" },
+      { title: "Ficha do pet | Big Dog Pet" },
       {
         name: "description",
         content:
-          "Clínica médica do pet: ficha, carteira de vacinas, lembretes de retorno e prontuário veterinário no PetCura.",
+          "Ficha do pet na Big Dog Pet: dados, carteira de vacinas, lembretes de retorno e histórico de cuidados.",
       },
-      { property: "og:title", content: "Ficha do pet | PetCura" },
+      { property: "og:title", content: "Ficha do pet | Big Dog Pet" },
       {
         property: "og:description",
-        content: "Temperamento, alergias, vacinas, retornos e prontuário veterinário do seu pet.",
+        content: "Temperamento, alergias, vacinas, retornos e histórico de cuidados do seu pet.",
       },
     ],
   }),
@@ -127,10 +127,10 @@ function WeightChart({ points }: { points: { date: string; weight: number }[] })
       </svg>
       <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
         <span>
-          {formatDate(points[0].date)} · {points[0].weight}kg
+          {formatDate(points[0]!.date)} · {points[0]!.weight}kg
         </span>
         <span>
-          {formatDate(points[points.length - 1].date)} · {points[points.length - 1].weight}kg
+          {formatDate(points[points.length - 1]!.date)} · {points[points.length - 1]!.weight}kg
         </span>
       </div>
     </div>
@@ -803,7 +803,7 @@ function PetFicha() {
           <TabsContent value="prontuario" className="mt-3 space-y-3 print:mt-0">
             <div className="flex items-center justify-between gap-2 print:hidden">
               <p className="text-xs text-muted-foreground">
-                Registros preenchidos pela equipe clínica do {CLINIC.name}.
+                Registros preenchidos pela equipe do {CLINIC.name}.
               </p>
               <Button
                 variant="ghost"

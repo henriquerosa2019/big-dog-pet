@@ -2,16 +2,17 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   CalendarPlus,
   Home,
+  MessageCircle,
   ShieldCheck,
   ShoppingBag,
   ShoppingCart,
   Truck,
   User,
 } from "lucide-react";
-import logo from "@/assets/petcura-logo.png";
+import logo from "@/assets/bigdog-logo.png";
 import { useCart } from "@/lib/cart";
 import { useAuth, useIsAdmin, useIsDriver } from "@/hooks/useAuth";
-import { CLINIC } from "@/lib/format";
+import { CLINIC, whatsappLink } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const baseTabs = [
@@ -48,7 +49,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Link to="/" className="flex min-w-0 items-center gap-2">
             <img
               src={logo}
-              alt="Logo PetCura: cão e gato em azul com moldura dourada"
+              alt="Logo Big Dog Pet: pata de cachorro em círculo azul"
               width={40}
               height={40}
               className="h-10 w-10 shrink-0"
@@ -58,17 +59,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {CLINIC.name}
               </span>
               <span className="block truncate text-[11px] uppercase tracking-widest text-muted-foreground">
-                Consultório Veterinário
+                Banho e Tosa
               </span>
             </span>
           </Link>
           <a
-            href={`https://instagram.com/${CLINIC.instagram.replace("@", "")}`}
+            href={whatsappLink("Olá! Vim pelo app da Big Dog Pet.")}
             target="_blank"
             rel="noreferrer"
-            className="shrink-0 rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground"
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground"
           >
-            {CLINIC.instagram}
+            <MessageCircle className="h-3.5 w-3.5" />
+            WhatsApp
           </a>
         </div>
       </header>

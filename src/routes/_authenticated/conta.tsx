@@ -28,13 +28,13 @@ import {
 export const Route = createFileRoute("/_authenticated/conta")({
   head: () => ({
     meta: [
-      { title: "Minha conta | PetCura" },
+      { title: "Minha conta | Big Dog Pet" },
       {
         name: "description",
         content:
-          "Acompanhe seus agendamentos, pedidos e pets cadastrados no Consultório Veterinário PetCura.",
+          "Acompanhe seus agendamentos, pedidos e pets cadastrados no Big Dog Pet.",
       },
-      { property: "og:title", content: "Minha conta | PetCura" },
+      { property: "og:title", content: "Minha conta | Big Dog Pet" },
       { property: "og:description", content: "Seus agendamentos, pedidos e pets em um só lugar." },
     ],
   }),

@@ -26,7 +26,7 @@ import { TransportHistoryList } from "@/components/TransportHistoryList";
 
 export const Route = createFileRoute("/_authenticated/motorista")({
   head: () => ({
-    meta: [{ title: "Painel do motorista | PetCura" }],
+    meta: [{ title: "Painel do motorista | Big Dog Pet" }],
   }),
   component: Motorista,
 });
@@ -140,7 +140,7 @@ function Motorista() {
       <div className="p-4">
         <h1 className="font-display text-2xl">Acesso restrito</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Esta área é exclusiva para motoristas do PetCura.
+          Esta área é exclusiva para motoristas do Big Dog Pet.
         </p>
       </div>
     );
@@ -272,7 +272,7 @@ function RouteCard({
   const next = nextOpsStatus(currentStatus);
   const talkLink = whatsappLinkTo(
     client?.phone,
-    `Olá${client?.full_name ? `, ${client.full_name}` : ""}! Aqui é o motorista do PetCura.`,
+    `Olá${client?.full_name ? `, ${client.full_name}` : ""}! Aqui é o motorista do Big Dog Pet.`,
   );
 
   return (

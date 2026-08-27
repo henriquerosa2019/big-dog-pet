@@ -65,7 +65,7 @@ CREATE TABLE public.services (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   description TEXT,
-  category TEXT NOT NULL DEFAULT 'veterinario',
+  category TEXT NOT NULL DEFAULT 'banho',
   price_cents INTEGER NOT NULL DEFAULT 0,
   duration_min INTEGER NOT NULL DEFAULT 30,
   active BOOLEAN NOT NULL DEFAULT true,
@@ -185,10 +185,7 @@ INSERT INTO public.services (name, description, category, price_cents, duration_
   ('Banho + Tosa Higiênica', 'Banho completo com tosa higiênica e corte de unhas.', 'banho', 9000, 90),
   ('Tosa na Máquina', 'Tosa completa na máquina, no padrão da raça.', 'tosa', 8500, 90),
   ('Tosa na Tesoura', 'Tosa artesanal na tesoura, acabamento premium.', 'tosa', 12000, 120),
-  ('Consulta Veterinária', 'Avaliação clínica completa com o Dr. Rafael Barbi.', 'veterinario', 15000, 30),
-  ('Vacinação', 'Aplicação de vacinas V8, V10, antirrábica e gripe canina.', 'veterinario', 9000, 20),
-  ('Exames Laboratoriais', 'Coleta de material para exames de sangue, urina e fezes.', 'veterinario', 13000, 30),
-  ('Microchipagem', 'Implante de microchip de identificação com registro nacional.', 'veterinario', 18000, 20);
+  ('Hidratação e Escovação', 'Hidratação profunda da pelagem com escovação anti-nós.', 'banho', 4000, 40);
 
 INSERT INTO public.products (name, description, category, price_cents, stock) VALUES
   ('Ração Premium Cães Adultos 15kg', 'Ração super premium rica em proteínas para cães adultos.', 'alimentacao', 27990, 12),

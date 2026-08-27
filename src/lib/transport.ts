@@ -92,7 +92,7 @@ export const opsStatusTutorMessage: Record<OpsStatus, string> = {
   servico_concluido: "O serviço foi concluído!",
   em_rota_devolucao: "Seu pet está voltando para casa.",
   pet_entregue: "Seu pet foi entregue! 🐶❤️",
-  finalizado: "Atendimento finalizado. Obrigado por confiar no PetCura!",
+  finalizado: "Atendimento finalizado. Obrigado por confiar no Big Dog Pet!",
   cancelado: "Este agendamento foi cancelado.",
 };
 

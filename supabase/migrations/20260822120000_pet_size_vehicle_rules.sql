@@ -16,6 +16,12 @@
 -- Default 'medio' (e não 'pequeno') de propósito: um pet sem porte definido
 -- ainda deve exigir carro até o tutor/admin confirmarem que é realmente
 -- pequeno — mais seguro do que liberar moto por omissão de dado.
+--
+-- NOTE (clone big-dog-pet, 2026-08-27): a migração original do pet-care-hub
+-- pressupõe que a coluna `size` já existe (foi criada fora de uma migration,
+-- direto em produção — ver project memory sobre drift de schema). Neste
+-- banco novo ela nunca existiu, então precisa ser criada aqui antes de alterá-la.
+ALTER TABLE public.pets ADD COLUMN IF NOT EXISTS size text;
 UPDATE public.pets SET size = 'medio' WHERE size IS NULL;
 ALTER TABLE public.pets ALTER COLUMN size SET DEFAULT 'medio';
 ALTER TABLE public.pets ALTER COLUMN size SET NOT NULL;

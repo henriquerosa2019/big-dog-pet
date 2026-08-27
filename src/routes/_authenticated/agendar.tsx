@@ -29,16 +29,16 @@ export const Route = createFileRoute("/_authenticated/agendar")({
     typeof search["campanha"] === "string" ? { campanha: search["campanha"] as string } : {},
   head: () => ({
     meta: [
-      { title: "Agendar serviço | PetCura" },
+      { title: "Agendar serviço | Big Dog Pet" },
       {
         name: "description",
         content:
-          "Escolha banho, tosa ou atendimento veterinário, selecione data e horário e confirme o agendamento no PetCura.",
+          "Escolha o serviço de banho ou tosa, selecione data e horário e confirme o agendamento no Big Dog Pet.",
       },
-      { property: "og:title", content: "Agendar serviço | PetCura" },
+      { property: "og:title", content: "Agendar serviço | Big Dog Pet" },
       {
         property: "og:description",
-        content: "Agende banho, tosa e consultas veterinárias em poucos toques.",
+        content: "Agende banho e tosa em poucos toques.",
       },
     ],
   }),
