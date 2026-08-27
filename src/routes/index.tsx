@@ -98,14 +98,14 @@ function Home() {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-primary/85 via-primary/40 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gold">
-            {CLINIC.unit} · Vila Bazú, Franco da Rocha
-          </p>
-          <h1 className="mt-1 font-display text-3xl leading-tight text-primary-foreground">
+          <h1 className="font-display text-3xl leading-tight text-primary-foreground">
             A vida do seu pet em boas mãos
           </h1>
           <p className="mt-2 text-sm text-primary-foreground/85">
             {CLINIC.tagline}.
+          </p>
+          <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-gold">
+            {CLINIC.unit} · Vila Bazú, Franco da Rocha
           </p>
         </div>
       </section>
