@@ -761,6 +761,7 @@ export type Database = {
           email: string | null;
           full_name: string | null;
           id: string;
+          last_birthday_message_sent_at: string | null;
           phone: string | null;
           preferred_payment: string | null;
           updated_at: string;
@@ -773,6 +774,7 @@ export type Database = {
           email?: string | null;
           full_name?: string | null;
           id: string;
+          last_birthday_message_sent_at?: string | null;
           phone?: string | null;
           preferred_payment?: string | null;
           updated_at?: string;
@@ -785,6 +787,7 @@ export type Database = {
           email?: string | null;
           full_name?: string | null;
           id?: string;
+          last_birthday_message_sent_at?: string | null;
           phone?: string | null;
           preferred_payment?: string | null;
           updated_at?: string;

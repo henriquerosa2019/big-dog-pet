@@ -3,7 +3,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { CheckCircle2, Eye, EyeOff, Gift, MessageCircle, Syringe, Truck } from "lucide-react";
+import {
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Gift,
+  MessageCircle,
+  Pencil,
+  Search,
+  Syringe,
+  Truck,
+  X,
+} from "lucide-react";
 import { startOfDay, startOfMonth, startOfWeek } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useIsAdmin } from "@/hooks/useAuth";
@@ -19,6 +30,7 @@ import {
   formatPetAge,
   isBirthdayToday,
   isBirthdayTomorrow,
+  maskPhoneBR,
   orderStatusTone,
   statusToneClass,
   whatsappLinkTo,
@@ -188,7 +200,9 @@ function Admin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, phone, birth_date, email, vehicle_type, created_at");
+        .select(
+          "id, full_name, phone, birth_date, email, cpf, vehicle_type, created_at, last_birthday_message_sent_at",
+        );
       if (error) throw error;
       return data;
     },
@@ -203,6 +217,7 @@ function Admin() {
         birth_date: string | null;
         email: string | null;
         vehicle_type: string | null;
+        last_birthday_message_sent_at: string | null;
       }
     >();
     for (const p of profiles ?? [])
@@ -212,9 +227,24 @@ function Admin() {
         birth_date: p.birth_date,
         email: p.email,
         vehicle_type: p.vehicle_type,
+        last_birthday_message_sent_at: p.last_birthday_message_sent_at,
       });
     return map;
   }, [profiles]);
+
+  // "Enviado hoje" pra campanha de aniversário — data local, não UTC, senão
+  // um envio às 21h vira "de ontem" pro fuso de Brasília antes da meia-noite
+  // UTC virar o dia.
+  function isSentToday(value: string | null | undefined): boolean {
+    if (!value) return false;
+    const sent = new Date(value);
+    const now = new Date();
+    return (
+      sent.getFullYear() === now.getFullYear() &&
+      sent.getMonth() === now.getMonth() &&
+      sent.getDate() === now.getDate()
+    );
+  }
 
   const { data: services } = useQuery({
     queryKey: ["admin-services"],
@@ -892,6 +922,81 @@ function Admin() {
     onError: () => toast.error("Não foi possível atualizar"),
   });
 
+  // Marca a campanha de aniversário como "enviada hoje" pra esse tutor,
+  // pra evitar que outro admin (ou o mesmo, sem perceber) mande a mensagem
+  // de novo no mesmo dia. É best-effort: se falhar, não bloqueia o envio do
+  // WhatsApp, que já abriu numa aba separada antes desse mutate.
+  const markBirthdayMessageSent = useMutation({
+    mutationFn: async (ownerId: string) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ last_birthday_message_sent_at: new Date().toISOString() })
+        .eq("id", ownerId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
+    },
+  });
+
+  // --- Aba "Clientes": edição inline (lápis) de tutor e pet, e busca ---
+  const [clientSearch, setClientSearch] = useState("");
+  const [editingDirectoryClientId, setEditingDirectoryClientId] = useState<string | null>(null);
+  const [directoryClientForm, setDirectoryClientForm] = useState({
+    fullName: "",
+    phone: "",
+    birthDate: "",
+  });
+  const [editingDirectoryPetId, setEditingDirectoryPetId] = useState<string | null>(null);
+  const [directoryPetForm, setDirectoryPetForm] = useState({ name: "", breed: "" });
+
+  const updateDirectoryClient = useMutation({
+    mutationFn: async () => {
+      if (!editingDirectoryClientId) throw new Error("Nenhum cliente selecionado");
+      const client = editClientSchema.parse(directoryClientForm);
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: client.fullName,
+          phone: client.phone,
+          birth_date: client.birthDate || null,
+        })
+        .eq("id", editingDirectoryClientId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
+      toast.success("Cliente atualizado");
+      setEditingDirectoryClientId(null);
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof z.ZodError ? error.issues[0]!.message : "Não foi possível atualizar",
+      );
+    },
+  });
+
+  const updateDirectoryPet = useMutation({
+    mutationFn: async () => {
+      if (!editingDirectoryPetId) throw new Error("Nenhum pet selecionado");
+      const name = directoryPetForm.name.trim();
+      if (name.length < 2) throw new Error("Informe o nome do pet");
+      const { error } = await supabase
+        .from("pets")
+        .update({ name, breed: directoryPetForm.breed.trim() || null })
+        .eq("id", editingDirectoryPetId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-pets"] });
+      toast.success("Pet atualizado");
+      setEditingDirectoryPetId(null);
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Não foi possível atualizar o pet");
+    },
+  });
+
   const updateCatalog = useMutation({
     mutationFn: async ({
       table,
@@ -929,6 +1034,31 @@ function Admin() {
       return data;
     },
   });
+
+  // Diretório usado na aba "Clientes": tutor + pets, filtrável por nome,
+  // telefone, CPF ou nome do pet.
+  const clientDirectory = useMemo(() => {
+    const petsByOwner = new Map<string, NonNullable<typeof allPets>>();
+    for (const pet of allPets ?? []) {
+      if (!pet.owner_id) continue;
+      const list = petsByOwner.get(pet.owner_id) ?? [];
+      list.push(pet);
+      petsByOwner.set(pet.owner_id, list);
+    }
+    const term = clientSearch.trim().toLowerCase();
+    const termDigits = digitsOnly(clientSearch);
+    return (profiles ?? [])
+      .map((p) => ({ ...p, pets: petsByOwner.get(p.id) ?? [] }))
+      .filter((client) => {
+        if (!term) return true;
+        const nameMatch = (client.full_name ?? "").toLowerCase().includes(term);
+        const phoneMatch = termDigits.length >= 3 && digitsOnly(client.phone ?? "").includes(termDigits);
+        const cpfMatch = termDigits.length >= 3 && digitsOnly(client.cpf ?? "").includes(termDigits);
+        const petMatch = client.pets.some((pet) => pet.name.toLowerCase().includes(term));
+        return nameMatch || phoneMatch || cpfMatch || petMatch;
+      })
+      .sort((a, b) => (a.full_name ?? "").localeCompare(b.full_name ?? ""));
+  }, [profiles, allPets, clientSearch]);
 
   // Nomes de pets agrupados por dono, usados na lista de "Clientes novos" do
   // Dashboard (nome do tutor + pet) e não só a contagem.
@@ -978,6 +1108,7 @@ function Admin() {
       phone: string | null;
       petName?: string;
       petAge?: string | null;
+      lastBirthdayMessageSentAt: string | null;
     };
     const entries: BirthdayEntry[] = [];
     for (const p of profiles ?? []) {
@@ -994,6 +1125,7 @@ function Admin() {
           ownerId: p.id,
           ownerName: p.full_name ? capitalizeWords(p.full_name) : "Cliente",
           phone: p.phone,
+          lastBirthdayMessageSentAt: p.last_birthday_message_sent_at,
         });
       }
     }
@@ -1014,6 +1146,7 @@ function Admin() {
           phone: owner?.phone ?? null,
           petName: capitalizeWords(pet.name),
           petAge: formatPetAge(pet.birth_date),
+          lastBirthdayMessageSentAt: owner?.last_birthday_message_sent_at ?? null,
         });
       }
     }
@@ -1239,6 +1372,9 @@ function Admin() {
           <TabsTrigger value="novo-cliente" className="shrink-0">
             Novo Cliente
           </TabsTrigger>
+          <TabsTrigger value="clientes" className="shrink-0">
+            Clientes
+          </TabsTrigger>
           <TabsTrigger value="agenda" className="shrink-0">
             Agendamentos
           </TabsTrigger>
@@ -1342,17 +1478,28 @@ function Admin() {
                           ? `Aniversário do pet${entry.petAge ? ` · ${entry.petAge} de vida` : ""}`
                           : "Aniversário do dono"}
                       </p>
+                      {isSentToday(entry.lastBirthdayMessageSentAt) && (
+                        <p className="mt-1.5 text-[11px] font-semibold text-primary">
+                          ✓ Mensagem já enviada hoje
+                        </p>
+                      )}
                       <Button
                         size="sm"
                         variant="secondary"
                         className="mt-2 h-9 w-full rounded-xl"
                         disabled={!link}
-                        onClick={() => link && window.open(link, "_blank", "noopener,noreferrer")}
+                        onClick={() => {
+                          if (!link) return;
+                          window.open(link, "_blank", "noopener,noreferrer");
+                          markBirthdayMessageSent.mutate(entry.ownerId);
+                        }}
                       >
                         <MessageCircle className="h-4 w-4" />
                         {link
                           ? isToday
-                            ? "Enviar parabéns + oferta no WhatsApp"
+                            ? isSentToday(entry.lastBirthdayMessageSentAt)
+                              ? "Enviar de novo pelo WhatsApp"
+                              : "Enviar parabéns + oferta no WhatsApp"
                             : "Avisar + oferta no WhatsApp"
                           : "Sem telefone cadastrado"}
                       </Button>
@@ -1830,6 +1977,232 @@ function Admin() {
               </Button>
             </>
           )}
+        </TabsContent>
+
+        <TabsContent value="clientes" className="mt-4 space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={clientSearch}
+              onChange={(e) => setClientSearch(e.target.value)}
+              placeholder="Buscar por nome, telefone, CPF ou nome do pet"
+              className="h-11 rounded-2xl pl-9"
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            {clientDirectory.length} cliente{clientDirectory.length === 1 ? "" : "s"}
+          </p>
+
+          <div className="space-y-2">
+            {clientDirectory.map((client) => {
+              const editingThis = editingDirectoryClientId === client.id;
+              return (
+                <div key={client.id} className="rounded-2xl bg-card p-3 shadow-card">
+                  {editingThis ? (
+                    <div className="space-y-2">
+                      <div>
+                        <Label htmlFor={`dc-name-${client.id}`}>Nome completo</Label>
+                        <Input
+                          id={`dc-name-${client.id}`}
+                          value={directoryClientForm.fullName}
+                          maxLength={100}
+                          onChange={(e) =>
+                            setDirectoryClientForm({
+                              ...directoryClientForm,
+                              fullName: e.target.value,
+                            })
+                          }
+                          className="mt-1 h-10 rounded-xl"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`dc-phone-${client.id}`}>Telefone</Label>
+                        <Input
+                          id={`dc-phone-${client.id}`}
+                          inputMode="tel"
+                          value={directoryClientForm.phone}
+                          maxLength={16}
+                          onChange={(e) =>
+                            setDirectoryClientForm({
+                              ...directoryClientForm,
+                              phone: maskPhoneBR(e.target.value),
+                            })
+                          }
+                          className="mt-1 h-10 rounded-xl"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`dc-birth-${client.id}`}>Aniversário</Label>
+                        <Input
+                          id={`dc-birth-${client.id}`}
+                          type="date"
+                          value={directoryClientForm.birthDate}
+                          onChange={(e) =>
+                            setDirectoryClientForm({
+                              ...directoryClientForm,
+                              birthDate: e.target.value,
+                            })
+                          }
+                          className="mt-1 h-10 rounded-xl"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="h-9 flex-1 rounded-xl"
+                          disabled={updateDirectoryClient.isPending}
+                          onClick={() => updateDirectoryClient.mutate()}
+                        >
+                          Salvar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="h-9 rounded-xl"
+                          onClick={() => setEditingDirectoryClientId(null)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">
+                          {client.full_name ? capitalizeWords(client.full_name) : "Sem nome"}
+                        </p>
+                        {client.phone ? (
+                          <p className="text-xs text-muted-foreground">{client.phone}</p>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingDirectoryClientId(client.id);
+                              setDirectoryClientForm({
+                                fullName: client.full_name ?? "",
+                                phone: "",
+                                birthDate: client.birth_date ?? "",
+                              });
+                            }}
+                            className="text-xs font-semibold text-primary underline"
+                          >
+                            + Adicionar telefone
+                          </button>
+                        )}
+                        {client.birth_date && (
+                          <p className="text-[11px] text-muted-foreground">
+                            Aniversário: {formatDate(client.birth_date)}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        aria-label="Editar cliente"
+                        onClick={() => {
+                          setEditingDirectoryClientId(client.id);
+                          setDirectoryClientForm({
+                            fullName: client.full_name ?? "",
+                            phone: client.phone ?? "",
+                            birthDate: client.birth_date ?? "",
+                          });
+                        }}
+                        className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:text-primary"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {client.pets.length > 0 && (
+                    <div className="mt-2 space-y-1.5 border-t border-border pt-2">
+                      {client.pets.map((pet) => {
+                        const editingPet = editingDirectoryPetId === pet.id;
+                        return editingPet ? (
+                          <div key={pet.id} className="rounded-xl surface-paper p-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              <Input
+                                value={directoryPetForm.name}
+                                maxLength={60}
+                                placeholder="Nome do pet"
+                                onChange={(e) =>
+                                  setDirectoryPetForm({ ...directoryPetForm, name: e.target.value })
+                                }
+                                className="h-9 rounded-lg text-xs"
+                              />
+                              <Input
+                                value={directoryPetForm.breed}
+                                maxLength={60}
+                                placeholder="Raça"
+                                onChange={(e) =>
+                                  setDirectoryPetForm({
+                                    ...directoryPetForm,
+                                    breed: e.target.value,
+                                  })
+                                }
+                                className="h-9 rounded-lg text-xs"
+                              />
+                            </div>
+                            <div className="mt-1.5 flex gap-2">
+                              <Button
+                                size="sm"
+                                className="h-8 flex-1 rounded-lg text-xs"
+                                disabled={updateDirectoryPet.isPending}
+                                onClick={() => updateDirectoryPet.mutate()}
+                              >
+                                Salvar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="h-8 rounded-lg"
+                                onClick={() => setEditingDirectoryPetId(null)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            key={pet.id}
+                            className="flex items-center justify-between gap-2 rounded-xl surface-paper px-2.5 py-1.5 text-xs"
+                          >
+                            <span className="min-w-0 truncate">
+                              <span className="font-semibold">{capitalizeWords(pet.name)}</span>
+                              {pet.breed && (
+                                <span className="text-muted-foreground"> · {pet.breed}</span>
+                              )}
+                              {pet.birth_date && (
+                                <span className="text-muted-foreground">
+                                  {" "}
+                                  · {formatDate(pet.birth_date)}
+                                </span>
+                              )}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label={`Editar ${pet.name}`}
+                              onClick={() => {
+                                setEditingDirectoryPetId(pet.id);
+                                setDirectoryPetForm({ name: pet.name, breed: pet.breed ?? "" });
+                              }}
+                              className="shrink-0 rounded-lg p-1 text-muted-foreground hover:text-primary"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {clientDirectory.length === 0 && (
+              <p className="text-center text-sm text-muted-foreground">
+                Nenhum cliente encontrado.
+              </p>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="clinica" className="mt-4 space-y-3">

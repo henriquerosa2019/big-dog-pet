@@ -432,6 +432,10 @@ function Agendar() {
           pet_id: petId,
           scheduled_at: scheduled.toISOString(),
           notes: notes.trim().slice(0, 500) || null,
+          // Marca automaticamente como Campanha Niver quando o agendamento
+          // veio da oferta de aniversário (link com ?campanha=niver), em vez
+          // de depender do admin marcar manualmente depois na aba Agendamentos.
+          origin: isBirthdayOffer ? "campanha_niver" : null,
           logistics_type: logisticsType,
           address_id: wantsTransport ? addressId : null,
           service_price_cents: servicePriceCents,
