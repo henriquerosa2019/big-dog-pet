@@ -6,6 +6,7 @@ import heroImage from "@/assets/hero-pets.jpg";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
+  BIRTHDAY_DISCOUNT_PERCENT,
   birthdayCouponCode,
   capitalizeWords,
   CLINIC,
@@ -152,8 +153,8 @@ function Home() {
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {birthdayPet
-                ? "O dia do seu pet merece um mimo especial: 20% de desconto em banho, tosa ou nas compras da loja, só hoje."
-                : `O ${CLINIC.name} preparou um presente pra você e seu pet: 20% de desconto em banho, tosa ou nas compras da loja, só hoje.`}
+                ? `O dia do seu pet merece um mimo especial: ${BIRTHDAY_DISCOUNT_PERCENT}% de desconto em banho, tosa ou nas compras da loja, só hoje.`
+                : `O ${CLINIC.name} preparou um presente pra você e seu pet: ${BIRTHDAY_DISCOUNT_PERCENT}% de desconto em banho, tosa ou nas compras da loja, só hoje.`}
             </p>
 
             <div className="mt-3 flex items-center gap-2 rounded-xl border-2 border-dashed border-gold/60 bg-background px-3 py-2">

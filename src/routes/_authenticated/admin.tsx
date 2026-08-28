@@ -29,6 +29,7 @@ import {
   formatBRL,
   formatDate,
   formatDateTime,
+  BIRTHDAY_DISCOUNT_PERCENT,
   formatPetAge,
   isBirthdayToday,
   isBirthdayTomorrow,
@@ -1513,11 +1514,11 @@ function Admin() {
                   const isToday = entry.when === "hoje";
                   const message = isToday
                     ? entry.kind === "pet"
-                      ? `Feliz aniversário para ${entry.petName}! 🎉🐾 Para comemorar, o ${CLINIC.name} preparou 20% de desconto em banho ou tosa hoje. Quer aproveitar e já agendar?`
-                      : `Feliz aniversário, ${entry.ownerName}! 🎉 Para comemorar, o ${CLINIC.name} preparou 20% de desconto em banho ou tosa para o seu pet hoje. Quer aproveitar e já agendar?`
+                      ? `Feliz aniversário para ${entry.petName}! 🎉🐾 Para comemorar, o ${CLINIC.name} preparou ${BIRTHDAY_DISCOUNT_PERCENT}% de desconto em banho ou tosa hoje. Quer aproveitar e já agendar?`
+                      : `Feliz aniversário, ${entry.ownerName}! 🎉 Para comemorar, o ${CLINIC.name} preparou ${BIRTHDAY_DISCOUNT_PERCENT}% de desconto em banho ou tosa para o seu pet hoje. Quer aproveitar e já agendar?`
                     : entry.kind === "pet"
-                      ? `Oi! Passando pra avisar que amanhã é aniversário do(a) ${entry.petName} 🎉🐾 Já vamos preparar 20% de desconto em banho ou tosa pra comemorar — quer garantir o horário?`
-                      : `Oi, ${entry.ownerName}! Amanhã é seu aniversário 🎉 Já vamos preparar 20% de desconto em banho ou tosa pro seu pet pra comemorar — quer garantir o horário?`;
+                      ? `Oi! Passando pra avisar que amanhã é aniversário do(a) ${entry.petName} 🎉🐾 Já vamos preparar ${BIRTHDAY_DISCOUNT_PERCENT}% de desconto em banho ou tosa pra comemorar — quer garantir o horário?`
+                      : `Oi, ${entry.ownerName}! Amanhã é seu aniversário 🎉 Já vamos preparar ${BIRTHDAY_DISCOUNT_PERCENT}% de desconto em banho ou tosa pro seu pet pra comemorar — quer garantir o horário?`;
                   const link = whatsappLinkTo(entry.phone, message);
                   return (
                     <div key={entry.key} className="rounded-xl bg-card p-2.5 shadow-card">

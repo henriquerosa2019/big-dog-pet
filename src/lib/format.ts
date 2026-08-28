@@ -214,9 +214,27 @@ export function alertTone(days: number): StatusTone {
 }
 
 /**
+ * Percentual de desconto da campanha de aniversário — fonte única usada tanto
+ * nos textos (banners, mensagens de WhatsApp) quanto no cálculo real do
+ * desconto em /agendar. Mudar aqui muda em todo lugar; nunca hardcode "20%"
+ * de novo num texto novo — foi exatamente essa duplicação que causou o preço
+ * exibido não bater com o desconto prometido.
+ */
+export const BIRTHDAY_DISCOUNT_PERCENT = 20;
+
+/**
  * Código do cupom da campanha de aniversário (20% em banho/tosa ou na loja),
  * derivado do nome do pet ou tutor pra parecer pessoal (ex.: "Shana" -> "ANIVSHANA20").
  * Determinístico e sem acento/espaço pra caber num badge e ser fácil de digitar/conferir.
+ *
+ * IMPORTANTE: esse código NUNCA foi (e não é) validado contra a tabela
+ * transport_coupons — ele não existe no banco. Em /agendar o desconto de
+ * BIRTHDAY_DISCOUNT_PERCENT é aplicado diretamente no preço do serviço
+ * sempre que a página é aberta com ?campanha=niver (ver isBirthdayOffer em
+ * agendar.tsx), sem depender do texto do código em si. Em /loja e /carrinho
+ * o cupom continua só informativo — a equipe confere e desconta manualmente
+ * pelo WhatsApp, já que ali não há um preço único e óbvio pra descontar
+ * automaticamente (é o carrinho inteiro, com produtos variados).
  */
 export function birthdayCouponCode(name: string | null | undefined): string {
   const base = (name ?? "")

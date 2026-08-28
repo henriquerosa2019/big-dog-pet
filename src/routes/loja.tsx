@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Gift, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { formatBRL } from "@/lib/format";
+import { BIRTHDAY_DISCOUNT_PERCENT, formatBRL } from "@/lib/format";
 import { useCart } from "@/lib/cart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -86,8 +86,8 @@ function Loja() {
           <Gift className="h-4 w-4 shrink-0 text-gold" />
           <p className="text-xs text-muted-foreground">
             Cupom de aniversário{" "}
-            <span className="font-mono font-bold text-gold">{birthdayCoupon}</span> ativo — 20% de
-            desconto aplicado no checkout do carrinho.
+            <span className="font-mono font-bold text-gold">{birthdayCoupon}</span> ativo —{" "}
+            {BIRTHDAY_DISCOUNT_PERCENT}% de desconto aplicado no checkout do carrinho.
           </p>
         </div>
       )}

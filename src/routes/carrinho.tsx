@@ -7,7 +7,14 @@ import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/lib/cart";
-import { capitalizeWords, CLINIC, formatBRL, maskPhoneBR, whatsappLink } from "@/lib/format";
+import {
+  BIRTHDAY_DISCOUNT_PERCENT,
+  capitalizeWords,
+  CLINIC,
+  formatBRL,
+  maskPhoneBR,
+  whatsappLink,
+} from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -122,7 +129,9 @@ function Carrinho() {
             coupon_code: trimmedCoupon,
             notes: [
               parsed.data.notes,
-              birthdayCoupon ? `Cupom de aniversário: ${birthdayCoupon} (20% de desconto)` : "",
+              birthdayCoupon
+                ? `Cupom de aniversário: ${birthdayCoupon} (${BIRTHDAY_DISCOUNT_PERCENT}% de desconto)`
+                : "",
             ]
               .filter(Boolean)
               .join(" — ") || null,
@@ -162,7 +171,9 @@ function Carrinho() {
         `Telefone: ${parsed.data.phone}`,
         deliveryLine,
         trimmedCoupon ? `Cupom informado: ${trimmedCoupon}` : "",
-        birthdayCoupon ? `Cupom de aniversário: ${birthdayCoupon} (20% de desconto)` : "",
+        birthdayCoupon
+          ? `Cupom de aniversário: ${birthdayCoupon} (${BIRTHDAY_DISCOUNT_PERCENT}% de desconto)`
+          : "",
         parsed.data.notes ? `Observações: ${parsed.data.notes}` : "",
       ]
         .filter(Boolean)
@@ -202,8 +213,9 @@ function Carrinho() {
         <div className="mt-3 flex items-center gap-2 rounded-2xl border-2 border-gold/50 bg-secondary p-3">
           <Gift className="h-4 w-4 shrink-0 text-gold" />
           <p className="text-xs text-muted-foreground">
-            Cupom <span className="font-mono font-bold text-gold">{birthdayCoupon}</span> — 20% de
-            desconto de aniversário. A equipe confirma o valor com desconto pelo WhatsApp.
+            Cupom <span className="font-mono font-bold text-gold">{birthdayCoupon}</span> —{" "}
+            {BIRTHDAY_DISCOUNT_PERCENT}% de desconto de aniversário. A equipe confirma o valor com
+            desconto pelo WhatsApp.
           </p>
         </div>
       )}

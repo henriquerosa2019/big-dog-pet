@@ -6,7 +6,14 @@ import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
-import { capitalizeWords, CLINIC, formatBRL, formatDateTime, whatsappLink } from "@/lib/format";
+import {
+  BIRTHDAY_DISCOUNT_PERCENT,
+  capitalizeWords,
+  CLINIC,
+  formatBRL,
+  formatDateTime,
+  whatsappLink,
+} from "@/lib/format";
 import {
   computeTransportFeeCents,
   findZoneForDistrict,
@@ -376,6 +383,15 @@ function Agendar() {
   const selectedAddress = (addresses ?? []).find((a) => a.id === addressId) ?? null;
   const selectedService = (services ?? []).find((s) => s.id === serviceId) ?? null;
   const selectedPet = (pets ?? []).find((p) => p.id === petId) ?? null;
+  // Preço do serviço já com o desconto de aniversário aplicado, quando a
+  // página foi aberta pela oferta (?campanha=niver). Diferente do cupom de
+  // /loja e /carrinho (que é só informativo), aqui há um preço único e claro
+  // pra descontar, então aplicamos de verdade em vez de deixar só pro
+  // WhatsApp — é o que o banner promete.
+  const originalServicePriceCents = selectedService?.price_cents ?? 0;
+  const discountedServicePriceCents = isBirthdayOffer
+    ? Math.round(originalServicePriceCents * (1 - BIRTHDAY_DISCOUNT_PERCENT / 100))
+    : originalServicePriceCents;
   const zone = useMemo(
     () => findZoneForDistrict(zones, selectedAddress?.district),
     [zones, selectedAddress],
@@ -384,24 +400,24 @@ function Agendar() {
     if (!needsAddress(logisticsType)) {
       return { feeCents: 0, freeApplied: false, zoneMatched: true, breakdown: [] };
     }
-    return computeTransportFeeCents(zone, selectedService?.price_cents ?? 0, {
+    return computeTransportFeeCents(zone, discountedServicePriceCents, {
       isReturningClient,
       returningClientDiscountPercent: transportSettings?.returning_client_discount_percent ?? null,
       coupon: appliedCoupon,
     });
-  }, [logisticsType, zone, selectedService, isReturningClient, transportSettings, appliedCoupon]);
+  }, [logisticsType, zone, discountedServicePriceCents, isReturningClient, transportSettings, appliedCoupon]);
   const outOfArea = needsAddress(logisticsType) && Boolean(selectedAddress) && !zone;
   // Prévia da taxa de transporte, calculada mesmo quando a opção atual é
   // "Levar ao petshop" — usada só para mostrar um valor de referência nos
   // cards de retirada/devolução antes do tutor escolher o endereço.
   const transportFeePreview = useMemo(() => {
     if (!zone) return null;
-    return computeTransportFeeCents(zone, selectedService?.price_cents ?? 0, {
+    return computeTransportFeeCents(zone, discountedServicePriceCents, {
       isReturningClient,
       returningClientDiscountPercent: transportSettings?.returning_client_discount_percent ?? null,
       coupon: appliedCoupon,
     });
-  }, [zone, selectedService, isReturningClient, transportSettings, appliedCoupon]);
+  }, [zone, discountedServicePriceCents, isReturningClient, transportSettings, appliedCoupon]);
 
   const createAppointment = useMutation({
     mutationFn: async () => {
@@ -417,7 +433,10 @@ function Agendar() {
         throw new Error("Escolha ou cadastre um endereço para retirada/devolução");
       }
 
-      const servicePriceCents = selectedService?.price_cents ?? 0;
+      // Preço do serviço já com o desconto de aniversário aplicado (quando
+      // for o caso) — é o valor que realmente é cobrado, salvo no pedido e
+      // usado como base pro cálculo da taxa de transporte acima.
+      const servicePriceCents = discountedServicePriceCents;
       const transportPriceCents = feeResult.feeCents;
       // Bairro fora das zonas cadastradas: agenda mesmo assim com valor 0 e um
       // aviso no pedido — o petshop confirma/ajusta o valor manualmente (aba
@@ -469,9 +488,9 @@ function Agendar() {
       });
       if (historyError) console.error(historyError);
 
-      return { scheduled, transportPriceCents, wantsTransport, zoneNotCovered };
+      return { scheduled, transportPriceCents, servicePriceCents, wantsTransport, zoneNotCovered };
     },
-    onSuccess: ({ scheduled, transportPriceCents, wantsTransport, zoneNotCovered }) => {
+    onSuccess: ({ scheduled, transportPriceCents, servicePriceCents, wantsTransport, zoneNotCovered }) => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       const serviceName = (services ?? []).find((s) => s.id === serviceId)?.name ?? "serviço";
       const rawPetName = (pets ?? []).find((p) => p.id === petId)?.name;
@@ -481,7 +500,12 @@ function Agendar() {
         wantsTransport && selectedAddress
           ? `\n• Retirada: ${selectedAddress.street}${selectedAddress.number ? `, ${selectedAddress.number}` : ""} - ${selectedAddress.district}\n• Modalidade: ${logisticsTypeLabels[logisticsType]}\n• Taxa: ${feeLine}`
           : "";
-      const message = `Olá, ${CLINIC.name}! Solicito a liberação/autorização do agendamento:\n• Serviço: ${serviceName}\n• Pet: ${petName ?? "não informado"}\n• Data: ${formatDateTime(scheduled)}${addressLine}${notes.trim() ? `\n• Observações: ${notes.trim()}` : ""}`;
+      // Com desconto de aniversário, deixamos explícito no WhatsApp — o valor
+      // total já sai calculado, sem depender da equipe aplicar manualmente.
+      const priceLine = isBirthdayOffer
+        ? `\n• Valor do serviço: ${formatBRL(servicePriceCents)} (${BIRTHDAY_DISCOUNT_PERCENT}% de desconto de aniversário já aplicado)`
+        : `\n• Valor do serviço: ${formatBRL(servicePriceCents)}`;
+      const message = `Olá, ${CLINIC.name}! Solicito a liberação/autorização do agendamento:\n• Serviço: ${serviceName}\n• Pet: ${petName ?? "não informado"}\n• Data: ${formatDateTime(scheduled)}${priceLine}${addressLine}${notes.trim() ? `\n• Observações: ${notes.trim()}` : ""}`;
       const link = whatsappLink(message);
       const preOpened = whatsappWindowRef.current;
       if (preOpened && !preOpened.closed) {
@@ -513,8 +537,8 @@ function Agendar() {
         <div className="mt-3 rounded-2xl border-2 border-gold/50 bg-secondary p-3">
           <p className="text-sm font-semibold">🎉 Oferta de aniversário</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            20% de desconto em banho ou tosa hoje. A equipe confirma o valor com desconto ao liberar
-            o agendamento pelo WhatsApp.
+            {BIRTHDAY_DISCOUNT_PERCENT}% de desconto em banho ou tosa hoje. O desconto já é aplicado
+            automaticamente no valor abaixo ao escolher o serviço.
           </p>
           {cupom && (
             <p className="mt-2 inline-block rounded-lg border-2 border-dashed border-gold/60 bg-background px-2.5 py-1 font-mono text-xs font-bold tracking-wide text-gold">
@@ -935,8 +959,24 @@ function Agendar() {
           <div className="mb-2 space-y-0.5 text-xs">
             <p className="flex justify-between text-muted-foreground">
               <span>{selectedService.name}</span>
-              <span>{formatBRL(selectedService.price_cents)}</span>
+              {isBirthdayOffer ? (
+                <span className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground/60 line-through">
+                    {formatBRL(originalServicePriceCents)}
+                  </span>
+                  <span className="font-semibold text-gold">
+                    {formatBRL(discountedServicePriceCents)}
+                  </span>
+                </span>
+              ) : (
+                <span>{formatBRL(selectedService.price_cents)}</span>
+              )}
             </p>
+            {isBirthdayOffer && (
+              <p className="flex justify-between text-gold">
+                <span>Desconto de aniversário ({BIRTHDAY_DISCOUNT_PERCENT}%)</span>
+              </p>
+            )}
             {needsAddress(logisticsType) && feeResult.feeCents > 0 && (
               <p className="flex justify-between text-muted-foreground">
                 <span>Taxa de retirada/devolução</span>
@@ -947,7 +987,7 @@ function Agendar() {
               <span>Total</span>
               <span>
                 {formatBRL(
-                  selectedService.price_cents +
+                  discountedServicePriceCents +
                     (needsAddress(logisticsType) ? feeResult.feeCents : 0),
                 )}
               </span>
