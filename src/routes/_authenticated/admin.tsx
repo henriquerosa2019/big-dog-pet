@@ -7,6 +7,8 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  FileSpreadsheet,
+  FileText,
   Gift,
   MessageCircle,
   Pencil,
@@ -50,6 +52,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TransportHistoryList } from "@/components/TransportHistoryList";
+import {
+  buildReportData,
+  exportReportPDF,
+  exportReportXLSX,
+  resolveReportRange,
+  type ReportData,
+  type ReportPeriod,
+  type ReportRange,
+} from "@/lib/reports";
 import type { TablesUpdate } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
 import {
@@ -997,6 +1008,53 @@ function Admin() {
     },
   });
 
+  // --- Aba "Relatórios": geração de Excel/PDF de vendas + serviços ---
+  const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("mes");
+  const [reportFrom, setReportFrom] = useState(todayISODate());
+  const [reportTo, setReportTo] = useState(todayISODate());
+  const [reportData, setReportData] = useState<ReportData | null>(null);
+  const [reportRange, setReportRange] = useState<ReportRange | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+
+  async function generateReport() {
+    setReportLoading(true);
+    try {
+      const range = resolveReportRange(reportPeriod, reportFrom, reportTo);
+      const [{ data: apptRows, error: apptError }, { data: orderRows, error: orderError }] =
+        await Promise.all([
+          supabase
+            .from("appointments")
+            .select(
+              "id, scheduled_at, status, origin, user_id, service_price_cents, transport_price_cents, logistics_type, services(name), pets(name)",
+            )
+            .gte("scheduled_at", range.start.toISOString())
+            .lte("scheduled_at", range.end.toISOString()),
+          supabase
+            .from("orders")
+            .select("id, created_at, status, customer_name, order_items(product_name, quantity, unit_price_cents)")
+            .gte("created_at", range.start.toISOString())
+            .lte("created_at", range.end.toISOString()),
+        ]);
+      if (apptError) throw apptError;
+      if (orderError) throw orderError;
+
+      const clientNameById = new Map<string, string | null>();
+      for (const p of profiles ?? []) {
+        clientNameById.set(p.id, p.full_name ? capitalizeWords(p.full_name) : null);
+      }
+
+      const data = buildReportData(apptRows ?? [], orderRows ?? [], clientNameById);
+      setReportData(data);
+      setReportRange(range);
+      toast.success("Relatório gerado");
+    } catch (error) {
+      console.error(error);
+      toast.error("Não foi possível gerar o relatório");
+    } finally {
+      setReportLoading(false);
+    }
+  }
+
   const updateCatalog = useMutation({
     mutationFn: async ({
       table,
@@ -1374,6 +1432,9 @@ function Admin() {
           </TabsTrigger>
           <TabsTrigger value="clientes" className="shrink-0">
             Clientes
+          </TabsTrigger>
+          <TabsTrigger value="relatorios" className="shrink-0">
+            Relatórios
           </TabsTrigger>
           <TabsTrigger value="agenda" className="shrink-0">
             Agendamentos
@@ -2203,6 +2264,137 @@ function Admin() {
               </p>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="relatorios" className="mt-4 space-y-3">
+          <div className="rounded-2xl bg-card p-3 shadow-card">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Relatório financeiro
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Serviços, produtos e taxas de retirada/entrega do período, prontos pra exportar.
+            </p>
+
+            <div className="mt-3 grid grid-cols-4 gap-1.5">
+              {(
+                [
+                  ["hoje", "Hoje"],
+                  ["semana", "Semana"],
+                  ["mes", "Mês"],
+                  ["personalizado", "Personal."],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setReportPeriod(value)}
+                  className={cn(
+                    "rounded-xl px-2 py-2 text-[11px] font-semibold",
+                    reportPeriod === value
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-secondary-foreground",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {reportPeriod === "personalizado" && (
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <div>
+                  <Label htmlFor="report-from">De</Label>
+                  <Input
+                    id="report-from"
+                    type="date"
+                    value={reportFrom}
+                    onChange={(e) => setReportFrom(e.target.value)}
+                    className="mt-1 h-10 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="report-to">Até</Label>
+                  <Input
+                    id="report-to"
+                    type="date"
+                    value={reportTo}
+                    onChange={(e) => setReportTo(e.target.value)}
+                    className="mt-1 h-10 rounded-xl"
+                  />
+                </div>
+              </div>
+            )}
+
+            <Button
+              className="mt-3 h-11 w-full rounded-2xl"
+              disabled={reportLoading}
+              onClick={() => void generateReport()}
+            >
+              {reportLoading ? "Gerando..." : "Gerar relatório"}
+            </Button>
+          </div>
+
+          {reportData && reportRange && (
+            <div className="rounded-2xl bg-card p-3 shadow-card">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {reportRange.label}
+              </p>
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                <div className="rounded-xl surface-paper p-2 text-center">
+                  <p className="text-[11px] text-muted-foreground">Serviços</p>
+                  <p className="font-display text-sm text-primary">
+                    {formatBRL(reportData.totals.servicesCents)}
+                  </p>
+                </div>
+                <div className="rounded-xl surface-paper p-2 text-center">
+                  <p className="text-[11px] text-muted-foreground">Produtos</p>
+                  <p className="font-display text-sm text-primary">
+                    {formatBRL(reportData.totals.productsCents)}
+                  </p>
+                </div>
+                <div className="rounded-xl surface-paper p-2 text-center">
+                  <p className="text-[11px] text-muted-foreground">Transporte</p>
+                  <p className="font-display text-sm text-primary">
+                    {formatBRL(reportData.totals.transportCents)}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-2 flex items-center justify-between rounded-xl bg-secondary px-3 py-2">
+                <span className="text-xs font-semibold">Receita bruta total</span>
+                <span className="font-display text-lg text-primary">
+                  {formatBRL(reportData.totals.grossCents)}
+                </span>
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Campanha Niver: {reportData.campaignNiver.count} de{" "}
+                {reportData.campaignNiver.totalServices} agendamentos (
+                {reportData.campaignNiver.percent.toFixed(1)}%)
+              </p>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button
+                  variant="secondary"
+                  className="h-11 rounded-xl"
+                  onClick={() => exportReportXLSX(reportData, reportRange)}
+                >
+                  <FileSpreadsheet className="h-4 w-4" />
+                  Excel
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="h-11 rounded-xl"
+                  onClick={() => exportReportPDF(reportData, reportRange)}
+                >
+                  <FileText className="h-4 w-4" />
+                  PDF
+                </Button>
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Não inclui agendamentos/pedidos cancelados. Canal de origem (App x WhatsApp) não é
+                rastreado hoje, por isso não aparece separado no relatório.
+              </p>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="clinica" className="mt-4 space-y-3">
