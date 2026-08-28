@@ -222,7 +222,7 @@ function Conta() {
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <div className="min-w-0">
           <h1 className="truncate font-display text-2xl">
-            Olá, {profile?.full_name?.split(" ")[0] ?? "tutor"}!
+            Olá, {profile?.full_name ?? "tutor"}!
           </h1>
           <p className="truncate text-sm text-muted-foreground">{user?.email}</p>
         </div>
