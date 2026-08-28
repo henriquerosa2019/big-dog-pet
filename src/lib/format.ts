@@ -35,8 +35,8 @@ export const CLINIC = {
   tagline: "Acessórios | Banho e Tosa | Produtos p/ Pet",
   unit: "Loja 3",
   address: "Rua Rangel Pestana, 56 - Vila Bazú, Franco da Rocha - SP",
-  phoneDisplay: "(11) 4819-7915",
-  whatsapp: "5511971845125",
+  phoneDisplay: "(21) 99379-3746",
+  whatsapp: "5521993793746",
 } as const;
 
 export function whatsappLink(message: string): string {
