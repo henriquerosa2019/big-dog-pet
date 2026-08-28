@@ -1,10 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Bath, Gift, MapPin, MessageCircle, Scissors, Sparkles, Stethoscope } from "lucide-react";
+import { Bath, Check, Copy, Gift, MapPin, MessageCircle, Scissors, Sparkles, Stethoscope } from "lucide-react";
+import { useState } from "react";
 import heroImage from "@/assets/hero-pets.jpg";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { CLINIC, formatBRL, isBirthdayToday, whatsappLink } from "@/lib/format";
+import {
+  birthdayCouponCode,
+  capitalizeWords,
+  CLINIC,
+  formatBRL,
+  formatDate,
+  isBirthdayToday,
+  whatsappLink,
+} from "@/lib/format";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
@@ -80,11 +89,24 @@ function Home() {
 
   const birthdayPet = (ownPets ?? []).find((p) => isBirthdayToday(p.birth_date));
   const isOwnerBirthday = isBirthdayToday(ownProfile?.birth_date);
-  const birthdayName = birthdayPet
+  const rawBirthdayName = birthdayPet
     ? birthdayPet.name
     : isOwnerBirthday
       ? ownProfile?.full_name?.split(" ")[0]
       : null;
+  const birthdayName = rawBirthdayName ? capitalizeWords(rawBirthdayName) : null;
+  const couponCode = birthdayCouponCode(rawBirthdayName);
+  const [couponCopied, setCouponCopied] = useState(false);
+
+  async function copyCoupon() {
+    try {
+      await navigator.clipboard.writeText(couponCode);
+      setCouponCopied(true);
+      setTimeout(() => setCouponCopied(false), 2000);
+    } catch {
+      /* clipboard indisponível — o código já fica visível no badge pra copiar manualmente */
+    }
+  }
 
   return (
     <div>
@@ -124,16 +146,51 @@ function Home() {
           <div className="rounded-2xl border-2 border-gold/50 bg-secondary p-4">
             <p className="flex items-center gap-1.5 font-display text-lg">
               <Gift className="h-5 w-5 text-gold" />
-              Feliz aniversário, {birthdayName}! 🎉
+              {birthdayPet
+                ? `Parabéns pra ${birthdayName}! 🐾`
+                : `Parabéns, ${birthdayName}! 🎂`}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Ganhe 20% de desconto em banho ou tosa hoje, com carinho do {CLINIC.name}.
+              {birthdayPet
+                ? "O dia do seu pet merece um mimo especial: 20% de desconto em banho, tosa ou nas compras da loja, só hoje."
+                : `O ${CLINIC.name} preparou um presente pra você e seu pet: 20% de desconto em banho, tosa ou nas compras da loja, só hoje.`}
             </p>
-            <Button asChild size="sm" className="mt-3 h-10 rounded-xl">
-              <Link to="/agendar" search={{ campanha: "niver" }}>
-                Aproveitar oferta
-              </Link>
-            </Button>
+
+            <div className="mt-3 flex items-center gap-2 rounded-xl border-2 border-dashed border-gold/60 bg-background px-3 py-2">
+              <span className="flex-1 font-mono text-sm font-bold tracking-wide text-gold">
+                {couponCode}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="h-8 shrink-0 rounded-lg text-xs"
+                onClick={copyCoupon}
+              >
+                {couponCopied ? (
+                  <Check className="h-3.5 w-3.5" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
+                {couponCopied ? "Copiado!" : "Copiar"}
+              </Button>
+            </div>
+            <p className="mt-1 text-[11px] font-semibold text-muted-foreground">
+              Válido só hoje, {formatDate(new Date())}
+            </p>
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Button asChild size="sm" className="h-10 rounded-xl">
+                <Link to="/agendar" search={{ campanha: "niver", cupom: couponCode }}>
+                  Agendar banho/tosa
+                </Link>
+              </Button>
+              <Button asChild size="sm" variant="secondary" className="h-10 rounded-xl">
+                <Link to="/loja" search={{ campanha: "niver", cupom: couponCode }}>
+                  Ver produtos da loja
+                </Link>
+              </Button>
+            </div>
           </div>
         </section>
       )}

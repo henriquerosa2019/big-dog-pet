@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Gift, Minus, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -40,7 +40,7 @@ const checkoutSchema = z.object({
 });
 
 function Carrinho() {
-  const { items, totalCents, setQuantity, remove, clear } = useCart();
+  const { items, totalCents, setQuantity, remove, clear, birthdayCoupon } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: "", phone: "", notes: "" });
@@ -63,7 +63,12 @@ function Carrinho() {
             total_cents: totalCents,
             customer_name: parsed.data.name,
             phone: parsed.data.phone,
-            notes: parsed.data.notes ?? null,
+            notes: [
+              parsed.data.notes,
+              birthdayCoupon ? `Cupom de aniversário: ${birthdayCoupon} (20% de desconto)` : "",
+            ]
+              .filter(Boolean)
+              .join(" — ") || null,
           })
           .select("id")
           .single();
@@ -90,6 +95,7 @@ function Carrinho() {
         `Total: ${formatBRL(totalCents)}`,
         `Nome: ${parsed.data.name}`,
         `Telefone: ${parsed.data.phone}`,
+        birthdayCoupon ? `Cupom de aniversário: ${birthdayCoupon} (20% de desconto)` : "",
         parsed.data.notes ? `Observações: ${parsed.data.notes}` : "",
       ]
         .filter(Boolean)
@@ -124,6 +130,16 @@ function Carrinho() {
   return (
     <div className="p-4">
       <h1 className="font-display text-2xl">Carrinho</h1>
+
+      {birthdayCoupon && (
+        <div className="mt-3 flex items-center gap-2 rounded-2xl border-2 border-gold/50 bg-secondary p-3">
+          <Gift className="h-4 w-4 shrink-0 text-gold" />
+          <p className="text-xs text-muted-foreground">
+            Cupom <span className="font-mono font-bold text-gold">{birthdayCoupon}</span> — 20% de
+            desconto de aniversário. A equipe confirma o valor com desconto pelo WhatsApp.
+          </p>
+        </div>
+      )}
 
       <ul className="mt-4 space-y-3">
         {items.map((item) => (

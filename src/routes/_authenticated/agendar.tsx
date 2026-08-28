@@ -25,8 +25,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/agendar")({
-  validateSearch: (search: Record<string, unknown>): { campanha?: string } =>
-    typeof search["campanha"] === "string" ? { campanha: search["campanha"] as string } : {},
+  validateSearch: (search: Record<string, unknown>): { campanha?: string; cupom?: string } => ({
+    ...(typeof search["campanha"] === "string" ? { campanha: search["campanha"] as string } : {}),
+    ...(typeof search["cupom"] === "string" ? { cupom: search["cupom"] as string } : {}),
+  }),
   head: () => ({
     meta: [
       { title: "Agendar serviço | Big Dog Pet" },
@@ -99,7 +101,7 @@ function Agendar() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { campanha } = useSearch({ from: "/_authenticated/agendar" });
+  const { campanha, cupom } = useSearch({ from: "/_authenticated/agendar" });
   const isBirthdayOffer = campanha === "niver";
 
   const [category, setCategory] = useState("banho");
@@ -108,7 +110,9 @@ function Agendar() {
   const [date, setDate] = useState(todayISO());
   const [time, setTime] = useState("09:00");
   const [notes, setNotes] = useState(
-    isBirthdayOffer ? "Cliente veio pela oferta de aniversário (20% de desconto)." : "",
+    isBirthdayOffer
+      ? `Cliente veio pela oferta de aniversário (20% de desconto)${cupom ? ` — cupom ${cupom}` : ""}.`
+      : "",
   );
 
   const availableHours = useMemo(() => hours.filter((h) => !isPastSlot(date, h)), [date]);
@@ -487,6 +491,11 @@ function Agendar() {
             20% de desconto em banho ou tosa hoje. A equipe confirma o valor com desconto ao liberar
             o agendamento pelo WhatsApp.
           </p>
+          {cupom && (
+            <p className="mt-2 inline-block rounded-lg border-2 border-dashed border-gold/60 bg-background px-2.5 py-1 font-mono text-xs font-bold tracking-wide text-gold">
+              Cupom aplicado: {cupom}
+            </p>
+          )}
         </div>
       )}
 

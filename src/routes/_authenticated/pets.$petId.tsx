@@ -13,7 +13,17 @@ import {
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
-import { CLINIC, daysUntil, formatDate, formatDateTime, whatsappLink } from "@/lib/format";
+import {
+  alertTone,
+  capitalizeWords,
+  CLINIC,
+  daysUntil,
+  formatDate,
+  formatDateTime,
+  statusToneCardClass,
+  statusToneIconClass,
+  whatsappLink,
+} from "@/lib/format";
 import { petSizeLabels, type PetSize } from "@/lib/transport";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -404,7 +414,7 @@ function PetFicha() {
         daysUntil(v.next_due_at!) < 0
           ? `Reforço de ${v.vaccine_name} atrasado`
           : `Reforço de ${v.vaccine_name} em ${daysUntil(v.next_due_at!)} dia(s)`,
-      whatsappMsg: `Olá, ${CLINIC.name}! Gostaria de agendar o reforço da vacina ${v.vaccine_name} do meu pet ${pet?.name ?? ""} (retorno previsto para ${formatDate(v.next_due_at!)}).`,
+      whatsappMsg: `Olá, ${CLINIC.name}! Gostaria de agendar o reforço da vacina ${v.vaccine_name} do meu pet ${pet?.name ? capitalizeWords(pet.name) : ""} (retorno previsto para ${formatDate(v.next_due_at!)}).`,
     }));
 
   const reminderAlerts = (reminders ?? [])
@@ -417,7 +427,7 @@ function PetFicha() {
         daysUntil(r.due_date) < 0
           ? `${r.title} atrasado(a)`
           : `${r.title} em ${daysUntil(r.due_date)} dia(s)`,
-      whatsappMsg: `Olá, ${CLINIC.name}! Gostaria de agendar "${r.title}" (${reminderTypeLabels[r.reminder_type as (typeof reminderTypes)[number]]}) do meu pet ${pet?.name ?? ""} (previsto para ${formatDate(r.due_date)}).`,
+      whatsappMsg: `Olá, ${CLINIC.name}! Gostaria de agendar "${r.title}" (${reminderTypeLabels[r.reminder_type as (typeof reminderTypes)[number]]}) do meu pet ${pet?.name ? capitalizeWords(pet.name) : ""} (previsto para ${formatDate(r.due_date)}).`,
     }));
 
   const allAlerts = [...vaccineAlerts, ...reminderAlerts].sort((a, b) => a.days - b.days);
@@ -433,7 +443,7 @@ function PetFicha() {
         <ArrowLeft className="h-3.5 w-3.5" />
         Voltar para a conta
       </Link>
-      <h1 className="mt-2 font-display text-2xl">{pet?.name ?? "Ficha do pet"}</h1>
+      <h1 className="mt-2 font-display text-2xl">{pet?.name ? capitalizeWords(pet.name) : "Ficha do pet"}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Temperamento, alergias, vacinas, retornos e histórico clínico.
       </p>
@@ -443,9 +453,12 @@ function PetFicha() {
           {allAlerts.map((a) => (
             <div
               key={a.key}
-              className="flex items-start gap-2 rounded-2xl border-2 border-primary/30 bg-secondary p-3"
+              className={cn(
+                "flex items-start gap-2 rounded-2xl border-2 p-3",
+                statusToneCardClass(alertTone(a.days)),
+              )}
             >
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <AlertTriangle className={cn("mt-0.5 h-4 w-4 shrink-0", statusToneIconClass(alertTone(a.days)))} />
               <div className="min-w-0 text-xs">
                 <p className="font-semibold">{a.title}</p>
                 <p className="text-muted-foreground">Retorno: {formatDate(a.dueDate)}</p>

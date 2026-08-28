@@ -1,4 +1,5 @@
 import type { Tables } from "@/integrations/supabase/types";
+import type { StatusTone } from "./format";
 
 /** Modalidade escolhida pelo tutor no agendamento. */
 export type LogisticsType = "levar" | "buscar" | "devolver" | "buscar_e_devolver";
@@ -95,6 +96,24 @@ export const opsStatusTutorMessage: Record<OpsStatus, string> = {
   finalizado: "Atendimento finalizado. Obrigado por confiar no Big Dog Pet!",
   cancelado: "Este agendamento foi cancelado.",
 };
+
+/** Cor por etapa operacional de transporte, usada nos badges de status. */
+export function opsStatusTone(status: string): StatusTone {
+  switch (status as OpsStatus) {
+    case "cancelado":
+      return "danger";
+    case "finalizado":
+    case "pet_entregue":
+    case "servico_concluido":
+      return "success";
+    case "em_atendimento":
+    case "em_deslocamento_retirada":
+    case "em_rota_devolucao":
+      return "info";
+    default:
+      return "pending"; // agendado, motorista_designado, pet_retirado, pet_chegou_petshop
+  }
+}
 
 export function nextOpsStatus(current: string): OpsStatus | null {
   const idx = opsStatusOrder.indexOf(current as OpsStatus);

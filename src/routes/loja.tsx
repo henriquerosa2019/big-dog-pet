@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Gift, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatBRL } from "@/lib/format";
@@ -11,6 +11,10 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/loja")({
+  validateSearch: (search: Record<string, unknown>): { campanha?: string; cupom?: string } => ({
+    ...(typeof search["campanha"] === "string" ? { campanha: search["campanha"] as string } : {}),
+    ...(typeof search["cupom"] === "string" ? { cupom: search["cupom"] as string } : {}),
+  }),
   head: () => ({
     meta: [
       { title: "Loja Big Dog Pet | Ração, higiene e acessórios para pets" },
@@ -40,7 +44,16 @@ const categories = [
 function Loja() {
   const [category, setCategory] = useState("todos");
   const [term, setTerm] = useState("");
-  const { add } = useCart();
+  const { add, setBirthdayCoupon, birthdayCoupon } = useCart();
+  const { campanha, cupom } = useSearch({ from: "/loja" });
+  const isBirthdayOffer = campanha === "niver" && Boolean(cupom);
+
+  // Guarda o cupom da campanha de aniversário no carrinho assim que o tutor
+  // chega pela oferta (link do card de aniversário), pra sobreviver até o
+  // checkout mesmo que ele navegue por outras páginas antes de finalizar.
+  useEffect(() => {
+    if (isBirthdayOffer && cupom) setBirthdayCoupon(cupom);
+  }, [isBirthdayOffer, cupom, setBirthdayCoupon]);
 
   const { data: products, isLoading } = useQuery({
     queryKey: ["products"],
@@ -67,6 +80,17 @@ function Loja() {
       <p className="mt-1 text-sm text-muted-foreground">
         Monte seu pedido e finalize pelo WhatsApp com a nossa equipe.
       </p>
+
+      {birthdayCoupon && (
+        <div className="mt-3 flex items-center gap-2 rounded-2xl border-2 border-gold/50 bg-secondary p-3">
+          <Gift className="h-4 w-4 shrink-0 text-gold" />
+          <p className="text-xs text-muted-foreground">
+            Cupom de aniversário{" "}
+            <span className="font-mono font-bold text-gold">{birthdayCoupon}</span> ativo — 20% de
+            desconto aplicado no checkout do carrinho.
+          </p>
+        </div>
+      )}
 
       <div className="relative mt-4">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

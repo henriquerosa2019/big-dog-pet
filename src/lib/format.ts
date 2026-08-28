@@ -97,3 +97,117 @@ export function isBirthdayTomorrow(birthDate: string | null | undefined): boolea
   tomorrow.setDate(tomorrow.getDate() + 1);
   return Number(month) === tomorrow.getMonth() + 1 && Number(day) === tomorrow.getDate();
 }
+
+/**
+ * Deixa cada palavra com inicial maiúscula (ex.: "shana" -> "Shana",
+ * "joão da silva" -> "João Da Silva"). Usado pra exibir nome de pet/tutor de
+ * forma consistente mesmo quando foi digitado em caixa baixa no cadastro —
+ * pedido do Henrique 2026-08-28 depois de ver "shana" em caixa baixa no card
+ * de aniversário.
+ */
+export function capitalizeWords(value: string | null | undefined): string {
+  if (!value) return "";
+  return value
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+/**
+ * Tom visual compartilhado por badges/cards de status em toda a área do
+ * tutor e do admin — cada tela mapeia seu próprio status (agendamento, pedido,
+ * ops_status de transporte, urgência de alerta) pra um destes 5 tons.
+ */
+export type StatusTone = "pending" | "info" | "success" | "danger" | "neutral";
+
+const STATUS_TONE_BADGE_CLASSES: Record<StatusTone, string> = {
+  pending: "bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-300",
+  info: "bg-sky-100 text-sky-900 dark:bg-sky-500/15 dark:text-sky-300",
+  success: "bg-emerald-100 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-300",
+  danger: "bg-red-100 text-red-900 dark:bg-red-500/15 dark:text-red-300",
+  neutral: "bg-secondary text-secondary-foreground",
+};
+
+/** Classes de fundo/texto pra usar num <Badge> (ex.: variant="secondary" + este className). */
+export function statusToneClass(tone: StatusTone): string {
+  return STATUS_TONE_BADGE_CLASSES[tone];
+}
+
+const STATUS_TONE_CARD_CLASSES: Record<StatusTone, string> = {
+  pending: "border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-500/10",
+  info: "border-sky-300 bg-sky-50 dark:border-sky-500/40 dark:bg-sky-500/10",
+  success: "border-emerald-300 bg-emerald-50 dark:border-emerald-500/40 dark:bg-emerald-500/10",
+  danger: "border-red-300 bg-red-50 dark:border-red-500/40 dark:bg-red-500/10",
+  neutral: "border-primary/30 bg-secondary",
+};
+
+/** Classes de borda/fundo pra usar num card de alerta (ex.: aviso de vacina atrasada). */
+export function statusToneCardClass(tone: StatusTone): string {
+  return STATUS_TONE_CARD_CLASSES[tone];
+}
+
+const STATUS_TONE_ICON_CLASSES: Record<StatusTone, string> = {
+  pending: "text-amber-600 dark:text-amber-400",
+  info: "text-sky-600 dark:text-sky-400",
+  success: "text-emerald-600 dark:text-emerald-400",
+  danger: "text-red-600 dark:text-red-400",
+  neutral: "text-primary",
+};
+
+/** Cor de ícone que combina com statusToneCardClass. */
+export function statusToneIconClass(tone: StatusTone): string {
+  return STATUS_TONE_ICON_CLASSES[tone];
+}
+
+/** Cor por status de agendamento (appointments.status: pendente/confirmado/concluido/cancelado). */
+export function appointmentStatusTone(status: string): StatusTone {
+  switch (status) {
+    case "pendente":
+      return "pending";
+    case "confirmado":
+      return "info";
+    case "concluido":
+      return "success";
+    case "cancelado":
+      return "danger";
+    default:
+      return "neutral";
+  }
+}
+
+/** Cor por status de pedido da loja (orders.status: novo/em_preparo/entregue/cancelado). */
+export function orderStatusTone(status: string): StatusTone {
+  switch (status) {
+    case "novo":
+      return "pending";
+    case "em_preparo":
+      return "info";
+    case "entregue":
+      return "success";
+    case "cancelado":
+      return "danger";
+    default:
+      return "neutral";
+  }
+}
+
+/** Tom de um alerta (vacina/retorno) conforme já esteja atrasado (days < 0) ou só se aproximando. */
+export function alertTone(days: number): StatusTone {
+  return days < 0 ? "danger" : "pending";
+}
+
+/**
+ * Código do cupom da campanha de aniversário (20% em banho/tosa ou na loja),
+ * derivado do nome do pet ou tutor pra parecer pessoal (ex.: "Shana" -> "ANIVSHANA20").
+ * Determinístico e sem acento/espaço pra caber num badge e ser fácil de digitar/conferir.
+ */
+export function birthdayCouponCode(name: string | null | undefined): string {
+  const base = (name ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z]/g, "")
+    .toUpperCase()
+    .slice(0, 10);
+  return `ANIV${base || "PET"}20`;
+}

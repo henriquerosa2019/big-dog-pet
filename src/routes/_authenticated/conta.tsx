@@ -1,11 +1,15 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { AlertTriangle, ChevronRight, Gift, LogOut, PawPrint } from "lucide-react";
+import { AlertTriangle, ChevronRight, Gift, LogOut, PawPrint, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
+  alertTone,
+  appointmentStatusTone,
+  birthdayCouponCode,
+  capitalizeWords,
   CLINIC,
   daysUntil,
   formatBRL,
@@ -13,14 +17,20 @@ import {
   formatDateTime,
   isBirthdayToday,
   isBirthdayTomorrow,
+  statusToneCardClass,
+  statusToneClass,
+  statusToneIconClass,
   whatsappLink,
 } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TransportHistoryList } from "@/components/TransportHistoryList";
+import { DriverContact } from "@/components/DriverContact";
+import { cn } from "@/lib/utils";
 import {
   logisticsTypeLabels,
   opsStatusLabels,
+  opsStatusTone,
   type LogisticsType,
   type OpsStatus,
 } from "@/lib/transport";
@@ -143,6 +153,9 @@ function Conta() {
     days: number;
     dueDate?: string;
     whatsappMessage?: string;
+    /** Só presente em avisos de aniversário — leva pro card de aniversário
+     * completo (cupom, validade, CTA pra loja) em vez de abrir o WhatsApp direto. */
+    couponCode?: string;
   };
 
   const avisos = useMemo(() => {
@@ -153,7 +166,7 @@ function Conta() {
         key: `vacina-${v.id}`,
         kind: "vacina",
         label: v.vaccine_name,
-        petName: v.pets?.name,
+        petName: v.pets?.name ? capitalizeWords(v.pets.name) : undefined,
         days: daysUntil(v.next_due_at!),
         dueDate: v.next_due_at!,
         whatsappMessage: `Olá, ${CLINIC.name}! Quero agendar o reforço da vacina ${v.vaccine_name} do meu pet ${v.pets?.name ?? ""}.`,
@@ -165,7 +178,7 @@ function Conta() {
         key: `retorno-${r.id}`,
         kind: "retorno",
         label: r.title,
-        petName: r.pets?.name,
+        petName: r.pets?.name ? capitalizeWords(r.pets.name) : undefined,
         days: daysUntil(r.due_date),
         dueDate: r.due_date,
         whatsappMessage: `Olá, ${CLINIC.name}! Quero agendar: ${r.title} do meu pet ${r.pets?.name ?? ""}.`,
@@ -178,6 +191,7 @@ function Conta() {
         kind: "aniversario",
         label: "Seu aniversário",
         days: 0,
+        couponCode: birthdayCouponCode(profile?.full_name),
       });
     } else if (isBirthdayTomorrow(profile?.birth_date)) {
       items.push({
@@ -185,6 +199,7 @@ function Conta() {
         kind: "aniversario",
         label: "Seu aniversário",
         days: 1,
+        couponCode: birthdayCouponCode(profile?.full_name),
       });
     }
 
@@ -193,15 +208,17 @@ function Conta() {
         items.push({
           key: `aniversario-pet-${pet.id}`,
           kind: "aniversario",
-          label: `Aniversário de ${pet.name}`,
+          label: `Aniversário de ${capitalizeWords(pet.name)}`,
           days: 0,
+          couponCode: birthdayCouponCode(pet.name),
         });
       } else if (isBirthdayTomorrow(pet.birth_date)) {
         items.push({
           key: `aniversario-pet-${pet.id}`,
           kind: "aniversario",
-          label: `Aniversário de ${pet.name}`,
+          label: `Aniversário de ${capitalizeWords(pet.name)}`,
           days: 1,
+          couponCode: birthdayCouponCode(pet.name),
         });
       }
     }
@@ -237,51 +254,68 @@ function Conta() {
           <p className="text-xs text-muted-foreground">
             Vacinas e retornos dos próximos 30 dias, e aniversários de hoje e amanhã.
           </p>
-          {avisos.map((item) => (
-            <div
-              key={item.key}
-              className="flex items-start gap-2 rounded-2xl border-2 border-primary/30 bg-secondary p-3"
-            >
-              {item.kind === "aniversario" ? (
-                <Gift className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              ) : (
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              )}
-              <div className="min-w-0 flex-1 text-xs">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="font-semibold">
-                    {item.petName ? `${item.petName} · ` : ""}
-                    {item.label}
-                  </p>
-                  <Badge
-                    variant={item.days <= 1 ? "default" : "secondary"}
-                    className="shrink-0 whitespace-nowrap"
-                  >
-                    {item.days < 0
-                      ? "Atrasado"
-                      : item.days === 0
-                        ? "Hoje"
-                        : item.days === 1
-                          ? "Amanhã"
-                          : `Em ${item.days} dias`}
-                  </Badge>
+          {avisos.map((item) => {
+            const tone = item.kind === "aniversario" ? "success" : alertTone(item.days);
+            return (
+              <div
+                key={item.key}
+                className={cn(
+                  "flex items-start gap-2 rounded-2xl border-2 p-3",
+                  statusToneCardClass(tone),
+                )}
+              >
+                {item.kind === "aniversario" ? (
+                  <Gift className={cn("mt-0.5 h-4 w-4 shrink-0", statusToneIconClass(tone))} />
+                ) : (
+                  <AlertTriangle className={cn("mt-0.5 h-4 w-4 shrink-0", statusToneIconClass(tone))} />
+                )}
+                <div className="min-w-0 flex-1 text-xs">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-semibold">
+                      {item.petName ? `${item.petName} · ` : ""}
+                      {item.label}
+                    </p>
+                    <Badge variant="secondary" className={cn("shrink-0 whitespace-nowrap", statusToneClass(tone))}>
+                      {item.days < 0
+                        ? "Atrasado"
+                        : item.days === 0
+                          ? "Hoje"
+                          : item.days === 1
+                            ? "Amanhã"
+                            : `Em ${item.days} dias`}
+                    </Badge>
+                  </div>
+                  {item.dueDate && (
+                    <p className="text-muted-foreground">Data: {formatDate(item.dueDate)}</p>
+                  )}
+                  {item.kind === "aniversario" && item.couponCode && (
+                    <>
+                      <p className="mt-1.5 inline-block rounded-lg border-2 border-dashed border-gold/60 bg-background px-2 py-0.5 font-mono text-[11px] font-bold tracking-wide text-gold">
+                        {item.couponCode}
+                      </p>
+                      <Link
+                        to="/agendar"
+                        search={{ campanha: "niver", cupom: item.couponCode }}
+                        className="mt-1 block font-semibold text-primary underline"
+                      >
+                        Ver cupom de aniversário
+                      </Link>
+                    </>
+                  )}
+                  {item.whatsappMessage && (
+                    <a
+                      className="mt-1 inline-block font-semibold text-primary underline"
+                      href={whatsappLink(item.whatsappMessage)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Falar no WhatsApp
+                    </a>
+                  )}
                 </div>
-                {item.dueDate && (
-                  <p className="text-muted-foreground">Data: {formatDate(item.dueDate)}</p>
-                )}
-                {item.whatsappMessage && (
-                  <a
-                    className="mt-1 inline-block font-semibold text-primary underline"
-                    href={whatsappLink(item.whatsappMessage)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Falar no WhatsApp
-                  </a>
-                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </section>
       )}
 
@@ -304,10 +338,13 @@ function Conta() {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {formatDateTime(item.scheduled_at)}
-                      {item.pets?.name ? ` · ${item.pets.name}` : ""}
+                      {item.pets?.name ? ` · ${capitalizeWords(item.pets.name)}` : ""}
                     </p>
                   </div>
-                  <Badge variant="secondary" className="shrink-0 capitalize">
+                  <Badge
+                    variant="secondary"
+                    className={cn("shrink-0 capitalize", statusToneClass(appointmentStatusTone(item.status)))}
+                  >
                     {item.status}
                   </Badge>
                 </div>
@@ -319,11 +356,17 @@ function Conta() {
                         {item.transport_price_cents > 0 &&
                           ` · ${formatBRL(item.transport_price_cents)}`}
                       </p>
-                      <Badge className="shrink-0">
+                      <Badge
+                        variant="secondary"
+                        className={cn("shrink-0", statusToneClass(opsStatusTone(item.ops_status ?? "agendado")))}
+                      >
                         {opsStatusLabels[item.ops_status as OpsStatus] ?? item.ops_status}
                       </Badge>
                     </div>
-                    <TransportHistoryList appointmentId={item.id} />
+                    {item.ops_status && item.ops_status !== "agendado" && (
+                      <DriverContact appointmentId={item.id} />
+                    )}
+                    <TransportHistoryList appointmentId={item.id} currentStatus={item.ops_status ?? undefined} />
                   </div>
                 )}
               </li>
@@ -352,7 +395,21 @@ function Conta() {
             </li>
           ))}
           {(orders ?? []).length === 0 && (
-            <li className="text-sm text-muted-foreground">Nenhum pedido ainda.</li>
+            <li className="flex items-center gap-3 rounded-2xl border-2 border-dashed border-border bg-card p-4">
+              <ShoppingBag className="h-6 w-6 shrink-0 text-primary" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">Nenhum pedido ainda.</p>
+                <p className="text-xs text-muted-foreground">
+                  Confira nossas rações e petiscos e aproveite pra fazer o primeiro pedido.
+                </p>
+                <Link
+                  to="/loja"
+                  className="mt-2 inline-block text-xs font-semibold text-primary underline"
+                >
+                  Ir para a loja
+                </Link>
+              </div>
+            </li>
           )}
         </ul>
       </section>
@@ -374,7 +431,7 @@ function Conta() {
                   <PawPrint className="h-4 w-4" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{pet.name}</p>
+                  <p className="truncate text-sm font-semibold">{capitalizeWords(pet.name)}</p>
                   <p className="truncate text-xs text-muted-foreground">
                     {pet.species}
                     {pet.breed ? ` · ${pet.breed}` : ""}

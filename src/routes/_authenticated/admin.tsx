@@ -8,6 +8,8 @@ import { startOfDay, startOfMonth, startOfWeek } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useIsAdmin } from "@/hooks/useAuth";
 import {
+  appointmentStatusTone,
+  capitalizeWords,
   CLINIC,
   daysUntil,
   digitsOnly,
@@ -17,6 +19,8 @@ import {
   formatPetAge,
   isBirthdayToday,
   isBirthdayTomorrow,
+  orderStatusTone,
+  statusToneClass,
   whatsappLinkTo,
 } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -43,6 +47,7 @@ import {
   opsStatusLabels,
   opsStatusOrder,
   opsStatusTimestampColumn,
+  opsStatusTone,
   opsStatusTutorMessage,
   petSizeLabels,
   vehicleTypeLabels,
@@ -987,7 +992,7 @@ function Admin() {
           kind: "dono",
           when,
           ownerId: p.id,
-          ownerName: p.full_name ?? "Cliente",
+          ownerName: p.full_name ? capitalizeWords(p.full_name) : "Cliente",
           phone: p.phone,
         });
       }
@@ -1005,9 +1010,9 @@ function Admin() {
           kind: "pet",
           when,
           ownerId: pet.owner_id,
-          ownerName: owner?.full_name ?? "Cliente",
+          ownerName: owner?.full_name ? capitalizeWords(owner.full_name) : "Cliente",
           phone: owner?.phone ?? null,
-          petName: pet.name,
+          petName: capitalizeWords(pet.name),
           petAge: formatPetAge(pet.birth_date),
         });
       }
@@ -2036,7 +2041,10 @@ function Admin() {
             <div key={item.id} className="rounded-2xl bg-card p-3 shadow-card">
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                 <p className="text-sm font-semibold">{item.services?.name ?? "Serviço"}</p>
-                <Badge variant="secondary" className="shrink-0 capitalize">
+                <Badge
+                  variant="secondary"
+                  className={cn("shrink-0 capitalize", statusToneClass(appointmentStatusTone(item.status)))}
+                >
                   {item.status}
                 </Badge>
               </div>
@@ -2061,11 +2069,12 @@ function Admin() {
                   <button
                     key={status}
                     onClick={() => updateAppointment.mutate({ id: item.id, status })}
-                    className={
+                    className={cn(
+                      "rounded-lg px-2.5 py-1 text-[11px] font-semibold",
                       item.status === status
-                        ? "rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground"
-                        : "rounded-lg bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground"
-                    }
+                        ? cn("bg-primary text-primary-foreground", statusToneClass(appointmentStatusTone(status)))
+                        : "bg-secondary text-secondary-foreground",
+                    )}
                   >
                     {status}
                   </button>
@@ -2244,7 +2253,12 @@ function Admin() {
                       {client?.full_name ? ` · ${client.full_name}` : ""}
                     </p>
                   </div>
-                  <Badge className="shrink-0">{opsStatusLabels[currentStatus]}</Badge>
+                  <Badge
+                    variant="secondary"
+                    className={cn("shrink-0", statusToneClass(opsStatusTone(currentStatus)))}
+                  >
+                    {opsStatusLabels[currentStatus]}
+                  </Badge>
                 </div>
 
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -2371,7 +2385,7 @@ function Admin() {
                   </Button>
                 )}
 
-                <TransportHistoryList appointmentId={item.appointment_id} />
+                <TransportHistoryList appointmentId={item.appointment_id} currentStatus={currentStatus} />
               </div>
             );
           })}
@@ -2500,11 +2514,12 @@ function Admin() {
                   <button
                     key={status}
                     onClick={() => updateOrder.mutate({ id: order.id, status })}
-                    className={
+                    className={cn(
+                      "rounded-lg px-2.5 py-1 text-[11px] font-semibold",
                       order.status === status
-                        ? "rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground"
-                        : "rounded-lg bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground"
-                    }
+                        ? cn("bg-primary text-primary-foreground", statusToneClass(orderStatusTone(status)))
+                        : "bg-secondary text-secondary-foreground",
+                    )}
                   >
                     {status.replace("_", " ")}
                   </button>

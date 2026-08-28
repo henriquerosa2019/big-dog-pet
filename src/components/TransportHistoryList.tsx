@@ -1,16 +1,25 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDateTime } from "@/lib/format";
-import { opsStatusLabels, type OpsStatus } from "@/lib/transport";
+import { opsStatusLabels, opsStatusOrder, type OpsStatus } from "@/lib/transport";
+import { cn } from "@/lib/utils";
 
 /**
- * Expandable timeline of an appointment's pet_status_history rows — the audit
- * trail behind "segurança na retirada" (who changed what, when). Fetched only
- * when expanded, shared between the tutor's own account page and the admin
- * "Retirada/Entrega" tab.
+ * Resumo compacto (barra de progresso) + histórico detalhado retrátil de um
+ * agendamento com transporte. Antes só existia a lista de histórico (até 10
+ * etapas de pet_status_history) sempre igual, ocupando espaço vertical assim
+ * que expandida — pedido do Henrique 2026-08-28 pra dar uma visão rápida do
+ * andamento sem precisar abrir o histórico completo.
  */
-export function TransportHistoryList({ appointmentId }: { appointmentId: string }) {
+export function TransportHistoryList({
+  appointmentId,
+  currentStatus,
+}: {
+  appointmentId: string;
+  currentStatus?: string;
+}) {
   const [expanded, setExpanded] = useState(false);
 
   const { data: history, isLoading } = useQuery({
@@ -29,11 +38,16 @@ export function TransportHistoryList({ appointmentId }: { appointmentId: string 
 
   return (
     <div className="mt-2">
+      {currentStatus && currentStatus !== "cancelado" && (
+        <OpsStatusProgress status={currentStatus as OpsStatus} />
+      )}
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="text-xs font-semibold text-primary underline"
+        className="mt-2 flex items-center gap-1 text-xs font-semibold text-primary underline"
+        aria-expanded={expanded}
       >
-        {expanded ? "Ocultar histórico" : "Ver histórico"}
+        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />
+        {expanded ? "Ocultar histórico completo" : "Ver histórico completo"}
       </button>
       {expanded && (
         <ol className="mt-2 space-y-2 border-l-2 border-primary/30 pl-3">
@@ -50,6 +64,35 @@ export function TransportHistoryList({ appointmentId }: { appointmentId: string 
           )}
         </ol>
       )}
+    </div>
+  );
+}
+
+/** Barra segmentada com a etapa atual dentre as 10 etapas não-terminais de ops_status. */
+function OpsStatusProgress({ status }: { status: OpsStatus }) {
+  const steps = opsStatusOrder.filter((s) => s !== "cancelado");
+  const idx = Math.max(0, steps.indexOf(status));
+
+  return (
+    <div>
+      <div
+        className="flex items-center gap-1"
+        role="img"
+        aria-label={`Etapa ${idx + 1} de ${steps.length}: ${opsStatusLabels[status]}`}
+      >
+        {steps.map((step, i) => (
+          <span
+            key={step}
+            className={cn(
+              "h-1.5 flex-1 rounded-full",
+              i <= idx ? "bg-primary" : "bg-secondary",
+            )}
+          />
+        ))}
+      </div>
+      <p className="mt-1 text-[11px] text-muted-foreground">
+        Etapa {idx + 1} de {steps.length} · {opsStatusLabels[status]}
+      </p>
     </div>
   );
 }

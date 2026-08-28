@@ -15,20 +15,29 @@ type CartContextValue = {
   setQuantity: (id: string, quantity: number) => void;
   remove: (id: string) => void;
   clear: () => void;
+  /** Código do cupom da campanha de aniversário (ver birthdayCouponCode em
+   * lib/format.ts), guardado ao visitar /loja com ?campanha=niver&cupom=...
+   * pra sobreviver até o checkout no carrinho mesmo que o tutor navegue por
+   * outras páginas antes de finalizar o pedido. */
+  birthdayCoupon: string | null;
+  setBirthdayCoupon: (code: string | null) => void;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
 const STORAGE_KEY = "bigdog-cart-v1";
+const COUPON_STORAGE_KEY = "bigdog-cart-coupon-v1";
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [birthdayCoupon, setBirthdayCouponState] = useState<string | null>(null);
 
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) setItems(JSON.parse(raw) as CartItem[]);
+      setBirthdayCouponState(window.localStorage.getItem(COUPON_STORAGE_KEY));
     } catch {
-      /* ignora carrinho inválido */
+      /* ignora carrinho/cupom inválido */
     }
   }, []);
 
@@ -39,6 +48,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       /* storage indisponível */
     }
   }, [items]);
+
+  const setBirthdayCoupon = useCallback((code: string | null) => {
+    setBirthdayCouponState(code);
+    try {
+      if (code) window.localStorage.setItem(COUPON_STORAGE_KEY, code);
+      else window.localStorage.removeItem(COUPON_STORAGE_KEY);
+    } catch {
+      /* storage indisponível */
+    }
+  }, []);
 
   const add = useCallback((item: Omit<CartItem, "quantity">, quantity = 1) => {
     setItems((current) => {
@@ -64,13 +83,26 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setItems((current) => current.filter((i) => i.id !== id));
   }, []);
 
-  const clear = useCallback(() => setItems([]), []);
+  const clear = useCallback(() => {
+    setItems([]);
+    setBirthdayCoupon(null);
+  }, [setBirthdayCoupon]);
 
   const value = useMemo<CartContextValue>(() => {
     const totalCents = items.reduce((sum, i) => sum + i.priceCents * i.quantity, 0);
     const count = items.reduce((sum, i) => sum + i.quantity, 0);
-    return { items, totalCents, count, add, setQuantity, remove, clear };
-  }, [items, add, setQuantity, remove, clear]);
+    return {
+      items,
+      totalCents,
+      count,
+      add,
+      setQuantity,
+      remove,
+      clear,
+      birthdayCoupon,
+      setBirthdayCoupon,
+    };
+  }, [items, add, setQuantity, remove, clear, birthdayCoupon, setBirthdayCoupon]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
