@@ -6,7 +6,7 @@ import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
-import { CLINIC, formatBRL, formatDateTime, whatsappLink } from "@/lib/format";
+import { capitalizeWords, CLINIC, formatBRL, formatDateTime, whatsappLink } from "@/lib/format";
 import {
   computeTransportFeeCents,
   findZoneForDistrict,
@@ -22,6 +22,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/agendar")({
@@ -131,6 +139,7 @@ function Agendar() {
     temperament: "",
     allergies: "",
   });
+  const [petSheetOpen, setPetSheetOpen] = useState(false);
 
   const [logisticsType, setLogisticsType] = useState<LogisticsType>("levar");
   const [addressId, setAddressId] = useState<string | null>(null);
@@ -175,7 +184,7 @@ function Agendar() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pets")
-        .select("id, name, species, breed")
+        .select("id, name, species, breed, size")
         .order("created_at");
       if (error) throw error;
       return data;
@@ -310,6 +319,7 @@ function Agendar() {
         temperament: "",
         allergies: "",
       });
+      setPetSheetOpen(false);
       toast.success("Pet cadastrado");
     },
     onError: (error) => {
@@ -365,6 +375,7 @@ function Agendar() {
 
   const selectedAddress = (addresses ?? []).find((a) => a.id === addressId) ?? null;
   const selectedService = (services ?? []).find((s) => s.id === serviceId) ?? null;
+  const selectedPet = (pets ?? []).find((p) => p.id === petId) ?? null;
   const zone = useMemo(
     () => findZoneForDistrict(zones, selectedAddress?.district),
     [zones, selectedAddress],
@@ -380,6 +391,17 @@ function Agendar() {
     });
   }, [logisticsType, zone, selectedService, isReturningClient, transportSettings, appliedCoupon]);
   const outOfArea = needsAddress(logisticsType) && Boolean(selectedAddress) && !zone;
+  // Prévia da taxa de transporte, calculada mesmo quando a opção atual é
+  // "Levar ao petshop" — usada só para mostrar um valor de referência nos
+  // cards de retirada/devolução antes do tutor escolher o endereço.
+  const transportFeePreview = useMemo(() => {
+    if (!zone) return null;
+    return computeTransportFeeCents(zone, selectedService?.price_cents ?? 0, {
+      isReturningClient,
+      returningClientDiscountPercent: transportSettings?.returning_client_discount_percent ?? null,
+      coupon: appliedCoupon,
+    });
+  }, [zone, selectedService, isReturningClient, transportSettings, appliedCoupon]);
 
   const createAppointment = useMutation({
     mutationFn: async () => {
@@ -448,7 +470,8 @@ function Agendar() {
     onSuccess: ({ scheduled, transportPriceCents, wantsTransport, zoneNotCovered }) => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       const serviceName = (services ?? []).find((s) => s.id === serviceId)?.name ?? "serviço";
-      const petName = (pets ?? []).find((p) => p.id === petId)?.name;
+      const rawPetName = (pets ?? []).find((p) => p.id === petId)?.name;
+      const petName = rawPetName ? capitalizeWords(rawPetName) : undefined;
       const feeLine = zoneNotCovered ? "a confirmar" : formatBRL(transportPriceCents);
       const addressLine =
         wantsTransport && selectedAddress
@@ -475,10 +498,8 @@ function Agendar() {
     },
   });
 
-  const filteredServices = (services ?? []).filter((s) => s.category === category);
-
   return (
-    <div className="p-4">
+    <div className="p-4 pb-28">
       <h1 className="font-display text-2xl">Agendar serviço</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Escolha o serviço, o pet e o melhor horário.
@@ -499,49 +520,58 @@ function Agendar() {
         </div>
       )}
 
-      <div className="mt-4 flex gap-2">
+      <Tabs
+        value={category}
+        onValueChange={(value) => {
+          setCategory(value);
+          setServiceId(null);
+        }}
+        className="mt-4"
+      >
+        <TabsList className="grid w-full grid-cols-3">
+          {categories.map((c) => (
+            <TabsTrigger key={c.value} value={c.value}>
+              {c.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
         {categories.map((c) => (
-          <button
-            key={c.value}
-            onClick={() => {
-              setCategory(c.value);
-              setServiceId(null);
-            }}
-            className={cn(
-              "flex-1 rounded-full px-3 py-2 text-xs font-semibold transition-colors",
-              category === c.value
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-secondary-foreground",
-            )}
-          >
-            {c.label}
-          </button>
-        ))}
-      </div>
-
-      <ul className="mt-4 space-y-2">
-        {filteredServices.map((service) => (
-          <li key={service.id}>
-            <button
-              onClick={() => setServiceId(service.id)}
-              className={cn(
-                "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border-2 bg-card p-3 text-left shadow-card transition-colors",
-                serviceId === service.id ? "border-primary" : "border-transparent",
+          <TabsContent key={c.value} value={c.value} className="mt-3">
+            <ul className="space-y-2">
+              {(services ?? [])
+                .filter((s) => s.category === c.value)
+                .map((service) => (
+                  <li key={service.id}>
+                    <button
+                      onClick={() => setServiceId(service.id)}
+                      className={cn(
+                        "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border-2 bg-card p-3 text-left shadow-card transition-colors",
+                        serviceId === service.id ? "border-primary" : "border-transparent",
+                      )}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">
+                          {service.name}
+                        </span>
+                        <span className="block text-[11px] text-muted-foreground">
+                          {service.duration_min} minutos
+                        </span>
+                      </span>
+                      <span className="shrink-0 font-display text-sm text-primary">
+                        {formatBRL(service.price_cents)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              {(services ?? []).filter((s) => s.category === c.value).length === 0 && (
+                <li className="text-xs text-muted-foreground">
+                  Nenhum serviço nessa categoria no momento.
+                </li>
               )}
-            >
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold">{service.name}</span>
-                <span className="block text-[11px] text-muted-foreground">
-                  {service.duration_min} minutos
-                </span>
-              </span>
-              <span className="shrink-0 font-display text-sm text-primary">
-                {formatBRL(service.price_cents)}
-              </span>
-            </button>
-          </li>
+            </ul>
+          </TabsContent>
         ))}
-      </ul>
+      </Tabs>
 
       <section className="mt-6">
         <h2 className="font-display text-lg">Pet</h2>
@@ -558,83 +588,91 @@ function Agendar() {
                     : "bg-secondary text-secondary-foreground",
                 )}
               >
-                {pet.name}
+                {capitalizeWords(pet.name)}
               </button>
             ))}
           </div>
         )}
-        <div className="mt-3 rounded-2xl bg-card p-3 shadow-card">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Cadastrar novo pet
-          </p>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <Input
-              placeholder="Nome"
-              value={newPet.name}
-              maxLength={60}
-              onChange={(e) => setNewPet({ ...newPet, name: e.target.value })}
-              className="h-10 rounded-xl"
-            />
-            <Input
-              placeholder="Espécie"
-              value={newPet.species}
-              maxLength={30}
-              onChange={(e) => setNewPet({ ...newPet, species: e.target.value })}
-              className="h-10 rounded-xl"
-            />
-            <div className="col-span-2">
-              <p className="mb-1 text-[11px] font-medium text-muted-foreground">
-                Porte (define se pode ser transportado de moto na retirada/devolução)
-              </p>
-              <div className="flex gap-2">
-                {petSizeOptions.map((size) => (
-                  <button
-                    key={size}
-                    type="button"
-                    onClick={() => setNewPet({ ...newPet, size })}
-                    className={cn(
-                      "flex-1 rounded-xl px-3 py-2 text-xs font-semibold",
-                      newPet.size === size
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-secondary text-secondary-foreground",
-                    )}
-                  >
-                    {petSizeLabels[size]}
-                  </button>
-                ))}
+        <Sheet open={petSheetOpen} onOpenChange={setPetSheetOpen}>
+          <SheetTrigger asChild>
+            <button
+              type="button"
+              className="mt-3 w-full rounded-2xl border-2 border-dashed border-muted-foreground/30 p-3 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+            >
+              + Adicionar novo pet
+            </button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-3xl">
+            <SheetHeader>
+              <SheetTitle>Cadastrar novo pet</SheetTitle>
+            </SheetHeader>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Input
+                placeholder="Nome"
+                value={newPet.name}
+                maxLength={60}
+                onChange={(e) => setNewPet({ ...newPet, name: e.target.value })}
+                className="h-10 rounded-xl"
+              />
+              <Input
+                placeholder="Espécie"
+                value={newPet.species}
+                maxLength={30}
+                onChange={(e) => setNewPet({ ...newPet, species: e.target.value })}
+                className="h-10 rounded-xl"
+              />
+              <div className="col-span-2">
+                <p className="mb-1 text-[11px] font-medium text-muted-foreground">Porte</p>
+                <div className="flex gap-2">
+                  {petSizeOptions.map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => setNewPet({ ...newPet, size })}
+                      className={cn(
+                        "flex-1 rounded-xl px-3 py-2 text-xs font-semibold",
+                        newPet.size === size
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-secondary-foreground",
+                      )}
+                    >
+                      {petSizeLabels[size]}
+                    </button>
+                  ))}
+                </div>
               </div>
+              <Input
+                placeholder="Raça (opcional)"
+                value={newPet.breed}
+                maxLength={60}
+                onChange={(e) => setNewPet({ ...newPet, breed: e.target.value })}
+                className="col-span-2 h-10 rounded-xl"
+              />
+              <Input
+                placeholder="Temperamento (opcional)"
+                value={newPet.temperament}
+                maxLength={300}
+                onChange={(e) => setNewPet({ ...newPet, temperament: e.target.value })}
+                className="col-span-2 h-10 rounded-xl"
+              />
+              <Input
+                placeholder="Alergias (opcional)"
+                value={newPet.allergies}
+                maxLength={300}
+                onChange={(e) => setNewPet({ ...newPet, allergies: e.target.value })}
+                className="col-span-2 h-10 rounded-xl"
+              />
             </div>
-            <Input
-              placeholder="Raça (opcional)"
-              value={newPet.breed}
-              maxLength={60}
-              onChange={(e) => setNewPet({ ...newPet, breed: e.target.value })}
-              className="col-span-2 h-10 rounded-xl"
-            />
-            <Input
-              placeholder="Temperamento (opcional)"
-              value={newPet.temperament}
-              maxLength={300}
-              onChange={(e) => setNewPet({ ...newPet, temperament: e.target.value })}
-              className="col-span-2 h-10 rounded-xl"
-            />
-            <Input
-              placeholder="Alergias (opcional)"
-              value={newPet.allergies}
-              maxLength={300}
-              onChange={(e) => setNewPet({ ...newPet, allergies: e.target.value })}
-              className="col-span-2 h-10 rounded-xl"
-            />
-          </div>
-          <Button
-            variant="secondary"
-            className="mt-2 h-10 w-full rounded-xl"
-            disabled={createPet.isPending}
-            onClick={() => createPet.mutate()}
-          >
-            Salvar pet
-          </Button>
-        </div>
+            <Button
+              variant="secondary"
+              className="mt-3 h-10 w-full rounded-xl"
+              disabled={createPet.isPending}
+              onClick={() => createPet.mutate()}
+            >
+              Salvar pet
+            </Button>
+          </SheetContent>
+        </Sheet>
       </section>
 
       <section className="mt-6 space-y-3">
@@ -651,22 +689,28 @@ function Agendar() {
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          {availableHours.map((h) => (
-            <button
-              key={h}
-              onClick={() => setTime(h)}
-              className={cn(
-                "rounded-xl px-3 py-2 text-xs font-semibold",
-                time === h
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-secondary-foreground",
-              )}
-            >
-              {h}
-            </button>
-          ))}
+          {hours.map((h) => {
+            const disabled = isPastSlot(date, h);
+            return (
+              <button
+                key={h}
+                disabled={disabled}
+                onClick={() => setTime(h)}
+                className={cn(
+                  "rounded-xl px-3 py-2 text-xs font-semibold",
+                  disabled
+                    ? "cursor-not-allowed bg-muted text-muted-foreground/50 line-through"
+                    : time === h
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-secondary-foreground",
+                )}
+              >
+                {h}
+              </button>
+            );
+          })}
           {availableHours.length === 0 && (
-            <p className="text-xs text-muted-foreground">
+            <p className="w-full text-xs text-muted-foreground">
               Não há mais horários hoje. Escolha outra data acima.
             </p>
           )}
@@ -688,32 +732,50 @@ function Agendar() {
         <p className="text-xs text-muted-foreground">
           Comodidade: buscamos seu pet em casa e entregamos de volta após o atendimento.
         </p>
+        {selectedPet && (
+          <p className="rounded-xl bg-secondary px-3 py-2 text-[11px] text-secondary-foreground">
+            Porte de {capitalizeWords(selectedPet.name)}:{" "}
+            <span className="font-semibold">{petSizeLabels[selectedPet.size as PetSize]}</span> —
+            pets de porte médio ou grande exigem carro na retirada/devolução (moto só é permitida
+            para porte pequeno).
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-2">
-          {logisticsOptions.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => {
-                setLogisticsType(option.value);
-                if (!needsAddress(option.value)) {
-                  // Sem transporte, o cupom não tem efeito nenhum — limpa pra
-                  // não reaparecer "magicamente" aplicado se o tutor voltar
-                  // para um modo com retirada/devolução mais tarde.
-                  setAppliedCoupon(null);
-                  setCouponCode("");
-                  setCouponError(null);
-                }
-              }}
-              className={cn(
-                "rounded-xl px-3 py-2 text-left text-xs font-semibold",
-                logisticsType === option.value
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-secondary-foreground",
-              )}
-            >
-              <span className="mr-1">{option.icon}</span>
-              {logisticsTypeLabels[option.value]}
-            </button>
-          ))}
+          {logisticsOptions.map((option) => {
+            const requiresAddress = needsAddress(option.value);
+            return (
+              <button
+                key={option.value}
+                onClick={() => {
+                  setLogisticsType(option.value);
+                  if (!requiresAddress) {
+                    // Sem transporte, o cupom não tem efeito nenhum — limpa pra
+                    // não reaparecer "magicamente" aplicado se o tutor voltar
+                    // para um modo com retirada/devolução mais tarde.
+                    setAppliedCoupon(null);
+                    setCouponCode("");
+                    setCouponError(null);
+                  }
+                }}
+                className={cn(
+                  "rounded-xl px-3 py-2 text-left text-xs font-semibold",
+                  logisticsType === option.value
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-secondary-foreground",
+                )}
+              >
+                <span className="mr-1">{option.icon}</span>
+                {logisticsTypeLabels[option.value]}
+                <span className="mt-0.5 block text-[10px] font-normal opacity-80">
+                  {!requiresAddress
+                    ? "Sem taxa"
+                    : transportFeePreview
+                      ? `Taxa: ${formatBRL(transportFeePreview.feeCents)}`
+                      : "Taxa calculada pelo bairro"}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {needsAddress(logisticsType) && (
@@ -864,25 +926,50 @@ function Agendar() {
         )}
       </section>
 
-      <Button
-        className="mt-5 h-12 w-full rounded-2xl"
-        disabled={
-          createAppointment.isPending ||
-          !serviceId ||
-          availableHours.length === 0 ||
-          (needsAddress(logisticsType) && !addressId)
-        }
-        onClick={() => {
-          // Abre a aba do WhatsApp já aqui, de forma síncrona no clique —
-          // antes dos awaits do createAppointment — para não ser bloqueada
-          // como pop-up pelo navegador. O destino é definido depois, no
-          // onSuccess, quando já temos o texto da mensagem.
-          whatsappWindowRef.current = window.open("", "_blank");
-          createAppointment.mutate();
-        }}
-      >
-        {createAppointment.isPending ? "Enviando..." : "Confirmar agendamento"}
-      </Button>
+      <div className="sticky bottom-16 z-20 mt-6 -mx-4 border-t-2 border-primary/20 bg-background/95 p-4 shadow-lg backdrop-blur">
+        {selectedService && (
+          <div className="mb-2 space-y-0.5 text-xs">
+            <p className="flex justify-between text-muted-foreground">
+              <span>{selectedService.name}</span>
+              <span>{formatBRL(selectedService.price_cents)}</span>
+            </p>
+            {needsAddress(logisticsType) && feeResult.feeCents > 0 && (
+              <p className="flex justify-between text-muted-foreground">
+                <span>Taxa de retirada/devolução</span>
+                <span>{formatBRL(feeResult.feeCents)}</span>
+              </p>
+            )}
+            <p className="flex justify-between font-display text-sm text-primary">
+              <span>Total</span>
+              <span>
+                {formatBRL(
+                  selectedService.price_cents +
+                    (needsAddress(logisticsType) ? feeResult.feeCents : 0),
+                )}
+              </span>
+            </p>
+          </div>
+        )}
+        <Button
+          className="h-12 w-full rounded-2xl"
+          disabled={
+            createAppointment.isPending ||
+            !serviceId ||
+            availableHours.length === 0 ||
+            (needsAddress(logisticsType) && !addressId)
+          }
+          onClick={() => {
+            // Abre a aba do WhatsApp já aqui, de forma síncrona no clique —
+            // antes dos awaits do createAppointment — para não ser bloqueada
+            // como pop-up pelo navegador. O destino é definido depois, no
+            // onSuccess, quando já temos o texto da mensagem.
+            whatsappWindowRef.current = window.open("", "_blank");
+            createAppointment.mutate();
+          }}
+        >
+          {createAppointment.isPending ? "Enviando..." : "Confirmar agendamento"}
+        </Button>
+      </div>
     </div>
   );
 }
