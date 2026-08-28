@@ -1,16 +1,18 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Gift, Minus, Plus, Trash2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Gift, Minus, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/lib/cart";
-import { CLINIC, formatBRL, whatsappLink } from "@/lib/format";
+import { capitalizeWords, CLINIC, formatBRL, maskPhoneBR, whatsappLink } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/carrinho")({
   head: () => ({
@@ -27,6 +29,13 @@ export const Route = createFileRoute("/carrinho")({
   }),
   component: Carrinho,
 });
+
+type DeliveryMethod = "retirar_na_loja" | "receber_em_casa";
+
+const deliveryMethodLabels: Record<DeliveryMethod, string> = {
+  retirar_na_loja: "Retirar na loja",
+  receber_em_casa: "Receber em casa",
+};
 
 const checkoutSchema = z.object({
   name: z.string().trim().min(2, "Informe seu nome").max(100),
@@ -45,6 +54,42 @@ function Carrinho() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: "", phone: "", notes: "" });
   const [sending, setSending] = useState(false);
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("retirar_na_loja");
+  const [addressId, setAddressId] = useState<string | null>(null);
+  const [manualAddress, setManualAddress] = useState("");
+  const [couponCode, setCouponCode] = useState("");
+
+  const { data: addresses } = useQuery({
+    queryKey: ["addresses", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("addresses")
+        .select("id, label, street, number, district, is_default")
+        .order("is_default", { ascending: false })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: products } = useQuery({
+    queryKey: ["products"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, name, price_cents, category")
+        .eq("active", true)
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const cartIds = new Set(items.map((i) => i.id));
+  const crossSell = (products ?? []).filter((p) => !cartIds.has(p.id)).slice(0, 6);
+
+  const selectedAddress = (addresses ?? []).find((a) => a.id === addressId) ?? null;
 
   async function handleCheckout() {
     const parsed = checkoutSchema.safeParse(form);
@@ -53,8 +98,17 @@ function Carrinho() {
       return;
     }
     if (items.length === 0) return;
+    if (deliveryMethod === "receber_em_casa" && user && !addressId) {
+      toast.error("Escolha um endereço para entrega");
+      return;
+    }
+    if (deliveryMethod === "receber_em_casa" && !user && !manualAddress.trim()) {
+      toast.error("Informe o endereço para entrega");
+      return;
+    }
     setSending(true);
     try {
+      const trimmedCoupon = couponCode.trim().toUpperCase() || null;
       if (user) {
         const { data: order, error } = await supabase
           .from("orders")
@@ -63,6 +117,9 @@ function Carrinho() {
             total_cents: totalCents,
             customer_name: parsed.data.name,
             phone: parsed.data.phone,
+            delivery_method: deliveryMethod,
+            address_id: deliveryMethod === "receber_em_casa" ? addressId : null,
+            coupon_code: trimmedCoupon,
             notes: [
               parsed.data.notes,
               birthdayCoupon ? `Cupom de aniversário: ${birthdayCoupon} (20% de desconto)` : "",
@@ -89,12 +146,22 @@ function Carrinho() {
       const lines = items
         .map((i) => `• ${i.quantity}x ${i.name} — ${formatBRL(i.priceCents * i.quantity)}`)
         .join("\n");
+      const deliveryLine =
+        deliveryMethod === "receber_em_casa"
+          ? `\nEntrega: Receber em casa — ${
+              user && selectedAddress
+                ? `${selectedAddress.street}${selectedAddress.number ? `, ${selectedAddress.number}` : ""} - ${selectedAddress.district}`
+                : manualAddress.trim()
+            }`
+          : `\nEntrega: Retirar na loja (${CLINIC.unit})`;
       const message = [
         `Olá, ${CLINIC.name}! Quero fazer um pedido:`,
         lines,
         `Total: ${formatBRL(totalCents)}`,
         `Nome: ${parsed.data.name}`,
         `Telefone: ${parsed.data.phone}`,
+        deliveryLine,
+        trimmedCoupon ? `Cupom informado: ${trimmedCoupon}` : "",
         birthdayCoupon ? `Cupom de aniversário: ${birthdayCoupon} (20% de desconto)` : "",
         parsed.data.notes ? `Observações: ${parsed.data.notes}` : "",
       ]
@@ -185,20 +252,141 @@ function Carrinho() {
         ))}
       </ul>
 
+      {crossSell.length > 0 && (
+        <section className="mt-5">
+          <h2 className="flex items-center gap-1.5 text-sm font-semibold">
+            <Sparkles className="h-4 w-4 text-gold" />
+            Aproveite e leve também
+          </h2>
+          <div className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1">
+            {crossSell.map((product) => (
+              <div
+                key={product.id}
+                className="w-36 shrink-0 rounded-2xl bg-card p-3 shadow-card"
+              >
+                <p className="line-clamp-2 text-xs font-semibold leading-tight">{product.name}</p>
+                <p className="mt-1 text-xs text-primary">{formatBRL(product.price_cents)}</p>
+                <Link
+                  to="/loja"
+                  className="mt-2 block rounded-lg bg-secondary py-1.5 text-center text-[11px] font-semibold text-secondary-foreground"
+                >
+                  Ver na loja
+                </Link>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <div className="mt-5 rounded-2xl bg-card p-4 shadow-card">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Total</span>
-          <span className="font-display text-xl text-primary">{formatBRL(totalCents)}</span>
+        <div className="space-y-1 border-b border-border pb-3">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              {items.reduce((sum, i) => sum + i.quantity, 0)}{" "}
+              {items.reduce((sum, i) => sum + i.quantity, 0) === 1 ? "item" : "itens"}
+            </span>
+            <span>Subtotal: {formatBRL(totalCents)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold">Total</span>
+            <span className="font-display text-xl text-primary">{formatBRL(totalCents)}</span>
+          </div>
         </div>
 
         <div className="mt-4 space-y-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Entrega
+            </p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {(Object.keys(deliveryMethodLabels) as DeliveryMethod[]).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setDeliveryMethod(value)}
+                  className={cn(
+                    "rounded-xl px-3 py-2 text-xs font-semibold",
+                    deliveryMethod === value
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-secondary-foreground",
+                  )}
+                >
+                  {deliveryMethodLabels[value]}
+                </button>
+              ))}
+            </div>
+
+            {deliveryMethod === "receber_em_casa" && (
+              <div className="mt-2">
+                {user ? (
+                  (addresses ?? []).length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {(addresses ?? []).map((address) => (
+                        <button
+                          key={address.id}
+                          type="button"
+                          onClick={() => setAddressId(address.id)}
+                          className={cn(
+                            "rounded-xl px-3 py-2 text-left text-xs font-semibold",
+                            addressId === address.id
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-secondary text-secondary-foreground",
+                          )}
+                        >
+                          {address.label}: {address.street}
+                          {address.number ? `, ${address.number}` : ""} — {address.district}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Você ainda não tem endereço cadastrado.{" "}
+                      <Link to="/agendar" className="underline">
+                        Cadastre um endereço
+                      </Link>{" "}
+                      ou informe abaixo nas observações.
+                    </p>
+                  )
+                ) : (
+                  <Textarea
+                    placeholder="Rua, número, bairro — endereço para entrega"
+                    value={manualAddress}
+                    maxLength={200}
+                    onChange={(e) => setManualAddress(e.target.value)}
+                    className="rounded-xl text-sm"
+                  />
+                )}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <Label htmlFor="coupon">Cupom de desconto (opcional)</Label>
+            <Input
+              id="coupon"
+              placeholder="Código do cupom"
+              value={couponCode}
+              maxLength={30}
+              onChange={(e) => setCouponCode(e.target.value)}
+              className="mt-1 h-11 rounded-xl uppercase"
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              A equipe confere e aplica o desconto ao confirmar pelo WhatsApp.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Dados para contato
+            </p>
+          </div>
           <div>
             <Label htmlFor="name">Seu nome</Label>
             <Input
               id="name"
               value={form.name}
               maxLength={100}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              onChange={(e) => setForm({ ...form, name: capitalizeWords(e.target.value) })}
               className="mt-1 h-11 rounded-xl"
             />
           </div>
@@ -208,8 +396,8 @@ function Carrinho() {
               id="phone"
               inputMode="tel"
               value={form.phone}
-              maxLength={20}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              maxLength={16}
+              onChange={(e) => setForm({ ...form, phone: maskPhoneBR(e.target.value) })}
               className="mt-1 h-11 rounded-xl"
             />
           </div>

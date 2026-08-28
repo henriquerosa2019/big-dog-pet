@@ -48,6 +48,22 @@ export function digitsOnly(value: string): string {
 }
 
 /**
+ * Aplica máscara de telefone brasileiro conforme o usuário digita: fixo
+ * (99) 9999-9999 (10 dígitos) ou celular (99) 99999-9999 (11 dígitos).
+ * Sempre re-deriva da string bruta (não é stateful), então funciona bem
+ * como onChange direto de um <Input>.
+ */
+export function maskPhoneBR(value: string): string {
+  const digits = digitsOnly(value).slice(0, 11);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
+/**
  * Builds a wa.me link to a client's own phone number (as opposed to `whatsappLink`,
  * which always points at the clinic's WhatsApp). Returns null when there aren't enough
  * digits to form a valid number, so callers can show a fallback instead of a broken link.

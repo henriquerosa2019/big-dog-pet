@@ -603,8 +603,11 @@ export type Database = {
       };
       orders: {
         Row: {
+          address_id: string | null;
+          coupon_code: string | null;
           created_at: string;
           customer_name: string | null;
+          delivery_method: string;
           id: string;
           notes: string | null;
           phone: string | null;
@@ -614,8 +617,11 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          address_id?: string | null;
+          coupon_code?: string | null;
           created_at?: string;
           customer_name?: string | null;
+          delivery_method?: string;
           id?: string;
           notes?: string | null;
           phone?: string | null;
@@ -625,8 +631,11 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          address_id?: string | null;
+          coupon_code?: string | null;
           created_at?: string;
           customer_name?: string | null;
+          delivery_method?: string;
           id?: string;
           notes?: string | null;
           phone?: string | null;
@@ -635,7 +644,15 @@ export type Database = {
           updated_at?: string;
           user_id?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "orders_address_id_fkey";
+            columns: ["address_id"];
+            isOneToOne: false;
+            referencedRelation: "addresses";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       pets: {
         Row: {
