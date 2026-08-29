@@ -49,34 +49,59 @@ export function useDriverLocationBroadcast(appointmentId: string | null, active:
     const channel = supabase.channel(driverLocationTopic(appointmentId), {
       config: { private: true },
     });
-    channel.subscribe();
 
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        setSharing(true);
-        setError(null);
-        const payload: DriverLocationPayload = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          heading: pos.coords.heading ?? null,
-          speed: pos.coords.speed ?? null,
-          updatedAt: new Date().toISOString(),
-        };
-        void channel.send({ type: "broadcast", event: "location_update", payload });
-      },
-      (err) => {
-        setSharing(false);
-        setError(
-          err.code === err.PERMISSION_DENIED
-            ? "Permissão de localização negada — ative o GPS pra compartilhar sua posição."
-            : "Não foi possível obter sua localização agora.",
-        );
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-    );
+    let watchId: number | null = null;
+    let heartbeat: ReturnType<typeof setInterval> | null = null;
+    let lastPayload: DriverLocationPayload | null = null;
+
+    const publish = (payload: DriverLocationPayload) => {
+      void channel.send({ type: "broadcast", event: "location_update", payload });
+    };
+
+    // Só liga o GPS depois que o canal terminou de entrar. Antes disso um
+    // send() se perde silenciosamente, e como o watchPosition costuma disparar
+    // na hora, a 1ª posição virava a única — e nunca chegava em ninguém.
+    const startWatching = () => {
+      if (watchId !== null) return;
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          setSharing(true);
+          setError(null);
+          lastPayload = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            heading: pos.coords.heading ?? null,
+            speed: pos.coords.speed ?? null,
+            updatedAt: new Date().toISOString(),
+          };
+          publish(lastPayload);
+        },
+        (err) => {
+          setSharing(false);
+          setError(
+            err.code === err.PERMISSION_DENIED
+              ? "Permissão de localização negada — ative o GPS pra compartilhar sua posição."
+              : "Não foi possível obter sua localização agora.",
+          );
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+      );
+
+      // Broadcast não guarda histórico: quem abre o mapa depois só veria o pino
+      // no próximo movimento do motorista. Reenviar a última posição a cada 10s
+      // faz o pino aparecer logo pra quem chega no meio do trajeto.
+      heartbeat = setInterval(() => {
+        if (lastPayload) publish({ ...lastPayload, updatedAt: new Date().toISOString() });
+      }, 10000);
+    };
+
+    channel.subscribe((status) => {
+      if (status === "SUBSCRIBED") startWatching();
+    });
 
     return () => {
-      navigator.geolocation.clearWatch(watchId);
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      if (heartbeat) clearInterval(heartbeat);
       void supabase.removeChannel(channel);
       setSharing(false);
     };
