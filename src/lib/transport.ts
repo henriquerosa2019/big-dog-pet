@@ -11,6 +11,14 @@ export const logisticsTypeLabels: Record<LogisticsType, string> = {
   buscar_e_devolver: "Buscar e devolver",
 };
 
+/**
+ * Etapas que encerram o agendamento. Ao chegar numa delas o app fecha o
+ * `appointments.status` como "concluido" - antes o agendamento podia terminar o
+ * transporte inteiro e continuar marcado como "pendente", o que sujava a
+ * receita e as listas do painel.
+ */
+export const CLOSING_OPS_STATUS = ["pet_entregue", "finalizado"];
+
 /** Etapas do transporte a partir das quais o servico ja foi de fato executado. */
 export const EXECUTED_OPS_STATUS = ["servico_concluido", "pet_entregue", "finalizado"];
 

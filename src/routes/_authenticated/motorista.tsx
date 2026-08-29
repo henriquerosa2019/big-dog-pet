@@ -8,6 +8,7 @@ import type { TablesUpdate } from "@/integrations/supabase/types";
 import { useAuth, useIsDriver } from "@/hooks/useAuth";
 import { AVISO_AUTOMATICO_WHATSAPP, formatDateTime, whatsappLinkTo } from "@/lib/format";
 import {
+  CLOSING_OPS_STATUS,
   isVehicleAllowedForPet,
   logisticsTypeLabels,
   nextOpsStatus,
@@ -99,7 +100,10 @@ function Motorista() {
     }) => {
       const { error: apptError } = await supabase
         .from("appointments")
-        .update({ ops_status: vars.status })
+        .update({
+          ops_status: vars.status,
+          ...(CLOSING_OPS_STATUS.includes(vars.status) ? { status: "concluido" } : {}),
+        })
         .eq("id", vars.appointmentId);
       if (apptError) throw apptError;
 

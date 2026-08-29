@@ -67,6 +67,7 @@ import {
 import type { TablesUpdate } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
 import {
+  CLOSING_OPS_STATUS,
   isServiceExecuted,
   isVehicleAllowedForPet,
   logisticsTypeLabels,
@@ -868,7 +869,10 @@ function Admin() {
     }) => {
       const { error: apptError } = await supabase
         .from("appointments")
-        .update({ ops_status: vars.status })
+        .update({
+          ops_status: vars.status,
+          ...(CLOSING_OPS_STATUS.includes(vars.status) ? { status: "concluido" } : {}),
+        })
         .eq("id", vars.appointmentId);
       if (apptError) throw apptError;
 
@@ -894,6 +898,7 @@ function Admin() {
     },
     onSuccess: (vars) => {
       queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
       toast.success("Status atualizado");
       const notifyOn: OpsStatus[] = ["em_deslocamento_retirada", "pet_retirado", "pet_entregue"];
       if (AVISO_AUTOMATICO_WHATSAPP && notifyOn.includes(vars.status)) {
