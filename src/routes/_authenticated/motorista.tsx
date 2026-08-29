@@ -125,7 +125,9 @@ function Motorista() {
     onSuccess: (vars) => {
       queryClient.invalidateQueries({ queryKey: ["driver-routes"] });
       toast.success("Status atualizado");
-      const notifyOn: OpsStatus[] = ["em_deslocamento_retirada", "pet_retirado", "pet_entregue"];
+      // Pedido do Henrique 2026-08-29: o tutor só recebe WhatsApp na entrega final,
+      // pra não receber mensagem a cada etapa do transporte.
+      const notifyOn: OpsStatus[] = ["pet_entregue"];
       if (notifyOn.includes(vars.status)) {
         const client = profileById.get(vars.userId);
         const message = `Olá${client?.full_name ? `, ${client.full_name}` : ""}! ${opsStatusTutorMessage[vars.status]}${vars.petName ? ` (${vars.petName})` : ""}`;
