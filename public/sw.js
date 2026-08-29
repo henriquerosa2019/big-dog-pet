@@ -1,7 +1,7 @@
 // Minimal service worker: enables "Add to Home Screen" / install prompt and
 // gives the app shell basic offline resilience, without caching Supabase (or
 // any other cross-origin) API responses — those should always be fresh.
-const CACHE_NAME = "bigdog-pet-v1";
+const CACHE_NAME = "bigdog-pet-v2";
 const CORE_ASSETS = ["/", "/favicon.png", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
@@ -26,7 +26,13 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
-  if (new URL(request.url).origin !== self.location.origin) return;
+  const url = new URL(request.url);
+  // Downloads gerados no navegador (XLSX/PDF dos relatorios) usam blob: URLs,
+  // que so existem dentro da pagina que as criou. Se o service worker
+  // interceptar, o fetch() dele falha e o usuario recebe o HTML do fallback
+  // no lugar do arquivo - ou seja, o download simplesmente nao acontece.
+  if (url.protocol !== "http:" && url.protocol !== "https:") return;
+  if (url.origin !== self.location.origin) return;
 
   event.respondWith(
     fetch(request)

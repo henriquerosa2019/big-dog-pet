@@ -100,6 +100,19 @@ export const Route = createFileRoute("/_authenticated/admin")({
 });
 
 const statuses = ["pendente", "confirmado", "concluido", "cancelado"];
+
+/** Etapas do transporte a partir das quais o servico ja foi de fato executado. */
+const EXECUTED_OPS_STATUS = ["servico_concluido", "pet_entregue", "finalizado"];
+
+/**
+ * Um servico conta como executado quando a loja marcou o agendamento como
+ * "concluido" OU quando o fluxo de transporte ja passou do atendimento. Os dois
+ * casos existem porque agendamento sem transporte so muda de `status`, e o com
+ * transporte anda pelo `ops_status`.
+ */
+function isServiceExecuted(a: { status: string; ops_status?: string | null }): boolean {
+  return a.status === "concluido" || EXECUTED_OPS_STATUS.includes(a.ops_status ?? "");
+}
 const orderStatuses = ["novo", "em_preparo", "entregue", "cancelado"];
 
 const priceSchema = z.coerce.number().min(0).max(1000000);
@@ -457,7 +470,9 @@ function Admin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("appointments")
-        .select("id, scheduled_at, status, origin, services(category)")
+        .select(
+          "id, scheduled_at, status, ops_status, origin, service_price_cents, services(category, name), pets(name)",
+        )
         .gte("scheduled_at", dashboardBoundaries.earliest.toISOString())
         .neq("status", "cancelado");
       if (error) throw error;
@@ -530,6 +545,22 @@ function Admin() {
       month: sumRevenue(monthStart),
     };
 
+    const executedAppointments = (dashAppointments ?? []).filter(isServiceExecuted);
+    const serviceCounts = bucketCounts(executedAppointments, (a) => a.scheduled_at);
+    function sumServiceRevenue(since: Date) {
+      return executedAppointments
+        .filter((a) => new Date(a.scheduled_at) >= since)
+        .reduce((sum, a) => sum + (a.service_price_cents ?? 0), 0);
+    }
+    const serviceRevenue = {
+      day: sumServiceRevenue(dayStart),
+      week: sumServiceRevenue(weekStart),
+      month: sumServiceRevenue(monthStart),
+    };
+    const executedToday = executedAppointments
+      .filter((a) => new Date(a.scheduled_at) >= dayStart)
+      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+
     const newClients = bucketCounts(dashProfiles ?? [], (p) => p.created_at);
 
     const campaignAppointments = (dashAppointments ?? []).filter(
@@ -537,7 +568,17 @@ function Admin() {
     );
     const campaignNiver = bucketCounts(campaignAppointments, (a) => a.scheduled_at);
 
-    return { apptByCategory, apptTotal, orderCounts, orderRevenue, newClients, campaignNiver };
+    return {
+      apptByCategory,
+      apptTotal,
+      orderCounts,
+      orderRevenue,
+      serviceCounts,
+      serviceRevenue,
+      executedToday,
+      newClients,
+      campaignNiver,
+    };
   }, [dashAppointments, dashOrders, dashProfiles, dashboardBoundaries]);
 
   const pendingAppointments = useMemo(() => {
@@ -1690,6 +1731,64 @@ function Admin() {
 
           <div className="rounded-2xl bg-card p-3 shadow-card">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Serviços executados
+            </p>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {(
+                [
+                  ["Hoje", dashboardStats.serviceCounts.day, dashboardStats.serviceRevenue.day],
+                  ["Semana", dashboardStats.serviceCounts.week, dashboardStats.serviceRevenue.week],
+                  ["Mês", dashboardStats.serviceCounts.month, dashboardStats.serviceRevenue.month],
+                ] as const
+              ).map(([label, count, cents]) => (
+                <div key={label} className="rounded-xl surface-paper p-2 text-center">
+                  <p className="text-[11px] text-muted-foreground">{label}</p>
+                  <p className="font-display text-lg text-primary">{formatBRL(cents)}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {count} serviço{count === 1 ? "" : "s"}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Executados hoje ({dashboardStats.executedToday.length})
+            </p>
+            {dashboardStats.executedToday.length > 0 ? (
+              <ul className="mt-1.5 space-y-1.5">
+                {dashboardStats.executedToday.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex items-start justify-between gap-2 rounded-xl surface-paper p-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-semibold">
+                        {item.services?.name ?? "Serviço"}
+                      </p>
+                      <p className="truncate text-[11px] text-muted-foreground">
+                        {formatDateTime(item.scheduled_at)}
+                        {item.pets?.name ? ` · ${item.pets.name}` : ""}
+                      </p>
+                    </div>
+                    <p className="shrink-0 text-xs font-semibold text-primary">
+                      {formatBRL(item.service_price_cents ?? 0)}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Nenhum serviço concluído hoje ainda.
+              </p>
+            )}
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Conta agendamentos marcados como concluídos ou que já passaram do atendimento no
+              transporte. Não inclui a taxa de transporte.
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-card p-3 shadow-card">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Vendas de produtos
             </p>
             <div className="mt-2 grid grid-cols-3 gap-2">
@@ -2410,7 +2509,14 @@ function Admin() {
                 <Button
                   variant="secondary"
                   className="h-11 rounded-xl"
-                  onClick={() => exportReportXLSX(reportData, reportRange)}
+                  onClick={() => {
+                    try {
+                      exportReportXLSX(reportData, reportRange);
+                    } catch (err) {
+                      console.error(err);
+                      toast.error("Não foi possível gerar o Excel.");
+                    }
+                  }}
                 >
                   <FileSpreadsheet className="h-4 w-4" />
                   Excel
@@ -2418,7 +2524,14 @@ function Admin() {
                 <Button
                   variant="secondary"
                   className="h-11 rounded-xl"
-                  onClick={() => exportReportPDF(reportData, reportRange)}
+                  onClick={() => {
+                    try {
+                      exportReportPDF(reportData, reportRange);
+                    } catch (err) {
+                      console.error(err);
+                      toast.error("Não foi possível gerar o PDF.");
+                    }
+                  }}
                 >
                   <FileText className="h-4 w-4" />
                   PDF
