@@ -3,8 +3,14 @@
  * Simulador de GPS do motorista — Big Dog Pet
  * -------------------------------------------
  * Abre um Chromium controlado, sobrescreve a localização do navegador e percorre
- * a rota Tijuca -> Vila Isabel automaticamente, para testar o mapa ao vivo do
+ * o trajeto entre a casa do tutor e o petshop, para testar o mapa ao vivo do
  * tutor (/conta) e da loja (/admin) sem sair de casa.
+ *
+ * Simula as DUAS pernas do transporte:
+ *   IDA   — casa do tutor (R. Maria Amália, 628, Tijuca) -> petshop (R. Teodoro da Silva, 774)
+ *           corresponde ao status "A caminho da retirada"
+ *   VOLTA — o mesmo caminho ao contrário, petshop -> casa do tutor
+ *           corresponde ao status "A caminho para devolver"
  *
  * Por que assim: a API de geolocalização do navegador NÃO pode ser sobrescrita
  * por JavaScript colado no console (o navegador bloqueia por segurança). A troca
@@ -16,7 +22,10 @@
  *   2) node scripts/simular-gps.mjs
  *   3) Na janela que abrir, faça login como MOTORISTA e toque em
  *      "Avançar: A caminho da retirada" (aceite a permissão de localização).
- *   4) Volte ao terminal e aperte ENTER — o trajeto começa a rodar sozinho.
+ *   4) Volte ao terminal e aperte ENTER — a IDA começa a rodar sozinha.
+ *   5) Ao terminar a ida, avance as etapas (Pet retirado, Chegou ao petshop,
+ *      Em atendimento, Serviço concluído, A caminho para devolver) e aperte
+ *      ENTER de novo — o script faz a VOLTA.
  *
  * O perfil do navegador fica salvo em .gps-sim-profile/, então nas próximas
  * execuções o login já vem pronto.
@@ -24,7 +33,9 @@
  * OPÇÕES (variáveis de ambiente)
  *   URL=http://localhost:5173/motorista   → testar no ambiente local
  *   INTERVALO=8000                        → milissegundos entre cada ponto
- *   AUTO=1                                → não espera o ENTER, começa direto
+ *   SENTIDO=volta                         → começa direto pela volta
+ *   SENTIDO=ida                           → faz só a ida e encerra
+ *   AUTO=1                                → não espera ENTER nenhum
  */
 
 import { chromium } from "@playwright/test";
@@ -37,11 +48,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const URL_APP = process.env.URL ?? "https://big-dog-pet-mu.vercel.app/motorista";
 const INTERVALO = Number(process.env.INTERVALO ?? 8000);
 const AUTO = process.env.AUTO === "1";
+const SENTIDO = (process.env.SENTIDO ?? "ambos").toLowerCase();
 const PROFILE_DIR = path.join(__dirname, ".gps-sim-profile");
 
-/** Trajeto real de carro: Rua Maria Amália 628 (Tijuca) -> Rua Teodoro da Silva 774 (Vila Isabel). */
-const ROTA = [
-  { lat: -22.929462, lng: -43.245723, onde: "Saída — Rua Maria Amália, 628 (Tijuca)" },
+/** Trajeto real de carro: casa do tutor (Tijuca) -> petshop (Vila Isabel). */
+const IDA = [
+  { lat: -22.929462, lng: -43.245723, onde: "Casa do tutor — Rua Maria Amália, 628 (Tijuca)" },
   { lat: -22.92911, lng: -43.24641, onde: "Rua Maria Amália, sentido Conde de Bonfim" },
   { lat: -22.92481, lng: -43.24352, onde: "Rua Conde de Bonfim" },
   { lat: -22.92345, lng: -43.24634, onde: "Praça Saens Peña" },
@@ -49,19 +61,36 @@ const ROTA = [
   { lat: -22.9211, lng: -43.25042, onde: "Rua Barão de Mesquita, altura do Grajaú" },
   { lat: -22.91985, lng: -43.25191, onde: "Entrando em Vila Isabel" },
   { lat: -22.91812, lng: -43.25334, onde: "Rua Teodoro da Silva" },
-  { lat: -22.918994, lng: -43.25421, onde: "Chegada — Rua Teodoro da Silva, 774" },
+  { lat: -22.918994, lng: -43.25421, onde: "Petshop — Rua Teodoro da Silva, 774" },
 ];
+
+/** A devolução é o mesmo caminho ao contrário: petshop -> casa do tutor. */
+const VOLTA = [...IDA].reverse();
 
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function perguntarEnter(mensagem) {
+function perguntar(texto) {
   return new Promise((resolve) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    rl.question(mensagem, () => {
+    rl.question(texto, () => {
       rl.close();
       resolve();
     });
   });
+}
+
+async function percorrer(ctx, pontos, nome) {
+  console.log("");
+  console.log(`${nome} — ${pontos.length} pontos, um a cada ${INTERVALO / 1000}s.`);
+  console.log("");
+  for (const [i, ponto] of pontos.entries()) {
+    await ctx.setGeolocation({ latitude: ponto.lat, longitude: ponto.lng, accuracy: 10 });
+    const n = String(i + 1).padStart(2, "0");
+    console.log(`  [${n}/${pontos.length}]  ${ponto.lat}, ${ponto.lng}   ${ponto.onde}`);
+    if (i < pontos.length - 1) await esperar(INTERVALO);
+  }
+  console.log("");
+  console.log(`${nome} concluída.`);
 }
 
 async function main() {
@@ -73,7 +102,7 @@ async function main() {
     viewport: null,
     args: ["--start-maximized"],
     permissions: ["geolocation"],
-    geolocation: { latitude: ROTA[0].lat, longitude: ROTA[0].lng, accuracy: 10 },
+    geolocation: { latitude: IDA[0].lat, longitude: IDA[0].lng, accuracy: 10 },
     locale: "pt-BR",
   });
   await ctx.grantPermissions(["geolocation"], { origin: origem });
@@ -81,30 +110,49 @@ async function main() {
   const page = ctx.pages()[0] ?? (await ctx.newPage());
   await page.goto(URL_APP, { waitUntil: "domcontentloaded" });
 
-  if (!AUTO) {
-    console.log("");
-    console.log("  1. Faça login como MOTORISTA na janela que abriu.");
-    console.log('  2. Toque em "Avançar: A caminho da retirada".');
-    console.log('  3. Confirme que aparece "Compartilhando localização ao vivo".');
-    console.log("  4. Deixe /conta (tutor) e /admin (loja) abertos em outra janela.");
-    console.log("");
-    await perguntarEnter("Quando estiver tudo pronto, aperte ENTER para começar o trajeto... ");
+  const fazerIda = SENTIDO === "ambos" || SENTIDO === "ida";
+  const fazerVolta = SENTIDO === "ambos" || SENTIDO === "volta";
+
+  if (fazerIda) {
+    if (!AUTO) {
+      // O texto vai todo dentro do prompt pra não embaralhar no terminal do Windows.
+      await perguntar(
+        [
+          "",
+          "IDA — casa do tutor -> petshop",
+          "  1. Faça login como MOTORISTA na janela que abriu.",
+          '  2. Toque em "Avançar: A caminho da retirada".',
+          '  3. Confirme que aparece "Compartilhando localização ao vivo".',
+          "  4. Deixe /conta (tutor) e /admin (loja) abertos em outra janela.",
+          "",
+          "Pronto? Aperte ENTER para começar a ida... ",
+        ].join("\n"),
+      );
+    }
+    await percorrer(ctx, IDA, "IDA");
+  }
+
+  if (fazerVolta) {
+    if (!AUTO) {
+      await perguntar(
+        [
+          "",
+          "VOLTA — petshop -> casa do tutor",
+          "  1. Na janela do motorista, avance as etapas até chegar em",
+          '     "Avançar: A caminho para devolver" e toque nele.',
+          '  2. Confirme que voltou a aparecer "Compartilhando localização ao vivo".',
+          "",
+          "Pronto? Aperte ENTER para começar a volta... ",
+        ].join("\n"),
+      );
+    }
+    await percorrer(ctx, VOLTA, "VOLTA");
   }
 
   console.log("");
-  console.log(`Percorrendo ${ROTA.length} pontos, um a cada ${INTERVALO / 1000}s.`);
-  console.log("");
-
-  for (const [i, ponto] of ROTA.entries()) {
-    await ctx.setGeolocation({ latitude: ponto.lat, longitude: ponto.lng, accuracy: 10 });
-    const n = String(i + 1).padStart(2, "0");
-    console.log(`  [${n}/${ROTA.length}]  ${ponto.lat}, ${ponto.lng}   ${ponto.onde}`);
-    if (i < ROTA.length - 1) await esperar(INTERVALO);
-  }
-
-  console.log("");
-  console.log("Trajeto concluído. O pino deve ter percorrido o caminho no mapa do tutor e do admin.");
-  console.log("A janela fica aberta pra você seguir o teste (Pet entregue, Finalizado etc.).");
+  console.log("Trajeto simulado terminado. O pino deve ter percorrido o caminho");
+  console.log("no mapa do tutor e do admin nas duas pernas.");
+  console.log("A janela fica aberta pra você finalizar o teste (Pet entregue, Finalizado).");
   console.log("Feche a janela ou aperte Ctrl+C aqui para encerrar.");
 
   await new Promise(() => {});
