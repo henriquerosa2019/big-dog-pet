@@ -6,6 +6,7 @@ export function formatBRL(cents: number): string {
 
 export function formatDateTime(value: string | Date): string {
   const date = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return "-";
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "2-digit",
@@ -16,7 +17,16 @@ export function formatDateTime(value: string | Date): string {
 }
 
 export function formatDate(value: string | Date): string {
-  const date = typeof value === "string" ? new Date(`${value}T12:00:00`) : value;
+  // Datas "puras" (YYYY-MM-DD, como birth_date) sao fixadas ao meio-dia pra nao
+  // escorregar um dia por causa de fuso. Timestamps completos (scheduled_at,
+  // created_at, que ja vem com hora e offset) sao usados como estao: concatenar
+  // "T12:00:00" neles gerava Invalid Date e o Intl.DateTimeFormat estourava
+  // RangeError, quebrando a exportacao de Excel/PDF dos relatorios.
+  const date =
+    typeof value === "string"
+      ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value)
+      : value;
+  if (Number.isNaN(date.getTime())) return "-";
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "2-digit",
