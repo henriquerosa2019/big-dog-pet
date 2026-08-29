@@ -55,6 +55,7 @@ import {
 } from "@/components/ui/select";
 import { TransportHistoryList } from "@/components/TransportHistoryList";
 import { DriverLiveMap } from "@/components/DriverLiveMap";
+import { ReportPreview } from "@/components/ReportPreview";
 import {
   buildReportData,
   exportReportPDF,
@@ -1108,6 +1109,8 @@ function Admin() {
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [reportRange, setReportRange] = useState<ReportRange | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
+  const [reportGeneratedAt, setReportGeneratedAt] = useState<Date | null>(null);
+  const [showReportPreview, setShowReportPreview] = useState(false);
 
   async function generateReport() {
     setReportLoading(true);
@@ -1139,6 +1142,8 @@ function Admin() {
       const data = buildReportData(apptRows ?? [], orderRows ?? [], clientNameById);
       setReportData(data);
       setReportRange(range);
+      setReportGeneratedAt(new Date());
+      setShowReportPreview(false);
       toast.success("Relatório gerado");
     } catch (error) {
       console.error(error);
@@ -1552,7 +1557,10 @@ function Admin() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="dashboard" className="mt-4 space-y-3">
+        <TabsContent
+          value="dashboard"
+          className="mt-4 space-y-3 md:columns-2 md:gap-3 md:space-y-0 md:[&>div]:mb-3 md:[&>div]:break-inside-avoid"
+        >
           {pendingAppointments.length > 0 ? (
             <div className="rounded-2xl border-2 border-primary/40 bg-secondary p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -2534,7 +2542,18 @@ function Admin() {
                 {reportData.campaignNiver.percent.toFixed(1)}%)
               </p>
 
-              <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="mt-3 flex justify-center">
+                <Button
+                  variant="secondary"
+                  className="h-11 rounded-xl px-6"
+                  onClick={() => setShowReportPreview((v) => !v)}
+                >
+                  <Eye className="h-4 w-4" />
+                  {showReportPreview ? "Ocultar relatório" : "Ver na tela"}
+                </Button>
+              </div>
+
+              <div className="mt-2 grid grid-cols-2 gap-2">
                 <Button
                   variant="secondary"
                   className="h-11 rounded-xl"
@@ -2572,6 +2591,14 @@ function Admin() {
                 aberto”. Não inclui agendamentos/pedidos cancelados. Canal de origem (App x
                 WhatsApp) não é rastreado hoje, por isso não aparece separado no relatório.
               </p>
+
+              {showReportPreview && (
+                <ReportPreview
+                  data={reportData}
+                  range={reportRange}
+                  generatedAt={reportGeneratedAt ?? new Date()}
+                />
+              )}
             </div>
           )}
         </TabsContent>

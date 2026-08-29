@@ -43,7 +43,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const tabs = [...baseTabs, ...(isAdmin ? [adminTab] : []), ...(isDriver ? [driverTab] : [])];
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background shadow-soft">
+    // O app nasceu como PWA de celular (coluna de 448px). Em tablet e desktop a
+    // coluna passa a acompanhar a tela, senao telas densas como Relatorios e
+    // Dashboard ficam espremidas num quarto do monitor.
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background shadow-soft md:max-w-3xl lg:max-w-5xl">
       <header className="sticky top-0 z-20 border-b border-border/60 bg-background/90 backdrop-blur">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
           <Link to="/" className="flex min-w-0 items-center gap-2">
@@ -77,7 +80,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1 pb-24">{children}</main>
 
-      <nav className="fixed bottom-0 z-30 w-full max-w-md border-t border-border/60 bg-card/95 backdrop-blur">
+      <nav className="fixed bottom-0 left-1/2 z-30 w-full max-w-md -translate-x-1/2 border-t border-border/60 bg-card/95 backdrop-blur md:max-w-3xl lg:max-w-5xl">
         <ul className={cn("grid", gridColsClass(tabs.length))}>
           {tabs.map((tab) => {
             const active = pathname === tab.to;
