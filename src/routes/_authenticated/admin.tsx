@@ -57,6 +57,12 @@ import { TransportHistoryList } from "@/components/TransportHistoryList";
 import { DriverLiveMap } from "@/components/DriverLiveMap";
 import { ReportPreview } from "@/components/ReportPreview";
 import {
+  CatalogForm,
+  emptyCatalogValues,
+  type CatalogKind,
+  type CatalogValues,
+} from "@/components/CatalogEditor";
+import {
   buildReportData,
   exportReportPDF,
   exportReportXLSX,
@@ -270,7 +276,7 @@ function Admin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("services")
-        .select("id, name, category, price_cents, active")
+        .select("id, name, description, category, price_cents, duration_min, active")
         .order("category");
       if (error) throw error;
       return data;
@@ -283,7 +289,7 @@ function Admin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, category, price_cents, stock, active")
+        .select("id, name, description, category, price_cents, stock, active")
         .order("name");
       if (error) throw error;
       return data;
@@ -594,6 +600,18 @@ function Admin() {
       campaignNiver,
     };
   }, [dashAppointments, dashOrders, dashProfiles, dashboardBoundaries]);
+
+  // Sugestoes de categoria vindas do que ja esta cadastrado, pra loja reaproveitar
+  // os nomes em vez de inventar variacoes ("banho" x "Banho").
+  const serviceCategoryOptions = useMemo(
+    () =>
+      Array.from(new Set([...serviceCategories, ...(services ?? []).map((x) => x.category)])).sort(),
+    [services],
+  );
+  const productCategoryOptions = useMemo(
+    () => Array.from(new Set((products ?? []).map((x) => x.category))).sort(),
+    [products],
+  );
 
   const pendingAppointments = useMemo(() => {
     return (appointments ?? [])
@@ -1110,6 +1128,8 @@ function Admin() {
   const [reportRange, setReportRange] = useState<ReportRange | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportGeneratedAt, setReportGeneratedAt] = useState<Date | null>(null);
+  const [creatingCatalog, setCreatingCatalog] = useState<CatalogKind | null>(null);
+  const [editingCatalogId, setEditingCatalogId] = useState<string | null>(null);
   const [showReportPreview, setShowReportPreview] = useState(false);
 
   async function generateReport() {
@@ -1159,14 +1179,33 @@ function Admin() {
       id,
       values,
     }: {
-      table: "services" | "products";
+      table: CatalogKind;
       id: string;
-      values: { price_cents?: number; active?: boolean };
+      values: {
+        name?: string | undefined;
+        description?: string | null | undefined;
+        category?: string | undefined;
+        price_cents?: number | undefined;
+        duration_min?: number | undefined;
+        stock?: number | undefined;
+        active?: boolean | undefined;
+      };
     }) => {
+      // Tira as chaves nao informadas: `duration_min` so existe em services e
+      // `stock` so em products, e o update tipado recusa chave estranha.
+      const payload = Object.fromEntries(
+        Object.entries(values).filter(([, v]) => v !== undefined),
+      );
       const { error } =
         table === "services"
-          ? await supabase.from("services").update(values).eq("id", id)
-          : await supabase.from("products").update(values).eq("id", id);
+          ? await supabase
+              .from("services")
+              .update(payload as TablesUpdate<"services">)
+              .eq("id", id)
+          : await supabase
+              .from("products")
+              .update(payload as TablesUpdate<"products">)
+              .eq("id", id);
       if (error) throw error;
     },
 
@@ -1176,6 +1215,30 @@ function Admin() {
       toast.success("Catálogo atualizado");
     },
     onError: () => toast.error("Não foi possível atualizar"),
+  });
+
+  const createCatalog = useMutation({
+    mutationFn: async ({ table, values }: { table: CatalogKind; values: CatalogValues }) => {
+      const common = {
+        name: values.name,
+        description: values.description || null,
+        category: values.category,
+        price_cents: values.priceCents,
+        active: values.active,
+      };
+      const { error } =
+        table === "services"
+          ? await supabase.from("services").insert({ ...common, duration_min: values.durationMin })
+          : await supabase.from("products").insert({ ...common, stock: values.stock });
+      if (error) throw error;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: [`admin-${vars.table}`] });
+      queryClient.invalidateQueries({ queryKey: [vars.table] });
+      setCreatingCatalog(null);
+      toast.success(vars.table === "services" ? "Serviço criado" : "Produto criado");
+    },
+    onError: () => toast.error("Não foi possível criar"),
   });
 
   const { data: allPets } = useQuery({
@@ -3328,13 +3391,62 @@ function Admin() {
         </TabsContent>
 
         <TabsContent value="servicos" className="mt-4 space-y-2">
+          <CatalogCreateBlock
+            kind="services"
+            label="Novo serviço"
+            open={creatingCatalog === "services"}
+            categories={serviceCategoryOptions}
+            isPending={createCatalog.isPending}
+            onOpen={() => {
+              setEditingCatalogId(null);
+              setCreatingCatalog("services");
+            }}
+            onCancel={() => setCreatingCatalog(null)}
+            onSubmit={(values) => createCatalog.mutate({ table: "services", values })}
+          />
+
           {(services ?? []).map((service) => (
             <CatalogRow
               key={service.id}
+              kind="services"
               name={service.name}
               subtitle={service.category}
               priceCents={service.price_cents}
               active={service.active}
+              categories={serviceCategoryOptions}
+              editing={editingCatalogId === service.id}
+              isPending={updateCatalog.isPending}
+              initial={{
+                name: service.name,
+                description: service.description ?? "",
+                category: service.category,
+                priceCents: service.price_cents,
+                durationMin: service.duration_min,
+                stock: 0,
+                active: service.active,
+              }}
+              onEdit={() => {
+                setCreatingCatalog(null);
+                setEditingCatalogId(service.id);
+              }}
+              onCancelEdit={() => setEditingCatalogId(null)}
+              onSaveAll={(values) =>
+                updateCatalog.mutate(
+                  {
+                    table: "services",
+                    id: service.id,
+                    values: {
+                      name: values.name,
+                      description: values.description || null,
+                      category: values.category,
+                      price_cents: values.priceCents,
+                      duration_min: values.durationMin,
+                      active: values.active,
+                    },
+                  },
+                  { onSuccess: () => setEditingCatalogId(null) },
+                )
+              }
               onSave={(priceCents) =>
                 updateCatalog.mutate({
                   table: "services",
@@ -3354,13 +3466,62 @@ function Admin() {
         </TabsContent>
 
         <TabsContent value="produtos" className="mt-4 space-y-2">
+          <CatalogCreateBlock
+            kind="products"
+            label="Novo produto"
+            open={creatingCatalog === "products"}
+            categories={productCategoryOptions}
+            isPending={createCatalog.isPending}
+            onOpen={() => {
+              setEditingCatalogId(null);
+              setCreatingCatalog("products");
+            }}
+            onCancel={() => setCreatingCatalog(null)}
+            onSubmit={(values) => createCatalog.mutate({ table: "products", values })}
+          />
+
           {(products ?? []).map((product) => (
             <CatalogRow
               key={product.id}
+              kind="products"
               name={product.name}
               subtitle={`${product.category} · estoque ${product.stock}`}
               priceCents={product.price_cents}
               active={product.active}
+              categories={productCategoryOptions}
+              editing={editingCatalogId === product.id}
+              isPending={updateCatalog.isPending}
+              initial={{
+                name: product.name,
+                description: product.description ?? "",
+                category: product.category,
+                priceCents: product.price_cents,
+                durationMin: 30,
+                stock: product.stock,
+                active: product.active,
+              }}
+              onEdit={() => {
+                setCreatingCatalog(null);
+                setEditingCatalogId(product.id);
+              }}
+              onCancelEdit={() => setEditingCatalogId(null)}
+              onSaveAll={(values) =>
+                updateCatalog.mutate(
+                  {
+                    table: "products",
+                    id: product.id,
+                    values: {
+                      name: values.name,
+                      description: values.description || null,
+                      category: values.category,
+                      price_cents: values.priceCents,
+                      stock: values.stock,
+                      active: values.active,
+                    },
+                  },
+                  { onSuccess: () => setEditingCatalogId(null) },
+                )
+              }
               onSave={(priceCents) =>
                 updateCatalog.mutate({
                   table: "products",
@@ -3383,18 +3544,77 @@ function Admin() {
   );
 }
 
+/** Bloco "Novo serviço" / "Novo produto" no topo das abas de catálogo. */
+function CatalogCreateBlock({
+  kind,
+  label,
+  open,
+  categories,
+  isPending,
+  onOpen,
+  onCancel,
+  onSubmit,
+}: {
+  kind: CatalogKind;
+  label: string;
+  open: boolean;
+  categories: string[];
+  isPending: boolean;
+  onOpen: () => void;
+  onCancel: () => void;
+  onSubmit: (values: CatalogValues) => void;
+}) {
+  if (!open) {
+    return (
+      <Button className="h-11 w-full rounded-2xl" onClick={onOpen}>
+        + {label}
+      </Button>
+    );
+  }
+  return (
+    <div className="rounded-2xl bg-card p-3 shadow-card">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <CatalogForm
+        kind={kind}
+        initial={emptyCatalogValues(kind)}
+        categories={categories}
+        submitLabel="Criar"
+        isPending={isPending}
+        onSubmit={onSubmit}
+        onCancel={onCancel}
+      />
+    </div>
+  );
+}
+
 function CatalogRow({
+  kind,
   name,
   subtitle,
   priceCents,
   active,
+  categories,
+  editing,
+  isPending,
+  initial,
+  onEdit,
+  onCancelEdit,
+  onSaveAll,
   onSave,
   onToggle,
 }: {
+  kind: CatalogKind;
   name: string;
   subtitle: string;
   priceCents: number;
   active: boolean;
+  categories: string[];
+  editing: boolean;
+  isPending: boolean;
+  initial: CatalogValues;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSaveAll: (values: CatalogValues) => void;
   onSave: (priceCents: number) => void;
   onToggle: () => void;
 }) {
@@ -3435,7 +3655,27 @@ function CatalogRow({
         <Button size="sm" variant="secondary" className="h-9 rounded-xl" onClick={onToggle}>
           {active ? "Desativar" : "Ativar"}
         </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          className="h-9 rounded-xl"
+          onClick={editing ? onCancelEdit : onEdit}
+        >
+          {editing ? "Fechar" : "Editar"}
+        </Button>
       </div>
+
+      {editing && (
+        <CatalogForm
+          kind={kind}
+          initial={initial}
+          categories={categories}
+          submitLabel="Salvar alterações"
+          isPending={isPending}
+          onSubmit={onSaveAll}
+          onCancel={onCancelEdit}
+        />
+      )}
     </div>
   );
 }
