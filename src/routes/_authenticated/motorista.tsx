@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TransportHistoryList } from "@/components/TransportHistoryList";
+import { useDriverLocationBroadcast } from "@/lib/driverLocation";
 
 export const Route = createFileRoute("/_authenticated/motorista")({
   head: () => ({
@@ -275,6 +276,17 @@ function RouteCard({
     `Olá${client?.full_name ? `, ${client.full_name}` : ""}! Aqui é o motorista do Big Dog Pet.`,
   );
 
+  // Compartilha o GPS ao vivo com o tutor/admin só enquanto o motorista
+  // estiver de fato em deslocamento (retirada ou devolução) — pedido do
+  // Henrique 2026-08-29, canal privado via Supabase Realtime, ver
+  // src/lib/driverLocation.ts.
+  const isEnRoute =
+    currentStatus === "em_deslocamento_retirada" || currentStatus === "em_rota_devolucao";
+  const { sharing, error: locationError } = useDriverLocationBroadcast(
+    item.appointment_id,
+    isEnRoute,
+  );
+
   return (
     <div className="rounded-2xl bg-card p-3 shadow-card">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
@@ -290,6 +302,17 @@ function RouteCard({
         </div>
         <Badge className="shrink-0">{opsStatusLabels[currentStatus]}</Badge>
       </div>
+
+      {isEnRoute && (
+        <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-primary">
+          <MapPin className="h-3 w-3 shrink-0" />
+          {sharing
+            ? "Compartilhando localização ao vivo"
+            : locationError
+              ? locationError
+              : "Ativando GPS..."}
+        </p>
+      )}
 
       <p className="mt-1 text-xs text-muted-foreground">
         {item.appointments

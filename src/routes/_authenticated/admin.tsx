@@ -53,6 +53,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TransportHistoryList } from "@/components/TransportHistoryList";
+import { DriverLiveMap } from "@/components/DriverLiveMap";
 import {
   buildReportData,
   exportReportPDF,
@@ -299,6 +300,35 @@ function Admin() {
       return data;
     },
   });
+
+  // Atualiza o painel ao vivo quando o motorista muda o status pelo celular
+  // (ex.: "a caminho da retirada") — antes só atualizava ao recarregar a
+  // página ou trocar de aba. Mesmo padrão do /conta (pedido do Henrique
+  // 2026-08-29), só que sem filtro de usuário: o admin acompanha todo mundo,
+  // então escuta appointments e transport_orders inteiros.
+  useEffect(() => {
+    if (!isAdmin) return;
+    const channel = supabase
+      .channel("admin-transport-orders-live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "appointments" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "transport_orders" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [isAdmin, queryClient]);
 
   const { data: driverRoles } = useQuery({
     queryKey: ["admin-drivers"],
@@ -2951,6 +2981,13 @@ function Admin() {
                   </Button>
                 )}
 
+                <DriverLiveMap
+                  appointmentId={item.appointment_id}
+                  active={
+                    currentStatus === "em_deslocamento_retirada" ||
+                    currentStatus === "em_rota_devolucao"
+                  }
+                />
                 <TransportHistoryList appointmentId={item.appointment_id} currentStatus={currentStatus} />
               </div>
             );

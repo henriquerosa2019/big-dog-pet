@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { AlertTriangle, ChevronRight, Gift, LogOut, PawPrint, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TransportHistoryList } from "@/components/TransportHistoryList";
 import { DriverContact } from "@/components/DriverContact";
+import { DriverLiveMap } from "@/components/DriverLiveMap";
 import { cn } from "@/lib/utils";
 import {
   logisticsTypeLabels,
@@ -97,6 +98,27 @@ function Conta() {
       return data;
     },
   });
+
+  // Atualiza a tela ao vivo quando o motorista ou o admin muda o status de
+  // um agendamento (ex.: "a caminho da retirada") — antes só atualizava ao
+  // recarregar a página. Pedido do Henrique 2026-08-29, junto do
+  // rastreamento por GPS.
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`tutor-appointments-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "appointments", filter: `user_id=eq.${user.id}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["appointments", user.id] });
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user?.id, queryClient]);
 
   const { data: pets } = useQuery({
     queryKey: ["pets", user?.id],
@@ -366,6 +388,13 @@ function Conta() {
                     {item.ops_status && item.ops_status !== "agendado" && (
                       <DriverContact appointmentId={item.id} />
                     )}
+                    <DriverLiveMap
+                      appointmentId={item.id}
+                      active={
+                        item.ops_status === "em_deslocamento_retirada" ||
+                        item.ops_status === "em_rota_devolucao"
+                      }
+                    />
                     <TransportHistoryList appointmentId={item.id} currentStatus={item.ops_status ?? undefined} />
                   </div>
                 )}
