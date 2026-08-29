@@ -68,6 +68,16 @@ export function maskPhoneBR(value: string): string {
  * which always points at the clinic's WhatsApp). Returns null when there aren't enough
  * digits to form a valid number, so callers can show a fallback instead of a broken link.
  */
+/**
+ * Avisos AUTOMÁTICOS por WhatsApp pro cliente (os que abriam sozinhos ao
+ * confirmar agendamento, designar motorista, avançar status e entregar o pet).
+ * Desligados a pedido do Henrique em 2026-08-29: o volume de disparos automáticos
+ * saindo do número da loja levou a Meta a bloquear o número. A ideia é substituir
+ * por e-mail. Os botões de conversa individual (falar com o tutor / com o
+ * motorista) e os disparos de aniversário e retorno continuam funcionando.
+ */
+export const AVISO_AUTOMATICO_WHATSAPP = false;
+
 export function whatsappLinkTo(phone: string | null | undefined, message: string): string | null {
   const digits = digitsOnly(phone ?? "");
   if (digits.length < 10) return null;

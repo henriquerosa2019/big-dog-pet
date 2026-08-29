@@ -6,7 +6,7 @@ import { MapPin, MessageCircle, Truck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesUpdate } from "@/integrations/supabase/types";
 import { useAuth, useIsDriver } from "@/hooks/useAuth";
-import { formatDateTime, whatsappLinkTo } from "@/lib/format";
+import { AVISO_AUTOMATICO_WHATSAPP, formatDateTime, whatsappLinkTo } from "@/lib/format";
 import {
   isVehicleAllowedForPet,
   logisticsTypeLabels,
@@ -128,7 +128,7 @@ function Motorista() {
       // Pedido do Henrique 2026-08-29: o tutor só recebe WhatsApp na entrega final,
       // pra não receber mensagem a cada etapa do transporte.
       const notifyOn: OpsStatus[] = ["pet_entregue"];
-      if (notifyOn.includes(vars.status)) {
+      if (AVISO_AUTOMATICO_WHATSAPP && notifyOn.includes(vars.status)) {
         const client = profileById.get(vars.userId);
         const message = `Olá${client?.full_name ? `, ${client.full_name}` : ""}! ${opsStatusTutorMessage[vars.status]}${vars.petName ? ` (${vars.petName})` : ""}`;
         const link = whatsappLinkTo(client?.phone, message);

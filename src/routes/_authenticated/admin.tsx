@@ -37,6 +37,7 @@ import {
   orderStatusTone,
   statusToneClass,
   whatsappLinkTo,
+  AVISO_AUTOMATICO_WHATSAPP,
 } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -786,8 +787,10 @@ function Admin() {
       queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
       const client = profileById.get(item.user_id);
       const message = `Ol\u00e1${client?.full_name ? `, ${client.full_name}` : ""}! Seu agendamento de ${item.services?.name ?? "servi\u00e7o"}${item.pets?.name ? ` para ${item.pets.name}` : ""} em ${formatDateTime(item.scheduled_at)} foi CONFIRMADO pelo ${CLINIC.name}. Qualquer d\u00favida, estamos \u00e0 disposi\u00e7\u00e3o!`;
-      const link = whatsappLinkTo(client?.phone, message);
-      if (link) {
+      const link = AVISO_AUTOMATICO_WHATSAPP ? whatsappLinkTo(client?.phone, message) : null;
+      if (!AVISO_AUTOMATICO_WHATSAPP) {
+        toast.success("Agendamento confirmado.");
+      } else if (link) {
         window.open(link, "_blank", "noopener,noreferrer");
         toast.success("Agendamento confirmado! Envie a mensagem no WhatsApp que abriu.");
       } else {
@@ -840,7 +843,7 @@ function Admin() {
       queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
       toast.success("Status atualizado");
       const notifyOn: OpsStatus[] = ["em_deslocamento_retirada", "pet_retirado", "pet_entregue"];
-      if (notifyOn.includes(vars.status)) {
+      if (AVISO_AUTOMATICO_WHATSAPP && notifyOn.includes(vars.status)) {
         const client = profileById.get(vars.userId);
         const message = `Olá${client?.full_name ? `, ${client.full_name}` : ""}! ${opsStatusTutorMessage[vars.status]}${vars.petName ? ` (${vars.petName})` : ""}`;
         const link = whatsappLinkTo(client?.phone, message);
@@ -882,6 +885,7 @@ function Admin() {
     onSuccess: (vars) => {
       queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
       toast.success("Motorista designado");
+      if (!AVISO_AUTOMATICO_WHATSAPP) return;
       const client = profileById.get(vars.userId);
       const driver = profileById.get(vars.driverId);
       const message = `Olá${client?.full_name ? `, ${client.full_name}` : ""}! O motorista ${driver?.full_name ?? ""} foi designado para buscar${vars.petName ? ` ${vars.petName}` : " seu pet"}.`;
@@ -2825,7 +2829,8 @@ function Admin() {
 
           <p className="text-xs text-muted-foreground">
             Pedidos de retirada/devolução. Designe um motorista e avance o status conforme o
-            andamento — o tutor recebe um aviso no WhatsApp nas etapas principais.
+            andamento. Os avisos automáticos por WhatsApp estão desligados; use “Falar com o
+            tutor” quando precisar avisar.
           </p>
 
           {(transportOrders ?? []).map((item) => {
@@ -2836,6 +2841,10 @@ function Admin() {
             const address = item.addresses;
             const petSize = (appt?.pets?.size as PetSize | undefined) ?? "medio";
             const requiresCar = !isVehicleAllowedForPet("moto", petSize);
+            const tutorLink = whatsappLinkTo(
+              client?.phone,
+              `Olá${client?.full_name ? `, ${client.full_name}` : ""}! Aqui é do ${CLINIC.name}.`,
+            );
             return (
               <div key={item.id} className="rounded-2xl bg-card p-3 shadow-card">
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
@@ -2870,6 +2879,18 @@ function Admin() {
                     {address.complement ? ` - ${address.complement}` : ""} — {address.district}
                     {address.reference ? ` (${address.reference})` : ""}
                   </p>
+                )}
+
+                {tutorLink && (
+                  <a
+                    href={tutorLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1 rounded-lg bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    Falar com o tutor
+                  </a>
                 )}
 
                 <div className="mt-2 flex flex-wrap items-center gap-2">
