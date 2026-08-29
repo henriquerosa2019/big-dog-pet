@@ -19,7 +19,9 @@
  *
  * COMO USAR
  *   1) Na pasta do projeto:  npx playwright install chromium   (só na 1ª vez)
- *   2) node scripts/simular-gps.mjs
+ *   2) node scripts/simular-gps.mjs           (ida e volta)
+ *      node scripts/simular-gps.mjs volta     (só a volta)
+ *      node scripts/simular-gps.mjs ida       (só a ida)
  *   3) Na janela que abrir, faça login como MOTORISTA e toque em
  *      "Avançar: A caminho da retirada" (aceite a permissão de localização).
  *   4) Volte ao terminal e aperte ENTER — a IDA começa a rodar sozinha.
@@ -33,8 +35,6 @@
  * OPÇÕES (variáveis de ambiente)
  *   URL=http://localhost:5173/motorista   → testar no ambiente local
  *   INTERVALO=8000                        → milissegundos entre cada ponto
- *   SENTIDO=volta                         → começa direto pela volta
- *   SENTIDO=ida                           → faz só a ida e encerra
  *   AUTO=1                                → não espera ENTER nenhum
  */
 
@@ -48,7 +48,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const URL_APP = process.env.URL ?? "https://big-dog-pet-mu.vercel.app/motorista";
 const INTERVALO = Number(process.env.INTERVALO ?? 8000);
 const AUTO = process.env.AUTO === "1";
-const SENTIDO = (process.env.SENTIDO ?? "ambos").toLowerCase();
+// Aceita tanto `node scripts/simular-gps.mjs volta` quanto SENTIDO=volta.
+const SENTIDO = (process.argv[2] ?? process.env.SENTIDO ?? "ambos").toLowerCase();
 const PROFILE_DIR = path.join(__dirname, ".gps-sim-profile");
 
 /** Trajeto real de carro: casa do tutor (Tijuca) -> petshop (Vila Isabel). */
