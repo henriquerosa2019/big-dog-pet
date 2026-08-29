@@ -3,7 +3,12 @@ import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { CLINIC, formatBRL, formatDate } from "./format";
-import { logisticsTypeLabels, type LogisticsType } from "./transport";
+import {
+  hasTransportFee,
+  isServiceExecuted,
+  logisticsTypeLabels,
+  type LogisticsType,
+} from "./transport";
 
 export type ReportPeriod = "hoje" | "semana" | "mes" | "personalizado";
 
@@ -75,6 +80,7 @@ type AppointmentRow = {
   id: string;
   scheduled_at: string;
   status: string;
+  ops_status: string | null;
   origin: string | null;
   user_id: string;
   service_price_cents: number | null;
@@ -102,6 +108,8 @@ export type ReportData = {
     status: string;
     isCampaignNiver: boolean;
     priceCents: number;
+    /** Servico ja executado (receita realizada) x apenas agendado (em aberto). */
+    realized: boolean;
   }[];
   products: {
     orderId: string;
@@ -110,6 +118,8 @@ export type ReportData = {
     productName: string;
     quantity: number;
     unitPriceCents: number;
+    /** Pedido ja entregue (receita realizada) x ainda em aberto. */
+    realized: boolean;
   }[];
   transport: {
     id: string;
@@ -117,8 +127,17 @@ export type ReportData = {
     clientName: string;
     modalityLabel: string;
     feeCents: number;
+    realized: boolean;
   }[];
+  /** Somas de receita REALIZADA (servico executado / pedido entregue). */
   totals: {
+    servicesCents: number;
+    productsCents: number;
+    transportCents: number;
+    grossCents: number;
+  };
+  /** Somas do que esta agendado/nao entregue - ainda nao virou receita. */
+  open: {
     servicesCents: number;
     productsCents: number;
     transportCents: number;
@@ -143,6 +162,8 @@ export function buildReportData(
   const transport: ReportData["transport"] = [];
   let servicesCents = 0;
   let transportCents = 0;
+  let openServicesCents = 0;
+  let openTransportCents = 0;
   let campaignCount = 0;
   let totalConsideredServices = 0;
 
@@ -153,6 +174,7 @@ export function buildReportData(
     const isCampaign = a.origin === "campanha_niver";
     if (isCampaign) campaignCount += 1;
     const priceCents = a.service_price_cents ?? 0;
+    const realized = isServiceExecuted(a);
     services.push({
       id: a.id,
       date: a.scheduled_at,
@@ -162,28 +184,34 @@ export function buildReportData(
       status: a.status,
       isCampaignNiver: isCampaign,
       priceCents,
+      realized,
     });
-    servicesCents += priceCents;
+    if (realized) servicesCents += priceCents;
+    else openServicesCents += priceCents;
 
     const feeCents = a.transport_price_cents ?? 0;
-    if (feeCents > 0 && a.logistics_type && a.logistics_type !== "levar") {
+    if (feeCents > 0 && hasTransportFee(a.logistics_type)) {
       transport.push({
         id: a.id,
         date: a.scheduled_at,
         clientName: clientName ?? "Cliente",
         modalityLabel:
-          logisticsTypeLabels[a.logistics_type as LogisticsType] ?? a.logistics_type,
+          logisticsTypeLabels[a.logistics_type as LogisticsType] ?? a.logistics_type!,
         feeCents,
+        realized,
       });
-      transportCents += feeCents;
+      if (realized) transportCents += feeCents;
+      else openTransportCents += feeCents;
     }
   }
 
   const products: ReportData["products"] = [];
   let productsCents = 0;
+  let openProductsCents = 0;
   for (const o of orders) {
     if (o.status === "cancelado") continue;
     const clientName = o.customer_name ?? "Cliente";
+    const realized = o.status === "entregue";
     for (const item of o.order_items ?? []) {
       products.push({
         orderId: o.id,
@@ -192,18 +220,28 @@ export function buildReportData(
         productName: item.product_name,
         quantity: item.quantity,
         unitPriceCents: item.unit_price_cents,
+        realized,
       });
-      productsCents += item.unit_price_cents * item.quantity;
+      const lineCents = item.unit_price_cents * item.quantity;
+      if (realized) productsCents += lineCents;
+      else openProductsCents += lineCents;
     }
   }
 
   const grossCents = servicesCents + productsCents + transportCents;
+  const openGrossCents = openServicesCents + openProductsCents + openTransportCents;
 
   return {
     services,
     products,
     transport,
     totals: { servicesCents, productsCents, transportCents, grossCents },
+    open: {
+      servicesCents: openServicesCents,
+      productsCents: openProductsCents,
+      transportCents: openTransportCents,
+      grossCents: openGrossCents,
+    },
     campaignNiver: {
       count: campaignCount,
       totalServices: totalConsideredServices,
@@ -223,11 +261,20 @@ export function exportReportXLSX(data: ReportData, range: ReportRange): void {
     ["Período", range.label],
     ["Gerado em", new Date().toLocaleString("pt-BR")],
     [],
-    ["Categoria", "Receita (R$)"],
-    ["Serviços prestados", data.totals.servicesCents / 100],
-    ["Vendas de produtos", data.totals.productsCents / 100],
-    ["Taxas de retirada/entrega", data.totals.transportCents / 100],
-    ["Receita bruta total", data.totals.grossCents / 100],
+    ["Categoria", "Realizado (R$)", "Em aberto (R$)"],
+    ["Serviços prestados", data.totals.servicesCents / 100, data.open.servicesCents / 100],
+    ["Vendas de produtos", data.totals.productsCents / 100, data.open.productsCents / 100],
+    [
+      "Taxas de retirada/entrega",
+      data.totals.transportCents / 100,
+      data.open.transportCents / 100,
+    ],
+    ["Receita bruta total", data.totals.grossCents / 100, data.open.grossCents / 100],
+    [],
+    [
+      "Critério",
+      "Realizado = serviço concluído (ou transporte já além do atendimento) e pedido entregue. Em aberto = agendado/não entregue, ainda não é receita.",
+    ],
     [],
     [
       "Uso da Campanha Niver",
@@ -247,6 +294,7 @@ export function exportReportXLSX(data: ReportData, range: ReportRange): void {
         Pet: s.petName,
         Serviço: s.serviceName,
         Status: s.status,
+        Situação: s.realized ? "Realizado" : "Em aberto",
         "Campanha Niver": s.isCampaignNiver ? "Sim" : "Não",
         "Valor (R$)": s.priceCents / 100,
       })),
@@ -262,6 +310,7 @@ export function exportReportXLSX(data: ReportData, range: ReportRange): void {
         Pedido: p.orderId.slice(0, 8),
         Cliente: p.clientName,
         Produto: p.productName,
+        Situação: p.realized ? "Realizado" : "Em aberto",
         Quantidade: p.quantity,
         "Valor unitário (R$)": p.unitPriceCents / 100,
         "Subtotal (R$)": (p.unitPriceCents * p.quantity) / 100,
@@ -277,6 +326,7 @@ export function exportReportXLSX(data: ReportData, range: ReportRange): void {
         Data: formatDate(t.date),
         Cliente: t.clientName,
         Modalidade: t.modalityLabel,
+        Situação: t.realized ? "Realizado" : "Em aberto",
         "Taxa (R$)": t.feeCents / 100,
       })),
     ),
@@ -340,15 +390,28 @@ export function exportReportPDF(data: ReportData, range: ReportRange): void {
   autoTable(doc, {
     startY: cursorY,
     margin: { left: marginX, right: marginX },
-    head: [["Resumo consolidado", "Valor"]],
+    head: [["Resumo consolidado", "Realizado", "Em aberto"]],
     body: [
-      ["Serviços prestados", formatBRL(data.totals.servicesCents)],
-      ["Vendas de produtos", formatBRL(data.totals.productsCents)],
-      ["Taxas de retirada/entrega", formatBRL(data.totals.transportCents)],
-      ["Receita bruta total", formatBRL(data.totals.grossCents)],
+      [
+        "Serviços prestados",
+        formatBRL(data.totals.servicesCents),
+        formatBRL(data.open.servicesCents),
+      ],
+      [
+        "Vendas de produtos",
+        formatBRL(data.totals.productsCents),
+        formatBRL(data.open.productsCents),
+      ],
+      [
+        "Taxas de retirada/entrega",
+        formatBRL(data.totals.transportCents),
+        formatBRL(data.open.transportCents),
+      ],
+      ["Receita bruta total", formatBRL(data.totals.grossCents), formatBRL(data.open.grossCents)],
       [
         "Uso da Campanha Niver",
         `${data.campaignNiver.count} de ${data.campaignNiver.totalServices} agendamentos (${data.campaignNiver.percent.toFixed(1)}%)`,
+        "",
       ],
     ],
     styles: { fontSize: 9 },
@@ -366,12 +429,13 @@ export function exportReportPDF(data: ReportData, range: ReportRange): void {
     autoTable(doc, {
       startY: cursorY + 3,
       margin: { left: marginX, right: marginX },
-      head: [["Data", "Cliente", "Pet", "Serviço", "Niver", "Valor"]],
+      head: [["Data", "Cliente", "Pet", "Serviço", "Situação", "Niver", "Valor"]],
       body: topServices.map((s) => [
         formatDate(s.date),
         s.clientName,
         s.petName,
         s.serviceName,
+        s.realized ? "Realizado" : "Em aberto",
         s.isCampaignNiver ? "Sim" : "-",
         formatBRL(s.priceCents),
       ]),
@@ -396,12 +460,13 @@ export function exportReportPDF(data: ReportData, range: ReportRange): void {
     autoTable(doc, {
       startY: cursorY + 3,
       margin: { left: marginX, right: marginX },
-      head: [["Data", "Pedido", "Cliente", "Produto", "Qtd", "Subtotal"]],
+      head: [["Data", "Pedido", "Cliente", "Produto", "Situação", "Qtd", "Subtotal"]],
       body: topProducts.map((p) => [
         formatDate(p.date),
         p.orderId.slice(0, 8),
         p.clientName,
         p.productName,
+        p.realized ? "Realizado" : "Em aberto",
         String(p.quantity),
         formatBRL(p.unitPriceCents * p.quantity),
       ]),

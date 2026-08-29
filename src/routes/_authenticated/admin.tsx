@@ -67,6 +67,7 @@ import {
 import type { TablesUpdate } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
 import {
+  isServiceExecuted,
   isVehicleAllowedForPet,
   logisticsTypeLabels,
   nextOpsStatus,
@@ -101,18 +102,6 @@ export const Route = createFileRoute("/_authenticated/admin")({
 
 const statuses = ["pendente", "confirmado", "concluido", "cancelado"];
 
-/** Etapas do transporte a partir das quais o servico ja foi de fato executado. */
-const EXECUTED_OPS_STATUS = ["servico_concluido", "pet_entregue", "finalizado"];
-
-/**
- * Um servico conta como executado quando a loja marcou o agendamento como
- * "concluido" OU quando o fluxo de transporte ja passou do atendimento. Os dois
- * casos existem porque agendamento sem transporte so muda de `status`, e o com
- * transporte anda pelo `ops_status`.
- */
-function isServiceExecuted(a: { status: string; ops_status?: string | null }): boolean {
-  return a.status === "concluido" || EXECUTED_OPS_STATUS.includes(a.ops_status ?? "");
-}
 const orderStatuses = ["novo", "em_preparo", "entregue", "cancelado"];
 
 const priceSchema = z.coerce.number().min(0).max(1000000);
@@ -533,16 +522,26 @@ function Admin() {
     }
     const apptTotal = bucketCounts(dashAppointments ?? [], (a) => a.scheduled_at);
 
-    const orderCounts = bucketCounts(dashOrders ?? [], (o) => o.created_at);
-    function sumRevenue(since: Date) {
-      return (dashOrders ?? [])
+    // Receita de produtos = pedido efetivamente entregue. "novo"/"em_preparo"
+    // ainda nao viraram dinheiro no caixa, entao aparecem separados como
+    // "em aberto" em vez de inflar o faturamento do periodo.
+    const deliveredOrders = (dashOrders ?? []).filter((o) => o.status === "entregue");
+    const openOrders = (dashOrders ?? []).filter((o) => o.status !== "entregue");
+    const orderCounts = bucketCounts(deliveredOrders, (o) => o.created_at);
+    function sumOrders(rows: typeof deliveredOrders, since: Date) {
+      return rows
         .filter((o) => new Date(o.created_at) >= since)
         .reduce((sum, o) => sum + o.total_cents, 0);
     }
     const orderRevenue = {
-      day: sumRevenue(dayStart),
-      week: sumRevenue(weekStart),
-      month: sumRevenue(monthStart),
+      day: sumOrders(deliveredOrders, dayStart),
+      week: sumOrders(deliveredOrders, weekStart),
+      month: sumOrders(deliveredOrders, monthStart),
+    };
+    const orderOpenRevenue = {
+      day: sumOrders(openOrders, dayStart),
+      week: sumOrders(openOrders, weekStart),
+      month: sumOrders(openOrders, monthStart),
     };
 
     const executedAppointments = (dashAppointments ?? []).filter(isServiceExecuted);
@@ -556,6 +555,17 @@ function Admin() {
       day: sumServiceRevenue(dayStart),
       week: sumServiceRevenue(weekStart),
       month: sumServiceRevenue(monthStart),
+    };
+    const openAppointments = (dashAppointments ?? []).filter((a) => !isServiceExecuted(a));
+    function sumOpenServiceRevenue(since: Date) {
+      return openAppointments
+        .filter((a) => new Date(a.scheduled_at) >= since)
+        .reduce((sum, a) => sum + (a.service_price_cents ?? 0), 0);
+    }
+    const serviceOpenRevenue = {
+      day: sumOpenServiceRevenue(dayStart),
+      week: sumOpenServiceRevenue(weekStart),
+      month: sumOpenServiceRevenue(monthStart),
     };
     const executedToday = executedAppointments
       .filter((a) => new Date(a.scheduled_at) >= dayStart)
@@ -573,8 +583,10 @@ function Admin() {
       apptTotal,
       orderCounts,
       orderRevenue,
+      orderOpenRevenue,
       serviceCounts,
       serviceRevenue,
+      serviceOpenRevenue,
       executedToday,
       newClients,
       campaignNiver,
@@ -1101,7 +1113,7 @@ function Admin() {
           supabase
             .from("appointments")
             .select(
-              "id, scheduled_at, status, origin, user_id, service_price_cents, transport_price_cents, logistics_type, services(name), pets(name)",
+              "id, scheduled_at, status, ops_status, origin, user_id, service_price_cents, transport_price_cents, logistics_type, services(name), pets(name)",
             )
             .gte("scheduled_at", range.start.toISOString())
             .lte("scheduled_at", range.end.toISOString()),
@@ -1782,8 +1794,9 @@ function Admin() {
               </p>
             )}
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Conta agendamentos marcados como concluídos ou que já passaram do atendimento no
-              transporte. Não inclui a taxa de transporte.
+              Só entra aqui o que já foi executado: agendamento marcado como concluído ou que já
+              passou do atendimento no transporte. Ainda em aberto no mês:{" "}
+              {formatBRL(dashboardStats.serviceOpenRevenue.month)}. Não inclui a taxa de transporte.
             </p>
           </div>
 
@@ -1808,7 +1821,10 @@ function Admin() {
                 </div>
               ))}
             </div>
-            <p className="mt-2 text-[11px] text-muted-foreground">Não inclui pedidos cancelados.</p>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Só conta pedidos já entregues. Ainda em aberto no mês (novos e em preparo):{" "}
+              {formatBRL(dashboardStats.orderOpenRevenue.month)}.
+            </p>
           </div>
 
           <div className="rounded-2xl bg-card p-3 shadow-card">
@@ -2494,9 +2510,17 @@ function Admin() {
                 </div>
               </div>
               <div className="mt-2 flex items-center justify-between rounded-xl bg-secondary px-3 py-2">
-                <span className="text-xs font-semibold">Receita bruta total</span>
+                <span className="text-xs font-semibold">Receita bruta realizada</span>
                 <span className="font-display text-lg text-primary">
                   {formatBRL(reportData.totals.grossCents)}
+                </span>
+              </div>
+              <div className="mt-1 flex items-center justify-between rounded-xl surface-paper px-3 py-2">
+                <span className="text-[11px] text-muted-foreground">
+                  Em aberto (agendado / não entregue)
+                </span>
+                <span className="text-xs font-semibold">
+                  {formatBRL(reportData.open.grossCents)}
                 </span>
               </div>
               <p className="mt-2 text-[11px] text-muted-foreground">
@@ -2538,8 +2562,10 @@ function Admin() {
                 </Button>
               </div>
               <p className="mt-2 text-[11px] text-muted-foreground">
-                Não inclui agendamentos/pedidos cancelados. Canal de origem (App x WhatsApp) não é
-                rastreado hoje, por isso não aparece separado no relatório.
+                Receita realizada = serviço concluído (ou transporte já além do atendimento) e
+                pedido entregue; o que está agendado ou ainda não foi entregue aparece como “em
+                aberto”. Não inclui agendamentos/pedidos cancelados. Canal de origem (App x
+                WhatsApp) não é rastreado hoje, por isso não aparece separado no relatório.
               </p>
             </div>
           )}

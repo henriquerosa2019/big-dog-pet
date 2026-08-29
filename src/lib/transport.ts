@@ -11,6 +11,29 @@ export const logisticsTypeLabels: Record<LogisticsType, string> = {
   buscar_e_devolver: "Buscar e devolver",
 };
 
+/** Etapas do transporte a partir das quais o servico ja foi de fato executado. */
+export const EXECUTED_OPS_STATUS = ["servico_concluido", "pet_entregue", "finalizado"];
+
+/**
+ * Um servico conta como executado (= receita realizada) quando a loja marcou o
+ * agendamento como "concluido" OU quando o fluxo de transporte ja passou do
+ * atendimento. Os dois casos existem porque agendamento sem transporte so muda
+ * de `status`, e o com transporte anda pelo `ops_status`. Usado no Dashboard e
+ * nos Relatorios pra nao contar como receita o que ainda nem aconteceu.
+ */
+export function isServiceExecuted(a: { status: string; ops_status?: string | null }): boolean {
+  return a.status === "concluido" || EXECUTED_OPS_STATUS.includes(a.ops_status ?? "");
+}
+
+/**
+ * So essas modalidades geram taxa de transporte. O banco tem registros antigos
+ * com `levar_ao_petshop`, que e o mesmo caso de "levar" (o tutor leva o pet) e
+ * nao deve entrar na receita de transporte.
+ */
+export function hasTransportFee(mode: string | null | undefined): boolean {
+  return mode === "buscar" || mode === "devolver" || mode === "buscar_e_devolver";
+}
+
 export function needsAddress(mode: LogisticsType): boolean {
   return mode !== "levar";
 }
