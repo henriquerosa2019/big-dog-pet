@@ -16,6 +16,21 @@ import { AppShell } from "@/components/AppShell";
 import { CartProvider } from "@/lib/cart";
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Depois de um deploy, uma aba que ja estava aberta continua apontando para os
+ * arquivos JS do build anterior (o nome deles muda a cada build). Ao navegar,
+ * o import dinamico daquele chunk da 404 e cai nesta tela de erro. Recarregar
+ * resolve, entao recarregamos sozinhos uma unica vez - a trava no
+ * sessionStorage evita loop caso o erro seja outro.
+ */
+const STALE_CHUNK_MESSAGE =
+  /dynamically imported module|Importing a module script failed|error loading dynamically imported/i;
+const STALE_CHUNK_RELOAD_FLAG = "bigdog:stale-chunk-reload";
+
+function isStaleChunkError(error: Error | null | undefined): boolean {
+  return STALE_CHUNK_MESSAGE.test(error?.message ?? "");
+}
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -43,6 +58,17 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
+  }, [error]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !isStaleChunkError(error)) return;
+    try {
+      if (sessionStorage.getItem(STALE_CHUNK_RELOAD_FLAG)) return;
+      sessionStorage.setItem(STALE_CHUNK_RELOAD_FLAG, "1");
+    } catch {
+      return;
+    }
+    window.location.reload();
   }, [error]);
 
   return (
@@ -143,6 +169,16 @@ function RootComponent() {
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
     navigator.serviceWorker.register("/sw.js").catch(() => {});
+  }, []);
+
+  // Chegou a renderizar: o build atual carregou, entao libera a trava do
+  // recarregamento automatico pra ela valer de novo no proximo deploy.
+  useEffect(() => {
+    try {
+      sessionStorage.removeItem(STALE_CHUNK_RELOAD_FLAG);
+    } catch {
+      /* modo privado sem storage: sem problema, a trava so nao persiste */
+    }
   }, []);
 
   useEffect(() => {
