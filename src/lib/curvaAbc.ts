@@ -130,7 +130,8 @@ export function calculateProductAbc(
 
   for (const item of rawItems) {
     const key = (item.productId || item.productName).trim().toLowerCase();
-    const cat = item.category?.trim() || "Geral";
+    const rawCat = item.category?.trim() || "Geral";
+    const cat = rawCat.charAt(0).toUpperCase() + rawCat.slice(1).toLowerCase();
     allCategories.add(cat);
 
     const existing = map.get(key);
@@ -290,7 +291,8 @@ export function calculateServiceAbc(
 
   for (const s of rawServices) {
     const key = (s.serviceId || s.serviceName).trim().toLowerCase();
-    const cat = s.category?.trim() || "Geral";
+    const rawCat = s.category?.trim() || "Geral";
+    const cat = rawCat.charAt(0).toUpperCase() + rawCat.slice(1).toLowerCase();
     allCategories.add(cat);
 
     const existing = map.get(key);

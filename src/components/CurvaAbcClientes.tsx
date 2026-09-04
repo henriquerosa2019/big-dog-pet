@@ -38,6 +38,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { AbcHorizontalBarChart, AbcDonutChart } from "@/components/CurvaAbcVisualCharts";
 
 export function CurvaAbcClientes() {
   const [period, setPeriod] = useState<AbcPeriod>("ano");
@@ -404,6 +405,58 @@ export function CurvaAbcClientes() {
         </div>
       ) : (
         <>
+          {/* GRÁFICOS VISUAIS EXECUTIVOS: BARRAS HORIZONTAIS & PIZZA */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="lg:col-span-7">
+              <AbcHorizontalBarChart
+                title="Top Tutores por Faturamento Acumulado (R$)"
+                tagLabel="Top Tutores VIP"
+                description="Maiores clientes da carteira no período selecionado, com a classe ABC correspondente."
+                items={allItems.map((c) => ({
+                  name: c.name,
+                  classTag: c.abcClass,
+                  valueCents: c.totalRevenueCents,
+                }))}
+                totalCents={summary.totalRevenueCents}
+                footerMetric={`${summary.totalClientsCount} ${summary.totalClientsCount === 1 ? "tutor na base" : "tutores na base"}`}
+                maxItems={5}
+              />
+            </div>
+
+            <div className="lg:col-span-5">
+              <AbcDonutChart
+                title="Faturamento por Classe ABC"
+                tagLabel="Visão Pizza"
+                description="Concentração da receita entre Tutores VIPs (Classe A), Regulares (B) e Esporádicos (C)."
+                totalCents={summary.totalRevenueCents}
+                centerLabel="Faturamento"
+                slices={[
+                  {
+                    label: "Classe A (VIP)",
+                    valueCents: summary.classA.revenueCents,
+                    percent: summary.classA.revenueShare,
+                    color: "#10b981",
+                    subtext: `${summary.classA.clientsCount} tutores`,
+                  },
+                  {
+                    label: "Classe B (Regular)",
+                    valueCents: summary.classB.revenueCents,
+                    percent: summary.classB.revenueShare,
+                    color: "#2563eb",
+                    subtext: `${summary.classB.clientsCount} tutores`,
+                  },
+                  {
+                    label: "Classe C (Esporádico)",
+                    valueCents: summary.classC.revenueCents,
+                    percent: summary.classC.revenueShare,
+                    color: "#f59e0b",
+                    subtext: `${summary.classC.clientsCount} tutores`,
+                  },
+                ]}
+              />
+            </div>
+          </div>
+
           {/* DASHBOARD 1: DISTRIBUIÇÃO PARETO E GASTO MÉDIO DA BASE */}
           <div className="rounded-2xl bg-card p-4 shadow-card space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">

@@ -21,30 +21,54 @@ export function useAuth() {
   return { session, user: (session?.user ?? null) as User | null, loading };
 }
 
-export function useIsAdmin(userId?: string | null) {
+export function useIsAdminStatus(userId?: string | null) {
   const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(Boolean(userId));
 
   useEffect(() => {
     if (!userId) {
       setIsAdmin(false);
+      setLoading(false);
       return;
     }
     let active = true;
-    supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .eq("role", "admin")
-      .maybeSingle()
-      .then(({ data }) => {
-        if (active) setIsAdmin(Boolean(data));
-      });
+    setLoading(true);
+
+    async function checkRole() {
+      try {
+        const { data } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId!)
+          .eq("role", "admin")
+          .maybeSingle();
+
+        if (active) {
+          setIsAdmin(Boolean(data));
+        }
+      } catch {
+        if (active) {
+          setIsAdmin(false);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    checkRole();
+
     return () => {
       active = false;
     };
   }, [userId]);
 
-  return isAdmin;
+  return { isAdmin, loading };
+}
+
+export function useIsAdmin(userId?: string | null) {
+  return useIsAdminStatus(userId).isAdmin;
 }
 
 export function useIsDriver(userId?: string | null) {

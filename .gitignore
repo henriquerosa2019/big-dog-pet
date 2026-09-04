@@ -37,3 +37,4 @@ playwright-report/
 powershell.cmd
 *.PNG
 *.docx
+*.xlsx

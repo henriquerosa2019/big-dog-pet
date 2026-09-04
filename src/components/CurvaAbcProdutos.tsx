@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { AbcHorizontalBarChart, AbcDonutChart } from "@/components/CurvaAbcVisualCharts";
 
 export function CurvaAbcProdutos() {
   const [period, setPeriod] = useState<AbcPeriod>("mes");
@@ -136,15 +137,20 @@ export function CurvaAbcProdutos() {
 
   // Distribuição de faturamento por categoria (Dashboard 3)
   const categoryRevenue = useMemo(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string, { cents: number; displayName: string }>();
     for (const item of allItems) {
-      map.set(item.category, (map.get(item.category) || 0) + item.totalRevenueCents);
+      const rawCat = (item.category || "Geral").trim();
+      const normKey = rawCat.toLowerCase();
+      const displayName = rawCat.charAt(0).toUpperCase() + rawCat.slice(1).toLowerCase();
+      const cur = map.get(normKey) || { cents: 0, displayName };
+      cur.cents += item.totalRevenueCents;
+      map.set(normKey, cur);
     }
-    return Array.from(map.entries())
-      .map(([name, cents]) => ({
-        name,
-        cents,
-        percent: summary.totalRevenueCents > 0 ? (cents / summary.totalRevenueCents) * 100 : 0,
+    return Array.from(map.values())
+      .map((val) => ({
+        name: val.displayName,
+        cents: val.cents,
+        percent: summary.totalRevenueCents > 0 ? (val.cents / summary.totalRevenueCents) * 100 : 0,
       }))
       .sort((a, b) => b.cents - a.cents);
   }, [allItems, summary.totalRevenueCents]);
@@ -303,6 +309,40 @@ export function CurvaAbcProdutos() {
         </div>
       ) : (
         <>
+          {/* GRÁFICOS VISUAIS EXECUTIVOS: BARRAS HORIZONTAIS & PIZZA */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="lg:col-span-7">
+              <AbcHorizontalBarChart
+                title="Faturamento por Produto (R$)"
+                tagLabel="Top Produtos"
+                description="Classificação dos produtos por receita gerada no período, com a classe ABC correspondente."
+                items={allItems.map((p) => ({
+                  name: p.name,
+                  classTag: p.abcClass,
+                  valueCents: p.totalRevenueCents,
+                }))}
+                totalCents={summary.totalRevenueCents}
+                footerMetric={`${summary.totalUnitsOrExecutions} ${summary.totalUnitsOrExecutions === 1 ? "unidade vendida" : "unidades vendidas"}`}
+                maxItems={5}
+              />
+            </div>
+
+            <div className="lg:col-span-5">
+              <AbcDonutChart
+                title="Faturamento por Categoria"
+                tagLabel="Visão Pizza"
+                description="Participação percentual das categorias no volume total de vendas da loja."
+                totalCents={summary.totalRevenueCents}
+                centerLabel="Faturamento"
+                slices={categoryRevenue.map((c) => ({
+                  label: c.name,
+                  valueCents: c.cents,
+                  percent: c.percent,
+                }))}
+              />
+            </div>
+          </div>
+
           {/* DASHBOARD 1: DISTRIBUIÇÃO EXECUTIVA DA CURVA ABC */}
           <div className="rounded-2xl bg-card p-4 shadow-card space-y-3">
             <div className="flex items-center justify-between">

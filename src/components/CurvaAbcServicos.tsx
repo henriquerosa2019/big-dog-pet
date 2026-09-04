@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { AbcHorizontalBarChart, AbcDonutChart } from "@/components/CurvaAbcVisualCharts";
 
 export function CurvaAbcServicos() {
   const [period, setPeriod] = useState<AbcPeriod>("mes");
@@ -110,16 +111,19 @@ export function CurvaAbcServicos() {
 
   // Dashboard 3: Faturamento por categoria de serviço
   const categoryRevenue = useMemo(() => {
-    const map = new Map<string, { cents: number; count: number }>();
+    const map = new Map<string, { cents: number; count: number; displayName: string }>();
     for (const item of allItems) {
-      const cur = map.get(item.category) || { cents: 0, count: 0 };
+      const rawCat = (item.category || "Geral").trim();
+      const normKey = rawCat.toLowerCase();
+      const displayName = rawCat.charAt(0).toUpperCase() + rawCat.slice(1).toLowerCase();
+      const cur = map.get(normKey) || { cents: 0, count: 0, displayName };
       cur.cents += item.totalRevenueCents;
       cur.count += item.executedCount;
-      map.set(item.category, cur);
+      map.set(normKey, cur);
     }
-    return Array.from(map.entries())
-      .map(([name, val]) => ({
-        name: name.charAt(0).toUpperCase() + name.slice(1),
+    return Array.from(map.values())
+      .map((val) => ({
+        name: val.displayName,
         cents: val.cents,
         count: val.count,
         percent: summary.totalRevenueCents > 0 ? (val.cents / summary.totalRevenueCents) * 100 : 0,
@@ -293,6 +297,41 @@ export function CurvaAbcServicos() {
         </div>
       ) : (
         <>
+          {/* GRÁFICOS VISUAIS EXECUTIVOS: BARRAS HORIZONTAIS & PIZZA */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="lg:col-span-7">
+              <AbcHorizontalBarChart
+                title="Faturamento por Serviço (R$)"
+                tagLabel="Top Serviços"
+                description="Classificação direta dos serviços por receita gerada no período, com a classe ABC correspondente."
+                items={allItems.map((s) => ({
+                  name: s.name,
+                  classTag: s.abcClass,
+                  valueCents: s.totalRevenueCents,
+                }))}
+                totalCents={summary.totalRevenueCents}
+                footerMetric={`${summary.totalUnitsOrExecutions} ${summary.totalUnitsOrExecutions === 1 ? "atendimento executado" : "atendimentos executados"}`}
+                maxItems={5}
+              />
+            </div>
+
+            <div className="lg:col-span-5">
+              <AbcDonutChart
+                title="Distribuição por Especialidade"
+                tagLabel="Visão Pizza"
+                description="Participação percentual do faturamento por especialidade de serviço."
+                totalCents={summary.totalRevenueCents}
+                centerLabel="Faturamento"
+                slices={categoryRevenue.map((c) => ({
+                  label: c.name,
+                  valueCents: c.cents,
+                  percent: c.percent,
+                  subtext: `${c.count} ${c.count === 1 ? "atend." : "atend."}`,
+                }))}
+              />
+            </div>
+          </div>
+
           {/* DASHBOARD 1: DISTRIBUIÇÃO EXECUTIVA DA CURVA ABC */}
           <div className="rounded-2xl bg-card p-4 shadow-card space-y-3">
             <div className="flex items-center justify-between">
@@ -440,7 +479,7 @@ export function CurvaAbcServicos() {
                 {categoryRevenue.map((cat) => (
                   <div key={cat.name} className="space-y-1">
                     <div className="flex justify-between text-xs font-medium">
-                      <span>{cat.name} ({cat.count} atendimentos)</span>
+                      <span>{cat.name} ({cat.count} {cat.count === 1 ? "atendimento" : "atendimentos"})</span>
                       <span className="font-semibold text-foreground">
                         {formatBRL(cat.cents)} ({cat.percent.toFixed(1)}%)
                       </span>

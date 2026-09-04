@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { startOfDay, startOfMonth, startOfWeek } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth, useIsAdmin } from "@/hooks/useAuth";
+import { useAuth, useIsAdminStatus } from "@/hooks/useAuth";
 import {
   appointmentStatusTone,
   capitalizeWords,
@@ -188,8 +188,8 @@ function todayISODate() {
 }
 
 function Admin() {
-  const { user } = useAuth();
-  const isAdmin = useIsAdmin(user?.id);
+  const { user, loading: authLoading } = useAuth();
+  const { isAdmin, loading: adminLoading } = useIsAdminStatus(user?.id);
   const queryClient = useQueryClient();
   const { getClientAbcInfo } = useClientAbcMap();
 
@@ -1578,6 +1578,14 @@ function Admin() {
     const referenceDate = returnFilter === "todos" ? todayISODate() : selectedReturnDateISO;
     return matchesType && item.dueDate === referenceDate;
   });
+
+  if (authLoading || (user && adminLoading)) {
+    return (
+      <div className="p-8 text-center text-sm text-muted-foreground">
+        Carregando painel administrativo...
+      </div>
+    );
+  }
 
   if (!isAdmin) {
     return (

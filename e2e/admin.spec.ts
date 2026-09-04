@@ -9,7 +9,7 @@ async function loginAsAdmin(page: Page) {
 
   // Se já estiver logado como administrador, o painel carrega direto
   const adminHeader = page.locator('h1:has-text("Painel administrativo")');
-  const isAlreadyAdmin = await adminHeader.isVisible().catch(() => false);
+  const isAlreadyAdmin = await adminHeader.waitFor({ state: 'visible', timeout: 4000 }).then(() => true).catch(() => false);
   if (isAlreadyAdmin) return;
 
   // Se não estiver no admin (redirecionou para /auth), realiza o login
