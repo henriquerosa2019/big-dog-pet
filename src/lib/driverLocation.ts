@@ -128,6 +128,7 @@ export function useDriverLocationSubscription(
     setPosition(null);
     if (!active || !appointmentId) return;
 
+    // 1. Escuta via Supabase Realtime (redes externas e outros aparelhos)
     const channel = supabase
       .channel(driverLocationTopic(appointmentId), { config: { private: true } })
       .on("broadcast", { event: "location_update" }, ({ payload }) => {
@@ -135,8 +136,42 @@ export function useDriverLocationSubscription(
       })
       .subscribe();
 
+    // 2. Escuta local via BroadcastChannel (sincronização instantânea entre abas no mesmo PC)
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel("driver-location-simulated");
+      bc.onmessage = (ev) => {
+        if (
+          activeRef.current &&
+          ev.data?.appointmentId === appointmentId &&
+          ev.data?.payload
+        ) {
+          setPosition(ev.data.payload as DriverLocationPayload);
+        }
+      };
+    } catch {
+      // Fallback
+    }
+
+    // 3. Escuta local na mesma janela (CustomEvent)
+    const handleLocalEvent = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      if (
+        activeRef.current &&
+        detail?.appointmentId === appointmentId &&
+        detail?.payload
+      ) {
+        setPosition(detail.payload as DriverLocationPayload);
+      }
+    };
+    window.addEventListener("driver-location-simulated", handleLocalEvent);
+
     return () => {
       void supabase.removeChannel(channel);
+      if (bc) {
+        bc.close();
+      }
+      window.removeEventListener("driver-location-simulated", handleLocalEvent);
     };
   }, [appointmentId, active]);
 

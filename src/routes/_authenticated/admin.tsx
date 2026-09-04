@@ -56,6 +56,7 @@ import {
 import { TransportHistoryList } from "@/components/TransportHistoryList";
 import { DriverLiveMap } from "@/components/DriverLiveMap";
 import { ReportPreview } from "@/components/ReportPreview";
+import { DeliverySimulator } from "@/components/DeliverySimulator";
 import { CurvaAbcProdutos } from "@/components/CurvaAbcProdutos";
 import { CurvaAbcServicos } from "@/components/CurvaAbcServicos";
 import { CurvaAbcClientes } from "@/components/CurvaAbcClientes";
@@ -1570,6 +1571,7 @@ function Admin() {
 
   const [returnFilter, setReturnFilter] = useState<"todos" | ReturnType>("todos");
   const [returnDate, setReturnDate] = useState<Date>(new Date());
+  const [showDeliverySimulator, setShowDeliverySimulator] = useState(false);
 
   const allReturns = useMemo(() => {
     const fromVaccines = (vaccinesDue ?? []).map((v) => ({
@@ -3266,6 +3268,37 @@ function Admin() {
         </TabsContent>
 
         <TabsContent value="retirada-entrega" className="mt-4 space-y-4">
+          {/* Painel do Simulador de Delivery / Táxi Pet */}
+          {showDeliverySimulator ? (
+            <DeliverySimulator
+              currentUserId={user?.id ?? ""}
+              onClose={() => setShowDeliverySimulator(false)}
+            />
+          ) : (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border-2 border-dashed border-primary/40 bg-primary/5 p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md">
+                  <Truck className="h-6 w-6" />
+                </span>
+                <div>
+                  <h4 className="font-display text-base font-bold text-foreground">
+                    🎮 Simulador de Delivery / Táxi Pet (Ao Vivo)
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Simule a rota GPS pelas ruas de Franco da Rocha, retirada do pet, chegada à loja e retorno em tempo real a partir do seu PC.
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                onClick={() => setShowDeliverySimulator(true)}
+                className="gap-2 font-bold shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                🎮 Abrir Simulador de Delivery
+              </Button>
+            </div>
+          )}
+
           <div className="rounded-2xl bg-card p-3 shadow-card">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Zonas de entrega (preço por bairro)

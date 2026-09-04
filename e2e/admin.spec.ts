@@ -9,7 +9,7 @@ async function loginAsAdmin(page: Page) {
 
   // Se já estiver logado como administrador, o painel carrega direto
   const adminHeader = page.locator('h1:has-text("Painel administrativo")');
-  const isAlreadyAdmin = await adminHeader.waitFor({ state: 'visible', timeout: 4000 }).then(() => true).catch(() => false);
+  const isAlreadyAdmin = await adminHeader.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false);
   if (isAlreadyAdmin) return;
 
   // Se não estiver no admin (redirecionou para /auth), realiza o login
@@ -20,9 +20,20 @@ async function loginAsAdmin(page: Page) {
   await page.locator('#password').fill('bigdog');
   await page.locator('button[type="submit"]').click();
 
-  // Aguarda confirmação do login e navega para o admin
+  // Aguarda confirmação do login
   await page.waitForURL(/(.*conta|.*admin)/, { timeout: 15000 });
-  await page.goto('/admin');
+  await page.waitForLoadState('networkidle');
+
+  // Se não foi para /admin direto, navega para o admin
+  if (!page.url().includes('/admin')) {
+    await page.goto('/admin');
+  }
+
+  // Confirma que o painel administrativo está visível; se redirecionar por storage inicializando, faz uma retentativa
+  const isLoaded = await page.locator('h1:has-text("Painel administrativo")').waitFor({ state: 'visible', timeout: 8000 }).then(() => true).catch(() => false);
+  if (!isLoaded) {
+    await page.goto('/admin');
+  }
   await expect(page.locator('h1:has-text("Painel administrativo")')).toBeVisible({ timeout: 15000 });
 }
 
