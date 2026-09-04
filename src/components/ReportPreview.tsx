@@ -302,12 +302,23 @@ function Th({ children, align }: { children: React.ReactNode; align?: "right" | 
   );
 }
 
-function Td({ children, align }: { children: React.ReactNode; align?: "right" | "center" }) {
+function Td({
+  children,
+  align,
+  colSpan,
+  className,
+}: {
+  children: React.ReactNode;
+  align?: "right" | "center";
+  colSpan?: number;
+  className?: string;
+}) {
   return (
     <td
+      colSpan={colSpan}
       className={`px-2 py-1.5 ${
         align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left"
-      }`}
+      } ${className ?? ""}`}
     >
       {children}
     </td>
@@ -398,6 +409,14 @@ export function ReportPreview({
     (a, b) => b.unitPriceCents * b.quantity - a.unitPriceCents * a.quantity,
   );
   const topProducts = products.slice(0, ROW_LIMIT);
+  const totalProductsQuantity = useMemo(
+    () => products.reduce((sum, p) => sum + p.quantity, 0),
+    [products],
+  );
+  const totalProductsCents = useMemo(
+    () => products.reduce((sum, p) => sum + p.unitPriceCents * p.quantity, 0),
+    [products],
+  );
 
   return (
     <div className="mt-3 rounded-2xl bg-card p-3 shadow-card md:p-5">
@@ -507,6 +526,12 @@ export function ReportPreview({
               ))}
             </ul>
 
+            {/* Celular: totalizador dos serviços */}
+            <div className="mt-2 flex items-center justify-between rounded-xl border border-border bg-muted/30 p-2.5 text-xs font-semibold sm:hidden">
+              <span className="text-muted-foreground">Total dos serviços:</span>
+              <span className="font-bold text-foreground">{formatBRL(totalFilteredCents)}</span>
+            </div>
+
             {/* Tablet e desktop: tabela */}
             <div className="mt-1.5 hidden overflow-x-auto sm:block">
               <table className="w-full text-xs">
@@ -536,6 +561,16 @@ export function ReportPreview({
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-border/80 bg-muted/20 font-bold">
+                    <Td colSpan={6} align="right" className="py-2.5 font-bold text-foreground">
+                      Total:
+                    </Td>
+                    <Td align="right" className="py-2.5 font-bold text-foreground text-xs sm:text-sm">
+                      {formatBRL(totalFilteredCents)}
+                    </Td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
 
@@ -577,6 +612,14 @@ export function ReportPreview({
               ))}
             </ul>
 
+            {/* Celular: totalizador dos produtos */}
+            <div className="mt-2 flex items-center justify-between rounded-xl border border-border bg-muted/30 p-2.5 text-xs font-semibold sm:hidden">
+              <span className="text-muted-foreground">
+                Total dos produtos ({totalProductsQuantity} {totalProductsQuantity === 1 ? "item" : "itens"}):
+              </span>
+              <span className="font-bold text-foreground">{formatBRL(totalProductsCents)}</span>
+            </div>
+
             <div className="mt-1.5 hidden overflow-x-auto sm:block">
               <table className="w-full text-xs">
                 <thead>
@@ -608,6 +651,19 @@ export function ReportPreview({
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-border/80 bg-muted/20 font-bold">
+                    <Td colSpan={5} align="right" className="py-2.5 font-bold text-foreground">
+                      Total:
+                    </Td>
+                    <Td align="center" className="py-2.5 font-bold text-foreground text-xs sm:text-sm">
+                      {totalProductsQuantity}
+                    </Td>
+                    <Td align="right" className="py-2.5 font-bold text-foreground text-xs sm:text-sm">
+                      {formatBRL(totalProductsCents)}
+                    </Td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
 
