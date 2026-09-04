@@ -82,20 +82,52 @@ Através do hook centralizador `useClientAbcMap`, a classificação ABC é consu
 
 ---
 
-## 4. Estrutura de Arquivos
+## 4. Gráficos Executivos nos Relatórios de Curva ABC
 
-| Arquivo | Descrição |
-| :--- | :--- |
-| `src/lib/curvaAbc.ts` | Tipagens (`ClientAbcItem`, `ClientAbcSummary`), algoritmo de distribuição acumulada e função de exportação `exportClientAbcXLSX`. |
-| `src/components/CurvaAbcClientes.tsx` | Componente visual com os 4 dashboards, filtros por período/classe/perfil e tabela analítica. |
-| `src/hooks/useClientAbcMap.ts` | Hook central que indexa o histórico de todos os clientes por ID e telefone, provendo `getClientAbcInfo(...)` com propostas de desconto/promoção. |
-| `src/routes/_authenticated/admin.tsx` | Inclusão da 4ª sub-aba em Relatórios, priorização no Dashboard e sinalizações na Agenda e Pedidos. |
-| `e2e/admin.spec.ts` | Teste ponta a ponta Playwright validando a navegação na sub-aba e renderização dos dashboards. |
+Para garantir análise rápida e padronizada pela diretoria, todos os relatórios da Curva ABC contam com gráficos executivos no topo:
+1. **Gráfico de Barras Horizontais**: Ranking com classes A, B e C, barras dimensionadas proporcionalmente e faturamento total destacado.
+2. **Gráfico de Pizza / Donut (SVG)**: Visualização clara da proporção de receita gerada por categoria ou classe, com legenda de percentuais e valor total consolidado no centro.
+3. **Normalização de Categorias**: Tratamento automático de nomes (maiúsculas/minúsculas e singular/plural) para unificar registros e evitar duplicidades (ex: "Banho (1 atendimento)" e "Banho (3 atendimentos)").
 
 ---
 
-## 5. Garantia de Qualidade e Deploy
+## 5. Relatório Financeiro Geral (`ReportPreview.tsx`)
 
-* **Tipagem Estrita**: 100% livre de erros no `npx tsc --noEmit`.
-* **Testes Automatizados**: Suíte Playwright com 34 testes (Desktop e Mobile) 100% aprovados.
-* **Deploy Automático**: Versionado e sincronizado no GitHub (`origin/main`) para deploy automático na Vercel (`https://big-dog-pet-mu.vercel.app`).
+O relatório financeiro analítico da loja foi modernizado para oferecer melhor clareza gerencial:
+1. **Gráfico de Barras Horizontais**: Substitui as antigas barras verticais, apresentando o faturamento realizado de cada categoria (Serviços prestados, Vendas de produtos e Taxas de transporte) com barra de progresso horizontal e indicação de valores em aberto.
+2. **Resumo Acumulado com Gráfico de Pizza**: Exibe a fatia proporcional de cada categoria na receita bruta da loja em gráfico de pizza (donut SVG) de alta nitidez.
+3. **Destaque da Campanha Niver no Rodapé**: Exibição da quantidade e percentual de atendimentos beneficiados pela campanha de aniversário no rodapé do cartão do gráfico.
+
+---
+
+## 6. Gestão de Porte e Peso dos Pets no Painel do Administrador
+
+Permite controle detalhado do tamanho e peso dos pets atendidos:
+1. **Cadastro em "Novo Cliente"**: Seleção do porte do pet entre **Pequeno**, **Médio** e **Grande**, e entrada opcional do peso estimado em kg com validação numérica decimal.
+2. **Diretório "Clientes"**: Exibição visual do porte e peso em tags destacadas em cada pet do tutor.
+3. **Edição Completa**: Botão de edição inline (lápis) permite atualizar nome, raça, porte e peso do pet instantaneamente no banco de dados (`public.pets`).
+4. **Impacto Operacional**: Vinculação automática com a triagem de veículos de transporte leva-e-traz (motos vs carros) e histórico de peso no prontuário veterinário.
+
+---
+
+## 7. Estrutura de Arquivos e Componentes
+
+| Arquivo | Descrição |
+| :--- | :--- |
+| `src/lib/curvaAbc.ts` | Tipagens (`ClientAbcItem`, `ClientAbcSummary`), algoritmo de distribuição acumulada e exportação Excel `exportClientAbcXLSX`. |
+| `src/components/CurvaAbcVisualCharts.tsx` | Componentes visuais executivos: `AbcHorizontalBarChart` e `AbcDonutChart`. |
+| `src/components/CurvaAbcServicos.tsx` | Relatório ABC de serviços com gráficos e tabela analítica. |
+| `src/components/CurvaAbcProdutos.tsx` | Relatório ABC de produtos com gráficos e tabela analítica. |
+| `src/components/CurvaAbcClientes.tsx` | Relatório ABC de clientes com 4 dashboards e radar de retenção. |
+| `src/components/ReportPreview.tsx` | Pré-visualização do relatório financeiro com barras horizontais e pizza no resumo acumulado. |
+| `src/hooks/useClientAbcMap.ts` | Hook de sinalização de clientes em tempo real por ID e telefone. |
+| `src/routes/_authenticated/admin.tsx` | Gestão de clientes (porte/peso), relatórios financeiros e sinalizações operacionais. |
+
+---
+
+## 8. Garantia de Qualidade e Deploy
+
+* **Tipagem Estrita**: 100% aprovado no `npx tsc --noEmit`.
+* **Testes Automatizados**: Suíte de testes automatizados com cobertura completa de navegação, relatórios e permissões.
+* **Deploy Automático**: Sincronização direta com a branch `main` conectada à Vercel (`https://big-dog-pet-mu.vercel.app`).
+

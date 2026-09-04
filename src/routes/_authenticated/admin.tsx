@@ -152,6 +152,8 @@ const newClientPetSchema = z.object({
   temperament: z.string().trim().max(300).optional(),
   allergies: z.string().trim().max(300).optional(),
   birthDate: z.string().trim().max(10).optional(),
+  size: z.enum(["pequeno", "medio", "grande"]).default("medio"),
+  weightKg: z.string().trim().max(10).optional(),
 });
 
 const recordTypes = ["consulta", "exame", "cirurgia", "retorno", "emergencia", "vacina"] as const;
@@ -639,13 +641,24 @@ function Admin() {
     birthDate: "",
   });
   const [showNewClientPassword, setShowNewClientPassword] = useState(false);
-  const [newClientPet, setNewClientPet] = useState({
+  const [newClientPet, setNewClientPet] = useState<{
+    name: string;
+    species: string;
+    breed: string;
+    temperament: string;
+    allergies: string;
+    birthDate: string;
+    size: PetSize;
+    weightKg: string;
+  }>({
     name: "",
     species: "cachorro",
     breed: "",
     temperament: "",
     allergies: "",
     birthDate: "",
+    size: "medio",
+    weightKg: "",
   });
   const [duplicateEmailNotice, setDuplicateEmailNotice] = useState(false);
 
@@ -683,6 +696,9 @@ function Admin() {
 
       if (newClientPet.name.trim()) {
         const pet = newClientPetSchema.parse(newClientPet);
+        const parsedWeight = pet.weightKg && pet.weightKg.trim()
+          ? parseFloat(pet.weightKg.replace(",", "."))
+          : null;
         const { error: petError } = await supabase.from("pets").insert({
           owner_id: data.user!.id,
           name: pet.name,
@@ -691,6 +707,8 @@ function Admin() {
           temperament: pet.temperament || null,
           allergies: pet.allergies || null,
           birth_date: pet.birthDate || null,
+          size: pet.size,
+          weight_kg: Number.isFinite(parsedWeight) ? parsedWeight : null,
         });
         if (petError) throw petError;
       }
@@ -714,6 +732,8 @@ function Admin() {
         temperament: "",
         allergies: "",
         birthDate: "",
+        size: "medio",
+        weightKg: "",
       });
     },
     onError: (error) => {
@@ -1083,7 +1103,12 @@ function Admin() {
     birthDate: "",
   });
   const [editingDirectoryPetId, setEditingDirectoryPetId] = useState<string | null>(null);
-  const [directoryPetForm, setDirectoryPetForm] = useState({ name: "", breed: "" });
+  const [directoryPetForm, setDirectoryPetForm] = useState<{
+    name: string;
+    breed: string;
+    size: PetSize;
+    weightKg: string;
+  }>({ name: "", breed: "", size: "medio", weightKg: "" });
 
   const updateDirectoryClient = useMutation({
     mutationFn: async () => {
@@ -1116,9 +1141,17 @@ function Admin() {
       if (!editingDirectoryPetId) throw new Error("Nenhum pet selecionado");
       const name = directoryPetForm.name.trim();
       if (name.length < 2) throw new Error("Informe o nome do pet");
+      const parsedWeight = directoryPetForm.weightKg.trim()
+        ? parseFloat(directoryPetForm.weightKg.replace(",", "."))
+        : null;
       const { error } = await supabase
         .from("pets")
-        .update({ name, breed: directoryPetForm.breed.trim() || null })
+        .update({
+          name,
+          breed: directoryPetForm.breed.trim() || null,
+          size: directoryPetForm.size,
+          weight_kg: Number.isFinite(parsedWeight) ? parsedWeight : null,
+        })
         .eq("id", editingDirectoryPetId);
       if (error) throw error;
     },
@@ -1260,7 +1293,7 @@ function Admin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pets")
-        .select("id, name, species, breed, temperament, allergies, owner_id, birth_date")
+        .select("id, name, species, breed, temperament, allergies, owner_id, birth_date, size, weight_kg")
         .order("name");
       if (error) throw error;
       return data;
@@ -2344,7 +2377,44 @@ function Admin() {
                     }
                     className="col-span-2 h-10 rounded-xl"
                   />
-                  <div className="col-span-2">
+                  <div className="col-span-2 space-y-1">
+                    <Label className="text-xs text-muted-foreground">Porte do pet</Label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(["pequeno", "medio", "grande"] as const).map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setNewClientPet({ ...newClientPet, size: s })}
+                          className={cn(
+                            "rounded-xl border py-2 text-xs font-medium transition-colors",
+                            newClientPet.size === s
+                              ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                              : "border-border bg-card text-muted-foreground hover:bg-secondary/50",
+                          )}
+                        >
+                          {petSizeLabels[s]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <Label htmlFor="nc-pet-weight" className="text-xs text-muted-foreground">
+                      Peso estimado (kg, opcional)
+                    </Label>
+                    <Input
+                      id="nc-pet-weight"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="Ex: 8.5"
+                      value={newClientPet.weightKg}
+                      maxLength={6}
+                      onChange={(e) =>
+                        setNewClientPet({ ...newClientPet, weightKg: e.target.value })
+                      }
+                      className="mt-1 h-10 rounded-xl"
+                    />
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
                     <Label htmlFor="nc-pet-birth" className="text-xs text-muted-foreground">
                       Aniversário do pet (opcional)
                     </Label>
@@ -2511,7 +2581,7 @@ function Admin() {
                       {client.pets.map((pet) => {
                         const editingPet = editingDirectoryPetId === pet.id;
                         return editingPet ? (
-                          <div key={pet.id} className="rounded-xl surface-paper p-2">
+                          <div key={pet.id} className="rounded-xl surface-paper p-2.5 space-y-2">
                             <div className="grid grid-cols-2 gap-2">
                               <Input
                                 value={directoryPetForm.name}
@@ -2535,7 +2605,51 @@ function Admin() {
                                 className="h-9 rounded-lg text-xs"
                               />
                             </div>
-                            <div className="mt-1.5 flex gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
+                              <div>
+                                <label className="text-[10px] font-medium text-muted-foreground block mb-1">
+                                  Porte
+                                </label>
+                                <div className="grid grid-cols-3 gap-1">
+                                  {(["pequeno", "medio", "grande"] as const).map((s) => (
+                                    <button
+                                      key={s}
+                                      type="button"
+                                      onClick={() =>
+                                        setDirectoryPetForm({ ...directoryPetForm, size: s })
+                                      }
+                                      className={cn(
+                                        "rounded-lg border py-1 text-[11px] font-medium transition-colors",
+                                        directoryPetForm.size === s
+                                          ? "border-primary bg-primary text-primary-foreground"
+                                          : "border-border bg-card text-muted-foreground hover:bg-secondary/50",
+                                      )}
+                                    >
+                                      {petSizeLabels[s]}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div>
+                                <label className="text-[10px] font-medium text-muted-foreground block mb-1">
+                                  Peso (kg)
+                                </label>
+                                <Input
+                                  value={directoryPetForm.weightKg}
+                                  maxLength={6}
+                                  inputMode="decimal"
+                                  placeholder="Ex: 8.5"
+                                  onChange={(e) =>
+                                    setDirectoryPetForm({
+                                      ...directoryPetForm,
+                                      weightKg: e.target.value,
+                                    })
+                                  }
+                                  className="h-8 rounded-lg text-xs"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex gap-2 pt-0.5">
                               <Button
                                 size="sm"
                                 className="h-8 flex-1 rounded-lg text-xs"
@@ -2564,6 +2678,16 @@ function Admin() {
                               {pet.breed && (
                                 <span className="text-muted-foreground"> · {pet.breed}</span>
                               )}
+                              {pet.size && (
+                                <span className="ml-1.5 inline-flex items-center rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-secondary-foreground">
+                                  Porte {petSizeLabels[pet.size as PetSize]?.toLowerCase() || pet.size}
+                                </span>
+                              )}
+                              {pet.weight_kg != null && (
+                                <span className="ml-1 inline-flex items-center rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                                  {Number(pet.weight_kg).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg
+                                </span>
+                              )}
                               {pet.birth_date && (
                                 <span className="text-muted-foreground">
                                   {" "}
@@ -2576,7 +2700,12 @@ function Admin() {
                               aria-label={`Editar ${pet.name}`}
                               onClick={() => {
                                 setEditingDirectoryPetId(pet.id);
-                                setDirectoryPetForm({ name: pet.name, breed: pet.breed ?? "" });
+                                setDirectoryPetForm({
+                                  name: pet.name,
+                                  breed: pet.breed ?? "",
+                                  size: (pet.size as PetSize) || "medio",
+                                  weightKg: pet.weight_kg != null ? String(pet.weight_kg).replace(".", ",") : "",
+                                });
                               }}
                               className="shrink-0 rounded-lg p-1 text-muted-foreground hover:text-primary"
                             >
