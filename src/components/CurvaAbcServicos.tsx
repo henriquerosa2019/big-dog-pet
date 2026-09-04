@@ -366,7 +366,7 @@ export function CurvaAbcServicos() {
                   <span>{summary.classB.unitsTotal} atendimentos</span>
                 </div>
                 <p className="mt-2 text-[10px] text-blue-700 dark:text-blue-300 font-medium bg-blue-500/10 p-1.5 rounded-lg">
-                  💡 <strong>Estratégia:</strong> Excelente oportunidade de upsell! Ofereça como opcional para quem já faz serviço Classe A.
+                  💡 <strong>Estratégia:</strong> Excelente oportunidade para oferecer serviços adicionais! Ofereça como opcional para quem já faz serviços principais da Classe A.
                 </p>
               </div>
 
@@ -457,13 +457,13 @@ export function CurvaAbcServicos() {
             </div>
           </div>
 
-          {/* DASHBOARD 4: MATRIZ DE RETORNO / OPORTUNIDADES DE UPSELL */}
+          {/* DASHBOARD 4: MATRIZ DE RETORNO / OPORTUNIDADES DE SERVIÇOS ADICIONAIS */}
           <div className="rounded-2xl border border-blue-500/30 bg-blue-500/5 p-3.5 shadow-card">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-blue-600" />
                 <p className="text-xs font-semibold uppercase tracking-wide text-blue-900 dark:text-blue-200">
-                  Dashboard 4 · Oportunidades de Upsell & Rentabilidade (Classe B)
+                  Dashboard 4 · Oportunidades de Serviços Adicionais & Rentabilidade (Classe B)
                 </p>
               </div>
               <Badge variant="outline" className="border-blue-500/40 text-blue-800 dark:text-blue-300 text-[10px]">

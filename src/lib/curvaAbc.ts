@@ -965,7 +965,7 @@ export function exportClientAbcXLSX(
     ["Período:", periodLabel],
     ["Gerado em:", new Date().toLocaleString("pt-BR")],
     [],
-    ["Classe", "Faturamento (R$)", "% da Receita", "Qtd Tutores", "% da Base", "LTV Médio (R$)"],
+    ["Classe", "Faturamento (R$)", "% da Receita", "Qtd Tutores", "% da Base", "Gasto Médio por Tutor (R$)"],
     [
       "Classe A (Tutores VIP - 70%)",
       summary.classA.revenueCents / 100,
@@ -999,7 +999,7 @@ export function exportClientAbcXLSX(
       summary.avgLtvCents / 100,
     ],
     [],
-    ["RADAR DE RETENÇÃO & CHURN"],
+    ["RADAR DE FREQUÊNCIA & RETENÇÃO DE CLIENTES"],
     ["Status", "Quantidade de Tutores", "% da Base"],
     [
       "Ativos (< 30 dias)",
@@ -1016,7 +1016,7 @@ export function exportClientAbcXLSX(
         : "0%",
     ],
     [
-      "Em Risco de Churn (> 60 dias sem visita)",
+      "Em Risco de Abandono (> 60 dias sem visita)",
       summary.retention.atRiskCount,
       summary.totalClientsCount > 0
         ? `${((summary.retention.atRiskCount / summary.totalClientsCount) * 100).toFixed(1)}%`
@@ -1024,7 +1024,7 @@ export function exportClientAbcXLSX(
     ],
     ["VIPs (Classe A) em Risco", summary.retention.atRiskVipsCount, "-"],
     [],
-    ["PERFIL DE CONSUMO & CROSS-SELLING"],
+    ["PERFIL DE CONSUMO & VENDAS COMBINADAS (SERVIÇOS + LOJA)"],
     ["Perfil", "Tutores", "Faturamento Total (R$)", "Ticket Médio (R$)"],
     [
       "Híbridos (Serviços + Loja)",

@@ -404,20 +404,20 @@ export function CurvaAbcClientes() {
         </div>
       ) : (
         <>
-          {/* DASHBOARD 1: DISTRIBUIÇÃO PARETO E VALOR DA BASE (LTV) */}
+          {/* DASHBOARD 1: DISTRIBUIÇÃO PARETO E GASTO MÉDIO DA BASE */}
           <div className="rounded-2xl bg-card p-4 shadow-card space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
                   <TrendingUp className="h-3.5 w-3.5 text-primary" />
-                  DASHBOARD 1 · DISTRIBUIÇÃO PARETO E VALOR DA BASE DE CLIENTES (LTV)
+                  DASHBOARD 1 · DISTRIBUIÇÃO PARETO E VALOR DA BASE DE CLIENTES
                 </p>
                 <div className="flex flex-wrap items-baseline gap-2 mt-0.5">
                   <span className="text-lg font-bold text-foreground">
                     {formatBRL(summary.totalRevenueCents)}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    em {summary.totalClientsCount} clientes ativos · LTV Médio:{" "}
+                    em {summary.totalClientsCount} clientes ativos · Gasto Médio por Cliente:{" "}
                     <strong className="text-foreground">{formatBRL(summary.avgLtvCents)}</strong>
                   </span>
                 </div>
@@ -482,7 +482,7 @@ export function CurvaAbcClientes() {
                     {summary.classA.clientsCount} tutores ({summary.classA.clientsShare.toFixed(1)}% da base)
                   </span>
                   <span className="font-semibold text-foreground">
-                    LTV: {formatBRL(summary.classA.avgLtvCents)}
+                    Média por Tutor: {formatBRL(summary.classA.avgLtvCents)}
                   </span>
                 </div>
                 <p className="text-[11px] text-emerald-800 dark:text-emerald-200 bg-emerald-500/10 p-2 rounded-lg leading-relaxed">
@@ -508,7 +508,7 @@ export function CurvaAbcClientes() {
                     {summary.classB.clientsCount} tutores ({summary.classB.clientsShare.toFixed(1)}% da base)
                   </span>
                   <span className="font-semibold text-foreground">
-                    LTV: {formatBRL(summary.classB.avgLtvCents)}
+                    Média por Tutor: {formatBRL(summary.classB.avgLtvCents)}
                   </span>
                 </div>
                 <p className="text-[11px] text-blue-800 dark:text-blue-200 bg-blue-500/10 p-2 rounded-lg leading-relaxed">
@@ -534,7 +534,7 @@ export function CurvaAbcClientes() {
                     {summary.classC.clientsCount} tutores ({summary.classC.clientsShare.toFixed(1)}% da base)
                   </span>
                   <span className="font-semibold text-foreground">
-                    LTV: {formatBRL(summary.classC.avgLtvCents)}
+                    Média por Tutor: {formatBRL(summary.classC.avgLtvCents)}
                   </span>
                 </div>
                 <p className="text-[11px] text-amber-800 dark:text-amber-200 bg-amber-500/10 p-2 rounded-lg leading-relaxed">
@@ -554,7 +554,7 @@ export function CurvaAbcClientes() {
                   DASHBOARD 2 · TOP TUTORES VIPS (CLASSE A)
                 </p>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-secondary font-medium text-muted-foreground">
-                  Campeões de LTV
+                  Maiores Compradores
                 </span>
               </div>
 
@@ -620,12 +620,12 @@ export function CurvaAbcClientes() {
               )}
             </div>
 
-            {/* DASHBOARD 3: RADAR DE RETENÇÃO & CHURN */}
+            {/* DASHBOARD 3: RADAR DE RETENÇÃO & RISCO DE ABANDONO */}
             <div className="rounded-2xl bg-card p-3.5 shadow-card space-y-2.5">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
                   <AlertTriangle className="h-3.5 w-3.5 text-rose-500" />
-                  DASHBOARD 3 · RADAR DE RETENÇÃO & CHURN
+                  DASHBOARD 3 · RADAR DE FREQUÊNCIA & RETENÇÃO DE CLIENTES
                 </p>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-secondary font-medium text-muted-foreground">
                   Frequência & Fidelidade
@@ -707,7 +707,7 @@ export function CurvaAbcClientes() {
                 >
                   <div>
                     <p className="font-bold text-rose-800 dark:text-rose-200 flex items-center gap-1.5">
-                      <AlertTriangle className="h-3.5 w-3.5 text-rose-600" /> Em Risco de Churn (&gt; 60 dias)
+                      <AlertTriangle className="h-3.5 w-3.5 text-rose-600" /> Em Risco de Abandono (&gt; 60 dias sem visitas)
                     </p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">Clientes afastados com risco de perda</p>
                   </div>
@@ -723,12 +723,12 @@ export function CurvaAbcClientes() {
             </div>
           </div>
 
-          {/* DASHBOARD 4: PERFIL DE CONSUMO & CROSS-SELLING */}
+          {/* DASHBOARD 4: PERFIL DE CONSUMO & VENDAS COMBINADAS */}
           <div className="rounded-2xl bg-card p-3.5 shadow-card space-y-2.5">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
                 <Sparkles className="h-3.5 w-3.5 text-primary" />
-                DASHBOARD 4 · PERFIL DE CONSUMO & OPORTUNIDADE DE CROSS-SELLING
+                DASHBOARD 4 · PERFIL DE CONSUMO & VENDAS COMBINADAS (SERVIÇOS + LOJA)
               </p>
               <span className="text-[10px] px-2 py-0.5 rounded bg-secondary font-medium text-muted-foreground">
                 Comportamento de Compra
@@ -749,7 +749,7 @@ export function CurvaAbcClientes() {
                 <div className="flex items-center justify-between">
                   <p className="font-bold text-foreground">Híbridos (Serviço + Loja)</p>
                   <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
-                    Maior LTV
+                    Maior Gasto Médio
                   </Badge>
                 </div>
                 <p className="text-base font-extrabold text-primary">

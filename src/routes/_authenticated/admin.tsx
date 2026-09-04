@@ -1686,7 +1686,7 @@ function Admin() {
                           </Badge>
                           {clientInfo && clientInfo.ltvCents > 0 && (
                             <p className="text-[10px] font-medium text-muted-foreground mt-0.5">
-                              LTV: {formatBRL(clientInfo.ltvCents)} ({clientInfo.visitsCount} visitas)
+                              Gasto Total: {formatBRL(clientInfo.ltvCents)} ({clientInfo.visitsCount} visitas)
                             </p>
                           )}
                         </div>
@@ -3067,7 +3067,7 @@ function Admin() {
                   {formatDateTime(item.scheduled_at)}
                   {item.pets?.name ? ` · 🐾 ${item.pets.name}` : ""}
                   {clientName ? ` · Tutor(a): ${clientName}` : ""}
-                  {clientInfo && clientInfo.ltvCents > 0 ? ` (LTV ${formatBRL(clientInfo.ltvCents)})` : ""}
+                  {clientInfo && clientInfo.ltvCents > 0 ? ` · Gasto Total: ${formatBRL(clientInfo.ltvCents)}` : ""}
                 </p>
                 {clientInfo && (clientInfo.abcClass === "A" || clientInfo.abcClass === "B") && (
                   <p className="mt-1 text-[11px] font-semibold text-primary">
@@ -3572,7 +3572,7 @@ function Admin() {
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {formatDateTime(order.created_at)} · {order.phone ?? "sem telefone"}
-                  {clientInfo && clientInfo.ltvCents > 0 ? ` · LTV Histórico: ${formatBRL(clientInfo.ltvCents)}` : ""}
+                  {clientInfo && clientInfo.ltvCents > 0 ? ` · Total Gasto: ${formatBRL(clientInfo.ltvCents)}` : ""}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {order.order_items.map((i) => `${i.quantity}x ${i.product_name}`).join(", ")}

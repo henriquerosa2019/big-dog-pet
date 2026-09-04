@@ -12,9 +12,9 @@ A classificação da Curva ABC baseia-se no princípio de Pareto (regra 70/20/10
 
 1. **💎 Classe A (Tutores VIPs - até 70% do faturamento)**:
    - Representam a minoria da base (geralmente entre 15% e 20% dos clientes), mas respondem pela maior fatia da receita do petshop.
-   - Apresentam o maior LTV (Lifetime Value) e alta frequência de visitas.
+   - Apresentam o maior faturamento total acumulado e alta frequência de visitas.
 2. **📈 Classe B (Tutores Regulares - 70% a 90% do faturamento acumulado)**:
-   - Clientes fiéis com frequência consistente (cerca de 25% a 30% da base), com grande potencial de aumento de ticket médio e migração para a Classe A através de pacotes mensais e vendas cruzadas.
+   - Clientes fiéis com frequência consistente (cerca de 25% a 30% da base), com grande potencial de aumento de ticket médio e migração para a Classe A através de pacotes mensais e vendas combinadas de serviços e produtos.
 3. **🎯 Classe C (Esporádicos e Novos - 90% a 100% do faturamento acumulado)**:
    - Representam a maior quantidade de cadastros (cerca de 50% da base), mas com visitas raras ou compras únicas. O foco é a fidelização automatizada (lembretes de vacina, retornos e cartão fidelidade).
 
@@ -24,10 +24,10 @@ A classificação da Curva ABC baseia-se no princípio de Pareto (regra 70/20/10
 
 O módulo acessível em `Relatórios > 👥 Curva ABC - Clientes` disponibiliza 4 visões gerenciais fundamentais:
 
-### 📊 Dashboard 1 · Distribuição Pareto e Valor da Base (LTV)
+### 📊 Dashboard 1 · Distribuição Pareto e Gasto Médio da Base
 * **Barra Contínua de Pareto**: Visualização proporcional em tempo real do faturamento distribuído entre as classes A (verde esmeralda), B (azul) e C (âmbar).
 * **3 Cards Executivos**:
-  - Exibição de Faturamento Total (R$), Quantidade de Tutores, % de Participação na Base e Ticket Médio / LTV por cliente.
+  - Exibição de Faturamento Total (R$), Quantidade de Tutores, % de Participação na Base e Gasto Médio por cliente.
   - Box de Recomendação de Gestão estratégica para cada classe.
 * **Tag de Índice Pareto**: Indicador dinâmico de concentração (ex: *"71% da receita gerada por 18% dos tutores"*).
 
@@ -36,16 +36,16 @@ O módulo acessível em `Relatórios > 👥 Curva ABC - Clientes` disponibiliza 
 * Exibição de: Nome, Pets vinculados com ícone de patinha, quantidade de atendimentos e compras.
 * **Atalho WhatsApp VIP**: Disparo com 1 clique de mensagem carinhosa agradecendo a preferência e parceria.
 
-### 🚨 Dashboard 3 · Radar de Retenção & Churn
+### 🚨 Dashboard 3 · Radar de Frequência & Retenção de Clientes
 * Classificação em tempo real dos clientes pelo tempo desde a última atividade:
   - 🟢 **Ativos (< 30 dias)**: Frequência regular e saudável.
   - 🟡 **Em Alerta (30 a 60 dias)**: Ponto de contato ideal para convite de retorno ou lembrete de tosa.
-  - 🔴 **Em Risco de Churn (> 60 dias)**: Clientes afastados com perigo de migração para concorrência.
+  - 🔴 **Em Risco de Abandono (> 60 dias)**: Clientes afastados com perigo de interrupção ou migração.
 * **Alerta Crítico de VIPs**: Notificação expressa caso tutores da Classe A estejam há mais de 30 dias sem visita para resgate preventivo imediato.
 
-### 🛒 Dashboard 4 · Perfil de Consumo & Oportunidade de Cross-Selling
+### 🛒 Dashboard 4 · Perfil de Consumo & Oportunidade de Vendas Combinadas (Serviços + Loja)
 * Divisão analítica da base:
-  - 🟣 **Híbridos (Serviço + Loja)**: Tutores que fazem banho/tosa e compram na loja (maior LTV da base).
+  - 🟣 **Híbridos (Serviço + Loja)**: Tutores que fazem banho/tosa e compram na loja (maior gasto médio da base).
   - 🔵 **Apenas Serviços**: Fiéis à estética animal com oportunidade de compra de petiscos e rações na entrega.
   - 🟠 **Apenas Loja Virtual**: Compradores de balcão ou e-commerce com oportunidade de conversão para banho através de cupons de primeiro agendamento.
 
@@ -53,7 +53,7 @@ O módulo acessível em `Relatórios > 👥 Curva ABC - Clientes` disponibiliza 
 * Tabela completa com paginação e busca por nome do tutor, pet ou telefone.
 * Filtros rápidos de Classe (Todas, A, B, C), Perfil de Consumo e Status de Retenção.
 * Exportação em planilha Excel formatada contendo:
-  - **Aba 1 (Resumo Executivo)**: Totais, faturamentos, LTVs, radar de retenção e perfis.
+  - **Aba 1 (Resumo Executivo)**: Totais, faturamentos, gasto médio, radar de retenção e perfis.
   - **Aba 2 (Curva ABC Clientes)**: Lista analítica detalhada linha por linha.
 
 ---
@@ -73,7 +73,7 @@ Através do hook centralizador `useClientAbcMap`, a classificação ABC é consu
   - **Classe C**: Sugestão de boas-vindas e carimbo no cartão fidelidade.
 
 ### 📅 2. Na Aba "Agendamentos" (Agenda Geral)
-* Cada card de agendamento exibe o selo da classe do tutor, seu LTV acumulado e uma linha guia com a oportunidade comercial recomendada.
+* Cada card de agendamento exibe o selo da classe do tutor, seu gasto total acumulado e uma linha guia com a oportunidade comercial recomendada.
 
 ### 📦 3. Na Aba "Pedidos" (Loja Virtual)
 * Ao receber um pedido da loja virtual, a equipe de separação visualiza se o comprador é um tutor VIP:

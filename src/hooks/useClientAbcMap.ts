@@ -32,7 +32,7 @@ export type ClientAbcInfo = {
 };
 
 export function useClientAbcMap() {
-  // 1. Busca todos os agendamentos não cancelados para compor o LTV histórico
+  // 1. Busca todos os agendamentos não cancelados para compor o faturamento histórico dos tutores
   const { data: rawAppointments } = useQuery({
     queryKey: ["client-abc-map-appointments"],
     staleTime: 60_000,
