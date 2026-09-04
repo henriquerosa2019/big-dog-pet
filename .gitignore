@@ -32,3 +32,8 @@ dist-ssr
 *.sw?
 
 scripts/.gps-sim-profile/
+test-results/
+playwright-report/
+powershell.cmd
+*.PNG
+*.docx

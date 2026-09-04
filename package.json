@@ -9,7 +9,15 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test": "playwright test",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e.ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:codegen": "playwright codegen http://localhost:8080",
+    "test:e2e:report": "playwright show-report",
+    "test:auto": "node scripts/diagnostico-testes.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

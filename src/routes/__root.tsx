@@ -24,7 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
  * sessionStorage evita loop caso o erro seja outro.
  */
 const STALE_CHUNK_MESSAGE =
-  /dynamically imported module|Importing a module script failed|error loading dynamically imported/i;
+  /dynamically imported module|Importing a module script failed|error loading dynamically imported|Failed to load module script|MIME type of/i;
 const STALE_CHUNK_RELOAD_FLAG = "bigdog:stale-chunk-reload";
 
 function isStaleChunkError(error: Error | null | undefined): boolean {

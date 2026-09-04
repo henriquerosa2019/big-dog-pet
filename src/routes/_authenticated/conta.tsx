@@ -171,13 +171,13 @@ function Conta() {
     key: string;
     kind: "vacina" | "retorno" | "aniversario";
     label: string;
-    petName?: string;
+    petName?: string | undefined;
     days: number;
-    dueDate?: string;
-    whatsappMessage?: string;
+    dueDate?: string | undefined;
+    whatsappMessage?: string | undefined;
     /** Só presente em avisos de aniversário — leva pro card de aniversário
      * completo (cupom, validade, CTA pra loja) em vez de abrir o WhatsApp direto. */
-    couponCode?: string;
+    couponCode?: string | undefined;
   };
 
   const avisos = useMemo(() => {

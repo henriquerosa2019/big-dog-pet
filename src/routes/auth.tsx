@@ -46,8 +46,13 @@ function Auth() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (user) navigate({ to: "/conta", replace: true });
@@ -139,7 +144,12 @@ function Auth() {
         Para agendar serviços e acompanhar pedidos do seu pet.
       </p>
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-3">
+      <form
+        onSubmit={handleSubmit}
+        noValidate
+        data-hydrated={mounted ? "true" : "false"}
+        className="mt-6 space-y-3"
+      >
         {mode === "signup" && (
           <>
             <div>

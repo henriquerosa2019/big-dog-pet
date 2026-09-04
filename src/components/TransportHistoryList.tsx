@@ -71,7 +71,7 @@ export function TransportHistoryList({
 /** Barra segmentada com a etapa atual dentre as 10 etapas não-terminais de ops_status. */
 function OpsStatusProgress({ status }: { status: OpsStatus }) {
   const steps = opsStatusOrder.filter((s) => s !== "cancelado");
-  const idx = Math.max(0, steps.indexOf(status));
+  const idx = Math.max(0, (steps as readonly OpsStatus[]).indexOf(status));
 
   return (
     <div>

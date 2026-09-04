@@ -56,6 +56,8 @@ import {
 import { TransportHistoryList } from "@/components/TransportHistoryList";
 import { DriverLiveMap } from "@/components/DriverLiveMap";
 import { ReportPreview } from "@/components/ReportPreview";
+import { CurvaAbcProdutos } from "@/components/CurvaAbcProdutos";
+import { CurvaAbcServicos } from "@/components/CurvaAbcServicos";
 import {
   CatalogForm,
   emptyCatalogValues,
@@ -1121,6 +1123,7 @@ function Admin() {
   });
 
   // --- Aba "Relatórios": geração de Excel/PDF de vendas + serviços ---
+  const [reportSubTab, setReportSubTab] = useState<"financeiro" | "abc-produtos" | "abc-servicos">("financeiro");
   const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("mes");
   const [reportFrom, setReportFrom] = useState(todayISODate());
   const [reportTo, setReportTo] = useState(todayISODate());
@@ -2493,13 +2496,55 @@ function Admin() {
         </TabsContent>
 
         <TabsContent value="relatorios" className="mt-4 space-y-3">
-          <div className="rounded-2xl bg-card p-3 shadow-card">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Relatório financeiro
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Serviços, produtos e taxas de retirada/entrega do período, prontos pra exportar.
-            </p>
+          {/* Sub-abas de Relatórios */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+            <button
+              type="button"
+              onClick={() => setReportSubTab("financeiro")}
+              className={cn(
+                "rounded-xl px-3 py-2 text-xs font-semibold whitespace-nowrap transition-colors",
+                reportSubTab === "financeiro"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+              )}
+            >
+              📊 Financeiro Geral
+            </button>
+            <button
+              type="button"
+              onClick={() => setReportSubTab("abc-produtos")}
+              className={cn(
+                "rounded-xl px-3 py-2 text-xs font-semibold whitespace-nowrap transition-colors",
+                reportSubTab === "abc-produtos"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+              )}
+            >
+              📦 Curva ABC - Produtos
+            </button>
+            <button
+              type="button"
+              onClick={() => setReportSubTab("abc-servicos")}
+              className={cn(
+                "rounded-xl px-3 py-2 text-xs font-semibold whitespace-nowrap transition-colors",
+                reportSubTab === "abc-servicos"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+              )}
+            >
+              ✂️ Curva ABC - Serviços
+            </button>
+          </div>
+
+          {reportSubTab === "financeiro" && (
+            <>
+              <div className="rounded-2xl bg-card p-3 shadow-card">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Relatório financeiro
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Serviços, produtos e taxas de retirada/entrega do período, prontos pra exportar.
+                </p>
 
             <div className="mt-3 grid grid-cols-4 gap-1.5">
               {(
@@ -2664,7 +2709,13 @@ function Admin() {
               )}
             </div>
           )}
-        </TabsContent>
+        </>
+      )}
+
+      {reportSubTab === "abc-produtos" && <CurvaAbcProdutos />}
+
+      {reportSubTab === "abc-servicos" && <CurvaAbcServicos />}
+    </TabsContent>
 
         <TabsContent value="clinica" className="mt-4 space-y-3">
           <div className="rounded-2xl bg-card p-3 shadow-card">
