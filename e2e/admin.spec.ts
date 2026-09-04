@@ -67,6 +67,7 @@ test.describe('Painel Administrativo', () => {
     await expect(page.getByRole('button', { name: /Financeiro Geral/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /Curva ABC - Produtos/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /Curva ABC - Serviços/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Curva ABC - Clientes/i })).toBeVisible();
 
     // Valida botões do financeiro geral
     await expect(page.getByRole('button', { name: 'Hoje' })).toBeVisible();
@@ -79,6 +80,10 @@ test.describe('Painel Administrativo', () => {
     // Alterna para Curva ABC - Serviços
     await page.getByRole('button', { name: /Curva ABC - Serviços/i }).click();
     await expect(page.locator('text=Filtros da Curva ABC de Serviços')).toBeVisible();
+
+    // Alterna para Curva ABC - Clientes
+    await page.getByRole('button', { name: /Curva ABC - Clientes/i }).click();
+    await expect(page.locator('text=Filtros da Curva ABC de Clientes')).toBeVisible();
   });
 
   test('Deve navegar para a aba "Agendamentos" e carregar a agenda', async ({ page }) => {

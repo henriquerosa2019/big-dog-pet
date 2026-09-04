@@ -58,6 +58,8 @@ import { DriverLiveMap } from "@/components/DriverLiveMap";
 import { ReportPreview } from "@/components/ReportPreview";
 import { CurvaAbcProdutos } from "@/components/CurvaAbcProdutos";
 import { CurvaAbcServicos } from "@/components/CurvaAbcServicos";
+import { CurvaAbcClientes } from "@/components/CurvaAbcClientes";
+import { useClientAbcMap } from "@/hooks/useClientAbcMap";
 import {
   CatalogForm,
   emptyCatalogValues,
@@ -189,6 +191,7 @@ function Admin() {
   const { user } = useAuth();
   const isAdmin = useIsAdmin(user?.id);
   const queryClient = useQueryClient();
+  const { getClientAbcInfo } = useClientAbcMap();
 
   const { data: appointments } = useQuery({
     queryKey: ["admin-appointments"],
@@ -211,7 +214,7 @@ function Admin() {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, total_cents, status, created_at, customer_name, phone, order_items(product_name, quantity)",
+          "id, user_id, total_cents, status, created_at, customer_name, phone, order_items(product_name, quantity)",
         )
         .order("created_at", { ascending: false })
         .limit(100);
@@ -618,8 +621,15 @@ function Admin() {
   const pendingAppointments = useMemo(() => {
     return (appointments ?? [])
       .filter((a) => a.status === "pendente")
-      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
-  }, [appointments]);
+      .sort((a, b) => {
+        const infoA = getClientAbcInfo(a.user_id);
+        const infoB = getClientAbcInfo(b.user_id);
+        const score = (cls?: string) => (cls === "A" ? 3 : cls === "B" ? 2 : 1);
+        const diff = score(infoB?.abcClass) - score(infoA?.abcClass);
+        if (diff !== 0) return diff;
+        return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime();
+      });
+  }, [appointments, getClientAbcInfo]);
 
   const [newClient, setNewClient] = useState({
     fullName: "",
@@ -1123,7 +1133,7 @@ function Admin() {
   });
 
   // --- Aba "Relatórios": geração de Excel/PDF de vendas + serviços ---
-  const [reportSubTab, setReportSubTab] = useState<"financeiro" | "abc-produtos" | "abc-servicos">("financeiro");
+  const [reportSubTab, setReportSubTab] = useState<"financeiro" | "abc-produtos" | "abc-servicos" | "abc-clientes">("financeiro");
   const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("mes");
   const [reportFrom, setReportFrom] = useState(todayISODate());
   const [reportTo, setReportTo] = useState(todayISODate());
@@ -1633,29 +1643,114 @@ function Admin() {
                 Novos agendamentos ({pendingAppointments.length})
               </p>
               <div className="mt-2 space-y-2">
-                {pendingAppointments.slice(0, 6).map((item) => (
-                  <div key={item.id} className="rounded-xl bg-card p-2.5 shadow-card">
-                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                      <p className="text-sm font-semibold">{item.services?.name ?? "Serviço"}</p>
-                      <Badge variant="secondary" className="shrink-0 capitalize">
-                        {item.status}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDateTime(item.scheduled_at)}
-                      {item.pets?.name ? ` · ${item.pets.name}` : ""}
-                    </p>
-                    <Button
-                      size="sm"
-                      className="mt-2 h-9 w-full rounded-xl"
-                      disabled={confirmAppointment.isPending}
-                      onClick={() => confirmAppointment.mutate(item)}
+                {pendingAppointments.slice(0, 6).map((item) => {
+                  const clientInfo = getClientAbcInfo(item.user_id);
+                  const clientName = profileById.get(item.user_id)?.full_name || clientInfo?.name || "Cliente";
+                  const clientPhone = profileById.get(item.user_id)?.phone || clientInfo?.phone;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={cn(
+                        "rounded-xl bg-card p-3 shadow-card transition-all relative overflow-hidden",
+                        clientInfo?.abcClass === "A"
+                          ? "border-2 border-emerald-500/60 shadow-md ring-1 ring-emerald-500/20"
+                          : clientInfo?.abcClass === "B"
+                          ? "border-2 border-blue-500/50"
+                          : "border border-border/40",
+                      )}
                     >
-                      <CheckCircle2 className="h-4 w-4" />
-                      Confirmar e avisar no WhatsApp
-                    </Button>
-                  </div>
-                ))}
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="text-sm font-bold text-foreground truncate">{clientName}</p>
+                            {clientInfo && (
+                              <Badge className={cn("text-[10px] font-bold px-1.5 py-0.2", clientInfo.suggestion.badgeClass)}>
+                                {clientInfo.suggestion.badgeLabel}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs font-semibold text-primary mt-0.5">
+                            {item.services?.name ?? "Serviço"}
+                            {item.pets?.name ? ` · 🐾 ${item.pets.name}` : ""}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {formatDateTime(item.scheduled_at)}
+                            {clientPhone ? ` · 📞 ${clientPhone}` : ""}
+                          </p>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <Badge variant="secondary" className="capitalize text-[11px]">
+                            {item.status}
+                          </Badge>
+                          {clientInfo && clientInfo.ltvCents > 0 && (
+                            <p className="text-[10px] font-medium text-muted-foreground mt-0.5">
+                              LTV: {formatBRL(clientInfo.ltvCents)} ({clientInfo.visitsCount} visitas)
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Box de Ação Proposta de acordo com o Volume de Negócios */}
+                      {clientInfo && (
+                        <div
+                          className={cn(
+                            "mt-2.5 rounded-xl p-2.5 text-xs space-y-1.5",
+                            clientInfo.abcClass === "A"
+                              ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-950 dark:text-emerald-100"
+                              : clientInfo.abcClass === "B"
+                              ? "bg-blue-500/10 border border-blue-500/30 text-blue-950 dark:text-blue-100"
+                              : "bg-secondary/40 border border-border/40 text-muted-foreground",
+                          )}
+                        >
+                          <div className="flex items-center justify-between font-bold text-[11px]">
+                            <span>{clientInfo.suggestion.title}</span>
+                            <span className="font-extrabold text-primary">{clientInfo.suggestion.suggestedOffer}</span>
+                          </div>
+                          <p className="text-[11px] leading-relaxed">
+                            {clientInfo.suggestion.actionSummary}
+                          </p>
+
+                          {clientPhone && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className={cn(
+                                "mt-1 h-8 w-full rounded-lg text-xs font-bold gap-1.5 transition-colors",
+                                clientInfo.abcClass === "A"
+                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white border-transparent shadow-sm"
+                                  : clientInfo.abcClass === "B"
+                                  ? "bg-blue-600 hover:bg-blue-700 text-white border-transparent shadow-sm"
+                                  : "hover:bg-secondary",
+                              )}
+                              onClick={() => {
+                                const petName = item.pets?.name ?? undefined;
+                                const msg = clientInfo.suggestion.whatsappMessageTemplate(clientName, petName);
+                                const link = whatsappLinkTo(clientPhone, msg);
+                                if (link) window.open(link, "_blank", "noopener,noreferrer");
+                              }}
+                            >
+                              <MessageCircle className="h-3.5 w-3.5" />
+                              Confirmar c/ Oferta Especial no WhatsApp
+                            </Button>
+                          )}
+                        </div>
+                      )}
+
+                      <Button
+                        size="sm"
+                        variant={clientInfo?.abcClass === "A" ? "secondary" : "default"}
+                        className="mt-2 h-9 w-full rounded-xl text-xs"
+                        disabled={confirmAppointment.isPending}
+                        onClick={() => confirmAppointment.mutate(item)}
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        Confirmar e avisar no WhatsApp (Padrão)
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
               {pendingAppointments.length > 6 && (
                 <p className="mt-2 text-[11px] text-muted-foreground">
@@ -2534,6 +2629,18 @@ function Admin() {
             >
               ✂️ Curva ABC - Serviços
             </button>
+            <button
+              type="button"
+              onClick={() => setReportSubTab("abc-clientes")}
+              className={cn(
+                "rounded-xl px-3 py-2 text-xs font-semibold whitespace-nowrap transition-colors",
+                reportSubTab === "abc-clientes"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+              )}
+            >
+              👥 Curva ABC - Clientes
+            </button>
           </div>
 
           {reportSubTab === "financeiro" && (
@@ -2715,6 +2822,8 @@ function Admin() {
       {reportSubTab === "abc-produtos" && <CurvaAbcProdutos />}
 
       {reportSubTab === "abc-servicos" && <CurvaAbcServicos />}
+
+      {reportSubTab === "abc-clientes" && <CurvaAbcClientes />}
     </TabsContent>
 
         <TabsContent value="clinica" className="mt-4 space-y-3">
@@ -2922,33 +3031,61 @@ function Admin() {
             Confirme os agendamentos pendentes para avisar o cliente automaticamente pelo WhatsApp.
           </p>
 
-          {(appointments ?? []).map((item) => (
-            <div key={item.id} className="rounded-2xl bg-card p-3 shadow-card">
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                <p className="text-sm font-semibold">{item.services?.name ?? "Serviço"}</p>
-                <Badge
-                  variant="secondary"
-                  className={cn("shrink-0 capitalize", statusToneClass(appointmentStatusTone(item.status)))}
-                >
-                  {item.status}
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {formatDateTime(item.scheduled_at)}
-                {item.pets?.name ? ` · ${item.pets.name}` : ""}
-              </p>
-              {item.notes && <p className="mt-1 text-xs text-muted-foreground">{item.notes}</p>}
-              {item.status === "pendente" && (
-                <Button
-                  size="sm"
-                  className="mt-2 h-9 w-full rounded-xl"
-                  disabled={confirmAppointment.isPending}
-                  onClick={() => confirmAppointment.mutate(item)}
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  Confirmar e avisar no WhatsApp
-                </Button>
-              )}
+          {(appointments ?? []).map((item) => {
+            const clientInfo = getClientAbcInfo(item.user_id);
+            const clientName = profileById.get(item.user_id)?.full_name || clientInfo?.name;
+
+            return (
+              <div
+                key={item.id}
+                className={cn(
+                  "rounded-2xl bg-card p-3 shadow-card transition-all",
+                  clientInfo?.abcClass === "A"
+                    ? "border-2 border-emerald-500/50"
+                    : clientInfo?.abcClass === "B"
+                    ? "border-2 border-blue-500/40"
+                    : "",
+                )}
+              >
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <p className="text-sm font-semibold">{item.services?.name ?? "Serviço"}</p>
+                    {clientInfo && (
+                      <Badge className={cn("text-[10px] font-bold px-1.5 py-0.2", clientInfo.suggestion.badgeClass)}>
+                        {clientInfo.suggestion.badgeLabel}
+                      </Badge>
+                    )}
+                  </div>
+                  <Badge
+                    variant="secondary"
+                    className={cn("shrink-0 capitalize", statusToneClass(appointmentStatusTone(item.status)))}
+                  >
+                    {item.status}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {formatDateTime(item.scheduled_at)}
+                  {item.pets?.name ? ` · 🐾 ${item.pets.name}` : ""}
+                  {clientName ? ` · Tutor(a): ${clientName}` : ""}
+                  {clientInfo && clientInfo.ltvCents > 0 ? ` (LTV ${formatBRL(clientInfo.ltvCents)})` : ""}
+                </p>
+                {clientInfo && (clientInfo.abcClass === "A" || clientInfo.abcClass === "B") && (
+                  <p className="mt-1 text-[11px] font-semibold text-primary">
+                    💡 Sugestão Comercial: {clientInfo.suggestion.suggestedOffer} · {clientInfo.suggestion.actionSummary}
+                  </p>
+                )}
+                {item.notes && <p className="mt-1 text-xs text-muted-foreground">{item.notes}</p>}
+                {item.status === "pendente" && (
+                  <Button
+                    size="sm"
+                    className="mt-2 h-9 w-full rounded-xl"
+                    disabled={confirmAppointment.isPending}
+                    onClick={() => confirmAppointment.mutate(item)}
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    Confirmar e avisar no WhatsApp
+                  </Button>
+                )}
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {statuses.map((status) => (
                   <button
@@ -2984,7 +3121,8 @@ function Admin() {
                   : "Marcar como Campanha Niver"}
               </button>
             </div>
-          ))}
+          );
+        })}
           {(appointments ?? []).length === 0 && (
             <p className="text-sm text-muted-foreground">Nenhum agendamento.</p>
           )}
@@ -3404,38 +3542,76 @@ function Admin() {
         </TabsContent>
 
         <TabsContent value="pedidos" className="mt-4 space-y-2">
-          {(orders ?? []).map((order) => (
-            <div key={order.id} className="rounded-2xl bg-card p-3 shadow-card">
-              <div className="flex items-center justify-between gap-2">
-                <p className="truncate text-sm font-semibold">{order.customer_name ?? "Cliente"}</p>
-                <span className="font-display text-sm text-primary">
-                  {formatBRL(order.total_cents)}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {formatDateTime(order.created_at)} · {order.phone ?? "sem telefone"}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {order.order_items.map((i) => `${i.quantity}x ${i.product_name}`).join(", ")}
-              </p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {orderStatuses.map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => updateOrder.mutate({ id: order.id, status })}
-                    className={cn(
-                      "rounded-lg px-2.5 py-1 text-[11px] font-semibold",
-                      order.status === status
-                        ? cn("bg-primary text-primary-foreground", statusToneClass(orderStatusTone(status)))
-                        : "bg-secondary text-secondary-foreground",
+          {(orders ?? []).map((order) => {
+            const clientInfo = getClientAbcInfo(order.user_id, order.phone);
+
+            return (
+              <div
+                key={order.id}
+                className={cn(
+                  "rounded-2xl bg-card p-3 shadow-card transition-all",
+                  clientInfo?.abcClass === "A"
+                    ? "border-2 border-emerald-500/50"
+                    : clientInfo?.abcClass === "B"
+                    ? "border-2 border-blue-500/40"
+                    : "",
+                )}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <p className="truncate text-sm font-semibold">{order.customer_name ?? "Cliente"}</p>
+                    {clientInfo && (
+                      <Badge className={cn("text-[10px] font-bold px-1.5 py-0.2", clientInfo.suggestion.badgeClass)}>
+                        {clientInfo.suggestion.badgeLabel}
+                      </Badge>
                     )}
-                  >
-                    {status.replace("_", " ")}
-                  </button>
-                ))}
+                  </div>
+                  <span className="font-display text-sm text-primary">
+                    {formatBRL(order.total_cents)}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {formatDateTime(order.created_at)} · {order.phone ?? "sem telefone"}
+                  {clientInfo && clientInfo.ltvCents > 0 ? ` · LTV Histórico: ${formatBRL(clientInfo.ltvCents)}` : ""}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {order.order_items.map((i) => `${i.quantity}x ${i.product_name}`).join(", ")}
+                </p>
+
+                {/* Destaque de Ação na Separação do Pedido */}
+                {clientInfo && clientInfo.abcClass === "A" && (
+                  <div className="mt-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-2 text-xs flex items-center justify-between gap-2">
+                    <span className="text-emerald-900 dark:text-emerald-200">
+                      🎁 <strong>Ação VIP Loja:</strong> Cliente VIP comprando produtos! Enviar amostra/petisco cortesia e bilhete carinhoso na sacola.
+                    </span>
+                  </div>
+                )}
+                {clientInfo && clientInfo.abcClass === "B" && (
+                  <div className="mt-2 rounded-xl bg-blue-500/10 border border-blue-500/30 p-2 text-xs flex items-center justify-between gap-2">
+                    <span className="text-blue-900 dark:text-blue-200">
+                      📈 <strong>Ação Regular Loja:</strong> Enviar cupom promocional para o próximo banho/tosa junto com os produtos.
+                    </span>
+                  </div>
+                )}
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {orderStatuses.map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => updateOrder.mutate({ id: order.id, status })}
+                      className={cn(
+                        "rounded-lg px-2.5 py-1 text-[11px] font-semibold",
+                        order.status === status
+                          ? cn("bg-primary text-primary-foreground", statusToneClass(orderStatusTone(status)))
+                          : "bg-secondary text-secondary-foreground",
+                      )}
+                    >
+                      {status.replace("_", " ")}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {(orders ?? []).length === 0 && (
             <p className="text-sm text-muted-foreground">Nenhum pedido.</p>
           )}
