@@ -37,12 +37,16 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { fetchAddressByCep, maskCep } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/agendar")({
-  validateSearch: (search: Record<string, unknown>): { campanha?: string; cupom?: string } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { campanha?: string; cupom?: string; tipo?: string } => ({
     ...(typeof search["campanha"] === "string" ? { campanha: search["campanha"] as string } : {}),
     ...(typeof search["cupom"] === "string" ? { cupom: search["cupom"] as string } : {}),
+    ...(typeof search["tipo"] === "string" ? { tipo: search["tipo"] as string } : {}),
   }),
   head: () => ({
     meta: [
@@ -116,7 +120,7 @@ function Agendar() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { campanha, cupom } = useSearch({ from: "/_authenticated/agendar" });
+  const { campanha, cupom, tipo } = useSearch({ from: "/_authenticated/agendar" });
   const isBirthdayOffer = campanha === "niver";
 
   const [category, setCategory] = useState("banho");
@@ -148,7 +152,9 @@ function Agendar() {
   });
   const [petSheetOpen, setPetSheetOpen] = useState(false);
 
-  const [logisticsType, setLogisticsType] = useState<LogisticsType>("levar");
+  const [logisticsType, setLogisticsType] = useState<LogisticsType>(
+    tipo === "buscar_e_devolver" ? "buscar_e_devolver" : "levar",
+  );
   const [addressId, setAddressId] = useState<string | null>(null);
   const [newAddress, setNewAddress] = useState({
     label: "Casa",
@@ -159,6 +165,31 @@ function Agendar() {
     district: "",
     reference: "",
   });
+  const [isAgendarCepLoading, setIsAgendarCepLoading] = useState(false);
+
+  async function handleAgendarCepChange(val: string) {
+    const masked = maskCep(val);
+    setNewAddress((prev) => ({ ...prev, cep: masked }));
+    const raw = val.replace(/\D/g, "");
+    if (raw.length === 8) {
+      setIsAgendarCepLoading(true);
+      try {
+        const info = await fetchAddressByCep(raw);
+        if (info) {
+          setNewAddress((prev) => ({
+            ...prev,
+            cep: masked,
+            street: info.logradouro || prev.street,
+            district: info.bairro || prev.district,
+          }));
+          toast.success("Endereço preenchido pelo CEP!");
+        }
+      } finally {
+        setIsAgendarCepLoading(false);
+      }
+    }
+  }
+
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
@@ -829,9 +860,16 @@ function Agendar() {
             )}
 
             <div className="rounded-2xl bg-card p-3 shadow-card">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Cadastrar novo endereço
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Cadastrar novo endereço
+                </p>
+                {isAgendarCepLoading && (
+                  <span className="text-[11px] font-semibold text-primary animate-pulse">
+                    Buscando CEP...
+                  </span>
+                )}
+              </div>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <Input
                   placeholder="Apelido (ex.: Casa)"
@@ -841,7 +879,14 @@ function Agendar() {
                   className="col-span-2 h-10 rounded-xl"
                 />
                 <Input
-                  placeholder="Rua"
+                  placeholder="CEP (ex.: 07800-000)"
+                  value={newAddress.cep}
+                  maxLength={9}
+                  onChange={(e) => handleAgendarCepChange(e.target.value)}
+                  className="col-span-2 h-10 rounded-xl"
+                />
+                <Input
+                  placeholder="Rua / Logradouro"
                   value={newAddress.street}
                   onChange={(e) => setNewAddress({ ...newAddress, street: e.target.value })}
                   className="col-span-2 h-10 rounded-xl"

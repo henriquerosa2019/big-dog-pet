@@ -2,11 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { toast } from "sonner";
-import { MapPin, MessageCircle, Truck } from "lucide-react";
+import { Compass, MapPin, MessageCircle, Navigation, Truck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesUpdate } from "@/integrations/supabase/types";
 import { useAuth, useIsDriver } from "@/hooks/useAuth";
 import { AVISO_AUTOMATICO_WHATSAPP, formatDateTime, whatsappLinkTo } from "@/lib/format";
+import { formatFullAddress, getGoogleMapsUrl, getWazeUrl } from "@/lib/navigation";
 import {
   CLOSING_OPS_STATUS,
   isVehicleAllowedForPet,
@@ -67,7 +68,7 @@ function Motorista() {
       const { data, error } = await supabase
         .from("transport_orders")
         .select(
-          "id, code, appointment_id, driver_id, pickup_notes, appointments(user_id, scheduled_at, ops_status, logistics_type, notes, services(name), pets(name, size)), addresses(label, street, number, complement, district, reference)",
+          "id, code, appointment_id, driver_id, pickup_notes, appointments(user_id, scheduled_at, ops_status, logistics_type, notes, services(name), pets(name, size)), addresses(label, street, number, complement, district, city, state, cep, reference)",
         )
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -268,6 +269,9 @@ function RouteCard({
       number: string | null;
       complement: string | null;
       district: string;
+      city?: string | null;
+      state?: string | null;
+      cep?: string | null;
       reference: string | null;
     } | null;
   };
@@ -281,6 +285,10 @@ function RouteCard({
     client?.phone,
     `Olá${client?.full_name ? `, ${client.full_name}` : ""}! Aqui é o motorista do Big Dog Pet.`,
   );
+
+  const fullAddress = item.addresses ? formatFullAddress(item.addresses) : "";
+  const wazeUrl = fullAddress ? getWazeUrl(fullAddress) : "";
+  const gmapsUrl = fullAddress ? getGoogleMapsUrl(fullAddress) : "";
 
   // Compartilha o GPS ao vivo com o tutor/admin só enquanto o motorista
   // estiver de fato em deslocamento (retirada ou devolução) — pedido do
@@ -342,17 +350,45 @@ function RouteCard({
         <p className="mt-1 text-xs text-muted-foreground">Obs.: {item.appointments.notes}</p>
       )}
 
-      {talkLink && (
-        <a
-          href={talkLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-2 inline-flex items-center gap-1 rounded-lg bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground"
-        >
-          <MessageCircle className="h-3.5 w-3.5" />
-          Falar com o tutor
-        </a>
-      )}
+      {/* Botões de Ação Direta: Contato e Navegação de 1 Toque */}
+      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+        {talkLink && (
+          <a
+            href={talkLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 rounded-lg bg-secondary px-2.5 py-1.5 text-[11px] font-semibold text-secondary-foreground hover:bg-secondary/80 transition-colors"
+          >
+            <MessageCircle className="h-3.5 w-3.5 text-emerald-600" />
+            Falar com tutor
+          </a>
+        )}
+
+        {fullAddress && (
+          <>
+            <a
+              href={wazeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 rounded-lg bg-sky-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 transition-colors"
+              title={`Navegar no Waze até ${fullAddress}`}
+            >
+              <Navigation className="h-3.5 w-3.5" />
+              📍 Waze
+            </a>
+            <a
+              href={gmapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400 transition-colors"
+              title={`Navegar no Google Maps até ${fullAddress}`}
+            >
+              <Compass className="h-3.5 w-3.5" />
+              🗺️ Google Maps
+            </a>
+          </>
+        )}
+      </div>
 
       {next && (
         <Button

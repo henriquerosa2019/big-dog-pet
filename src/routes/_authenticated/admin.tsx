@@ -5,12 +5,15 @@ import { toast } from "sonner";
 import { z } from "zod";
 import {
   CheckCircle2,
+  Compass,
   Eye,
   EyeOff,
   FileSpreadsheet,
   FileText,
   Gift,
+  MapPin,
   MessageCircle,
+  Navigation,
   Pencil,
   Search,
   Syringe,
@@ -20,6 +23,13 @@ import {
 import { startOfDay, startOfMonth, startOfWeek } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useIsAdminStatus } from "@/hooks/useAuth";
+import {
+  fetchAddressByCep,
+  formatFullAddress,
+  getGoogleMapsUrl,
+  getWazeUrl,
+  maskCep,
+} from "@/lib/navigation";
 import {
   appointmentStatusTone,
   capitalizeWords,
@@ -311,10 +321,24 @@ function Admin() {
       const { data, error } = await supabase
         .from("transport_orders")
         .select(
-          "id, code, appointment_id, driver_id, price_cents, assigned_at, en_route_pickup_at, picked_up_at, arrived_shop_at, en_route_return_at, delivered_at, pickup_notes, return_notes, pickup_condition, return_condition, tutor_confirmed_at, appointments(user_id, pet_id, scheduled_at, status, ops_status, logistics_type, notes, service_price_cents, services(name), pets(name, size)), addresses(label, street, number, complement, district, reference), delivery_zones(name)",
+          "id, code, appointment_id, driver_id, price_cents, assigned_at, en_route_pickup_at, picked_up_at, arrived_shop_at, en_route_return_at, delivered_at, pickup_notes, return_notes, pickup_condition, return_condition, tutor_confirmed_at, appointments(user_id, pet_id, scheduled_at, status, ops_status, logistics_type, notes, service_price_cents, services(name), pets(name, size)), addresses(label, street, number, complement, district, city, state, cep, reference), delivery_zones(name)",
         )
         .order("created_at", { ascending: false })
         .limit(100);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: allAddresses } = useQuery({
+    queryKey: ["admin-addresses"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("addresses")
+        .select("id, user_id, label, cep, street, number, complement, district, city, state, reference, is_default")
+        .order("is_default", { ascending: false })
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -661,6 +685,43 @@ function Admin() {
     size: "medio",
     weightKg: "",
   });
+  const [newClientAddress, setNewClientAddress] = useState({
+    cep: "",
+    street: "",
+    number: "",
+    complement: "",
+    district: "",
+    city: "Franco da Rocha",
+    state: "SP",
+    reference: "",
+  });
+  const [isCepLoading, setIsCepLoading] = useState(false);
+
+  async function handleNewClientCepChange(val: string) {
+    const masked = maskCep(val);
+    setNewClientAddress((prev) => ({ ...prev, cep: masked }));
+    const raw = val.replace(/\D/g, "");
+    if (raw.length === 8) {
+      setIsCepLoading(true);
+      try {
+        const info = await fetchAddressByCep(raw);
+        if (info) {
+          setNewClientAddress((prev) => ({
+            ...prev,
+            cep: masked,
+            street: info.logradouro || prev.street,
+            district: info.bairro || prev.district,
+            city: info.localidade || prev.city,
+            state: info.uf || prev.state,
+          }));
+          toast.success("Endereço preenchido pelo CEP!");
+        }
+      } finally {
+        setIsCepLoading(false);
+      }
+    }
+  }
+
   const [duplicateEmailNotice, setDuplicateEmailNotice] = useState(false);
 
   const createClient = useMutation({
@@ -713,6 +774,27 @@ function Admin() {
         });
         if (petError) throw petError;
       }
+
+      // Se informou endereço, grava na tabela addresses vinculado ao novo cliente
+      if (newClientAddress.street.trim()) {
+        const { error: addressError } = await supabase.from("addresses").insert({
+          user_id: data.user!.id,
+          label: "Casa",
+          cep: newClientAddress.cep.trim() || null,
+          street: newClientAddress.street.trim(),
+          number: newClientAddress.number.trim() || null,
+          complement: newClientAddress.complement.trim() || null,
+          district: newClientAddress.district.trim() || "Centro",
+          city: newClientAddress.city.trim() || "Franco da Rocha",
+          state: newClientAddress.state.trim() || "SP",
+          reference: newClientAddress.reference.trim() || null,
+          is_default: true,
+        });
+        if (addressError) {
+          console.error("Erro ao salvar endereço do novo cliente:", addressError);
+        }
+      }
+
       return { duplicate: false as const };
     },
     onSuccess: (result) => {
@@ -724,6 +806,7 @@ function Admin() {
       setDuplicateEmailNotice(false);
       queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
       queryClient.invalidateQueries({ queryKey: ["admin-pets"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-addresses"] });
       toast.success("Cliente cadastrado! Peça para confirmar o e-mail antes de usar o app.");
       setNewClient({ fullName: "", phone: "", email: "", password: "", birthDate: "" });
       setNewClientPet({
@@ -735,6 +818,16 @@ function Admin() {
         birthDate: "",
         size: "medio",
         weightKg: "",
+      });
+      setNewClientAddress({
+        cep: "",
+        street: "",
+        number: "",
+        complement: "",
+        district: "",
+        city: "Franco da Rocha",
+        state: "SP",
+        reference: "",
       });
     },
     onError: (error) => {
@@ -1102,7 +1195,42 @@ function Admin() {
     fullName: "",
     phone: "",
     birthDate: "",
+    cep: "",
+    street: "",
+    number: "",
+    complement: "",
+    district: "",
+    city: "Franco da Rocha",
+    state: "SP",
+    reference: "",
   });
+  const [isDirectoryCepLoading, setIsDirectoryCepLoading] = useState(false);
+
+  async function handleDirectoryCepChange(val: string) {
+    const masked = maskCep(val);
+    setDirectoryClientForm((prev) => ({ ...prev, cep: masked }));
+    const raw = val.replace(/\D/g, "");
+    if (raw.length === 8) {
+      setIsDirectoryCepLoading(true);
+      try {
+        const info = await fetchAddressByCep(raw);
+        if (info) {
+          setDirectoryClientForm((prev) => ({
+            ...prev,
+            cep: masked,
+            street: info.logradouro || prev.street,
+            district: info.bairro || prev.district,
+            city: info.localidade || prev.city,
+            state: info.uf || prev.state,
+          }));
+          toast.success("Endereço preenchido pelo CEP!");
+        }
+      } finally {
+        setIsDirectoryCepLoading(false);
+      }
+    }
+  }
+
   const [editingDirectoryPetId, setEditingDirectoryPetId] = useState<string | null>(null);
   const [directoryPetForm, setDirectoryPetForm] = useState<{
     name: string;
@@ -1124,9 +1252,45 @@ function Admin() {
         })
         .eq("id", editingDirectoryClientId);
       if (error) throw error;
+
+      if (directoryClientForm.street.trim()) {
+        const existingAddr = addressesByOwner.get(editingDirectoryClientId)?.[0];
+        if (existingAddr) {
+          const { error: addrErr } = await supabase
+            .from("addresses")
+            .update({
+              cep: directoryClientForm.cep.trim() || null,
+              street: directoryClientForm.street.trim(),
+              number: directoryClientForm.number.trim() || null,
+              complement: directoryClientForm.complement.trim() || null,
+              district: directoryClientForm.district.trim() || "Centro",
+              city: directoryClientForm.city.trim() || "Franco da Rocha",
+              state: directoryClientForm.state.trim() || "SP",
+              reference: directoryClientForm.reference.trim() || null,
+            })
+            .eq("id", existingAddr.id);
+          if (addrErr) throw addrErr;
+        } else {
+          const { error: addrErr } = await supabase.from("addresses").insert({
+            user_id: editingDirectoryClientId,
+            label: "Casa",
+            cep: directoryClientForm.cep.trim() || null,
+            street: directoryClientForm.street.trim(),
+            number: directoryClientForm.number.trim() || null,
+            complement: directoryClientForm.complement.trim() || null,
+            district: directoryClientForm.district.trim() || "Centro",
+            city: directoryClientForm.city.trim() || "Franco da Rocha",
+            state: directoryClientForm.state.trim() || "SP",
+            reference: directoryClientForm.reference.trim() || null,
+            is_default: true,
+          });
+          if (addrErr) throw addrErr;
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-addresses"] });
       toast.success("Cliente atualizado");
       setEditingDirectoryClientId(null);
     },
@@ -1301,8 +1465,19 @@ function Admin() {
     },
   });
 
-  // Diretório usado na aba "Clientes": tutor + pets, filtrável por nome,
-  // telefone, CPF ou nome do pet.
+  const addressesByOwner = useMemo(() => {
+    const map = new Map<string, NonNullable<typeof allAddresses>>();
+    for (const addr of allAddresses ?? []) {
+      if (!addr.user_id) continue;
+      const list = map.get(addr.user_id) ?? [];
+      list.push(addr);
+      map.set(addr.user_id, list);
+    }
+    return map;
+  }, [allAddresses]);
+
+  // Diretório usado na aba "Clientes": tutor + pets + endereços, filtrável por nome,
+  // telefone, CPF, nome do pet ou endereço.
   const clientDirectory = useMemo(() => {
     const petsByOwner = new Map<string, NonNullable<typeof allPets>>();
     for (const pet of allPets ?? []) {
@@ -1314,17 +1489,27 @@ function Admin() {
     const term = clientSearch.trim().toLowerCase();
     const termDigits = digitsOnly(clientSearch);
     return (profiles ?? [])
-      .map((p) => ({ ...p, pets: petsByOwner.get(p.id) ?? [] }))
+      .map((p) => ({
+        ...p,
+        pets: petsByOwner.get(p.id) ?? [],
+        addresses: addressesByOwner.get(p.id) ?? [],
+      }))
       .filter((client) => {
         if (!term) return true;
         const nameMatch = (client.full_name ?? "").toLowerCase().includes(term);
         const phoneMatch = termDigits.length >= 3 && digitsOnly(client.phone ?? "").includes(termDigits);
         const cpfMatch = termDigits.length >= 3 && digitsOnly(client.cpf ?? "").includes(termDigits);
         const petMatch = client.pets.some((pet) => pet.name.toLowerCase().includes(term));
-        return nameMatch || phoneMatch || cpfMatch || petMatch;
+        const addressMatch = client.addresses.some(
+          (a) =>
+            (a.street ?? "").toLowerCase().includes(term) ||
+            (a.district ?? "").toLowerCase().includes(term) ||
+            (termDigits.length >= 3 && digitsOnly(a.cep ?? "").includes(termDigits)),
+        );
+        return nameMatch || phoneMatch || cpfMatch || petMatch || addressMatch;
       })
       .sort((a, b) => (a.full_name ?? "").localeCompare(b.full_name ?? ""));
-  }, [profiles, allPets, clientSearch]);
+  }, [profiles, allPets, addressesByOwner, clientSearch]);
 
   // Nomes de pets agrupados por dono, usados na lista de "Clientes novos" do
   // Dashboard (nome do tutor + pet) e não só a contagem.
@@ -2336,6 +2521,105 @@ function Admin() {
           ) : (
             <>
               <div className="rounded-2xl bg-card p-3 shadow-card">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Endereço (opcional — para Táxi Pet / Delivery)
+                  </p>
+                  {isCepLoading && (
+                    <span className="text-[11px] font-semibold text-primary animate-pulse">
+                      Buscando CEP...
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2 space-y-2">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-1">
+                      <Label htmlFor="nc-cep">CEP</Label>
+                      <Input
+                        id="nc-cep"
+                        placeholder="00000-000"
+                        maxLength={9}
+                        value={newClientAddress.cep}
+                        onChange={(e) => handleNewClientCepChange(e.target.value)}
+                        className="mt-1 h-10 rounded-xl"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <Label htmlFor="nc-street">Rua / Logradouro</Label>
+                      <Input
+                        id="nc-street"
+                        placeholder="Ex: Rua Nelson Rodrigues"
+                        value={newClientAddress.street}
+                        maxLength={150}
+                        onChange={(e) =>
+                          setNewClientAddress({ ...newClientAddress, street: e.target.value })
+                        }
+                        className="mt-1 h-10 rounded-xl"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <Label htmlFor="nc-number">Número</Label>
+                      <Input
+                        id="nc-number"
+                        placeholder="Ex: 120"
+                        value={newClientAddress.number}
+                        maxLength={20}
+                        onChange={(e) =>
+                          setNewClientAddress({ ...newClientAddress, number: e.target.value })
+                        }
+                        className="mt-1 h-10 rounded-xl"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <Label htmlFor="nc-complement">Complemento</Label>
+                      <Input
+                        id="nc-complement"
+                        placeholder="Ex: Apto 42, Bloco B"
+                        value={newClientAddress.complement}
+                        maxLength={50}
+                        onChange={(e) =>
+                          setNewClientAddress({ ...newClientAddress, complement: e.target.value })
+                        }
+                        className="mt-1 h-10 rounded-xl"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label htmlFor="nc-district">Bairro</Label>
+                      <Input
+                        id="nc-district"
+                        placeholder="Ex: Centro"
+                        value={newClientAddress.district}
+                        maxLength={100}
+                        onChange={(e) =>
+                          setNewClientAddress({ ...newClientAddress, district: e.target.value })
+                        }
+                        className="mt-1 h-10 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="nc-reference">Ponto de referência</Label>
+                      <Input
+                        id="nc-reference"
+                        placeholder="Ex: Próximo à estação"
+                        value={newClientAddress.reference}
+                        maxLength={150}
+                        onChange={(e) =>
+                          setNewClientAddress({ ...newClientAddress, reference: e.target.value })
+                        }
+                        className="mt-1 h-10 rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-card p-3 shadow-card">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Pet (opcional)
                 </p>
@@ -2450,7 +2734,7 @@ function Admin() {
             <Input
               value={clientSearch}
               onChange={(e) => setClientSearch(e.target.value)}
-              placeholder="Buscar por nome, telefone, CPF ou nome do pet"
+              placeholder="Buscar por nome, telefone, CPF, pet ou endereço"
               className="h-11 rounded-2xl pl-9"
             />
           </div>
@@ -2461,6 +2745,9 @@ function Admin() {
           <div className="space-y-2">
             {clientDirectory.map((client) => {
               const editingThis = editingDirectoryClientId === client.id;
+              const defaultAddr =
+                (client.addresses ?? []).find((a) => a.is_default) ?? client.addresses?.[0];
+
               return (
                 <div key={client.id} className="rounded-2xl bg-card p-3 shadow-card">
                   {editingThis ? (
@@ -2511,6 +2798,131 @@ function Admin() {
                           className="mt-1 h-10 rounded-xl"
                         />
                       </div>
+
+                      {/* Campos de Endereço no Diretório */}
+                      <div className="rounded-xl border border-border p-2.5 space-y-2 bg-muted/20">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-semibold">Endereço do cliente</Label>
+                          {isDirectoryCepLoading && (
+                            <span className="text-[10px] font-semibold text-primary animate-pulse">
+                              Buscando CEP...
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <Label htmlFor={`dc-cep-${client.id}`} className="text-[11px] text-muted-foreground">
+                              CEP
+                            </Label>
+                            <Input
+                              id={`dc-cep-${client.id}`}
+                              placeholder="00000-000"
+                              maxLength={9}
+                              value={directoryClientForm.cep}
+                              onChange={(e) => handleDirectoryCepChange(e.target.value)}
+                              className="mt-1 h-9 rounded-lg text-xs"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <Label htmlFor={`dc-street-${client.id}`} className="text-[11px] text-muted-foreground">
+                              Rua
+                            </Label>
+                            <Input
+                              id={`dc-street-${client.id}`}
+                              value={directoryClientForm.street}
+                              placeholder="Rua / Logradouro"
+                              maxLength={150}
+                              onChange={(e) =>
+                                setDirectoryClientForm({
+                                  ...directoryClientForm,
+                                  street: e.target.value,
+                                })
+                              }
+                              className="mt-1 h-9 rounded-lg text-xs"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <Label htmlFor={`dc-num-${client.id}`} className="text-[11px] text-muted-foreground">
+                              Número
+                            </Label>
+                            <Input
+                              id={`dc-num-${client.id}`}
+                              value={directoryClientForm.number}
+                              placeholder="Nº"
+                              maxLength={20}
+                              onChange={(e) =>
+                                setDirectoryClientForm({
+                                  ...directoryClientForm,
+                                  number: e.target.value,
+                                })
+                              }
+                              className="mt-1 h-9 rounded-lg text-xs"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <Label htmlFor={`dc-comp-${client.id}`} className="text-[11px] text-muted-foreground">
+                              Complemento
+                            </Label>
+                            <Input
+                              id={`dc-comp-${client.id}`}
+                              value={directoryClientForm.complement}
+                              placeholder="Apto / Bloco"
+                              maxLength={50}
+                              onChange={(e) =>
+                                setDirectoryClientForm({
+                                  ...directoryClientForm,
+                                  complement: e.target.value,
+                                })
+                              }
+                              className="mt-1 h-9 rounded-lg text-xs"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label htmlFor={`dc-dist-${client.id}`} className="text-[11px] text-muted-foreground">
+                              Bairro
+                            </Label>
+                            <Input
+                              id={`dc-dist-${client.id}`}
+                              value={directoryClientForm.district}
+                              placeholder="Bairro"
+                              maxLength={100}
+                              onChange={(e) =>
+                                setDirectoryClientForm({
+                                  ...directoryClientForm,
+                                  district: e.target.value,
+                                })
+                              }
+                              className="mt-1 h-9 rounded-lg text-xs"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`dc-ref-${client.id}`} className="text-[11px] text-muted-foreground">
+                              Referência
+                            </Label>
+                            <Input
+                              id={`dc-ref-${client.id}`}
+                              value={directoryClientForm.reference}
+                              placeholder="Ref."
+                              maxLength={150}
+                              onChange={(e) =>
+                                setDirectoryClientForm({
+                                  ...directoryClientForm,
+                                  reference: e.target.value,
+                                })
+                              }
+                              className="mt-1 h-9 rounded-lg text-xs"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
                       <div className="flex gap-2">
                         <Button
                           size="sm"
@@ -2542,11 +2954,20 @@ function Admin() {
                           <button
                             type="button"
                             onClick={() => {
+                              const addr = (client.addresses ?? []).find((a) => a.is_default) ?? client.addresses?.[0];
                               setEditingDirectoryClientId(client.id);
                               setDirectoryClientForm({
                                 fullName: client.full_name ?? "",
                                 phone: "",
                                 birthDate: client.birth_date ?? "",
+                                cep: addr?.cep ?? "",
+                                street: addr?.street ?? "",
+                                number: addr?.number ?? "",
+                                complement: addr?.complement ?? "",
+                                district: addr?.district ?? "",
+                                city: addr?.city ?? "Franco da Rocha",
+                                state: addr?.state ?? "SP",
+                                reference: addr?.reference ?? "",
                               });
                             }}
                             className="text-xs font-semibold text-primary underline"
@@ -2559,16 +2980,61 @@ function Admin() {
                             Aniversário: {formatDate(client.birth_date)}
                           </p>
                         )}
+
+                        {defaultAddr ? (
+                          <p className="mt-1 flex items-start gap-1 text-xs text-muted-foreground">
+                            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                            <span>
+                              {defaultAddr.street}
+                              {defaultAddr.number ? `, ${defaultAddr.number}` : ""}
+                              {defaultAddr.complement ? ` - ${defaultAddr.complement}` : ""} —{" "}
+                              {defaultAddr.district}
+                              {defaultAddr.cep ? ` (${defaultAddr.cep})` : ""}
+                            </span>
+                          </p>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingDirectoryClientId(client.id);
+                              setDirectoryClientForm({
+                                fullName: client.full_name ?? "",
+                                phone: client.phone ?? "",
+                                birthDate: client.birth_date ?? "",
+                                cep: "",
+                                street: "",
+                                number: "",
+                                complement: "",
+                                district: "",
+                                city: "Franco da Rocha",
+                                state: "SP",
+                                reference: "",
+                              });
+                            }}
+                            className="mt-1 text-xs font-semibold text-primary underline block"
+                          >
+                            + Adicionar endereço
+                          </button>
+                        )}
                       </div>
                       <button
                         type="button"
                         aria-label="Editar cliente"
                         onClick={() => {
+                          const addr = (client.addresses ?? []).find((a) => a.is_default) ?? client.addresses?.[0];
                           setEditingDirectoryClientId(client.id);
                           setDirectoryClientForm({
                             fullName: client.full_name ?? "",
                             phone: client.phone ?? "",
                             birthDate: client.birth_date ?? "",
+                            cep: addr?.cep ?? "",
+                            street: addr?.street ?? "",
+                            number: addr?.number ?? "",
+                            complement: addr?.complement ?? "",
+                            district: addr?.district ?? "",
+                            city: addr?.city ?? "Franco da Rocha",
+                            state: addr?.state ?? "SP",
+                            reference: addr?.reference ?? "",
                           });
                         }}
                         className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:text-primary"
@@ -3438,6 +3904,10 @@ function Admin() {
               client?.phone,
               `Olá${client?.full_name ? `, ${client.full_name}` : ""}! Aqui é do ${CLINIC.name}.`,
             );
+            const fullAddress = address ? formatFullAddress(address) : "";
+            const wazeUrl = fullAddress ? getWazeUrl(fullAddress) : "";
+            const gmapsUrl = fullAddress ? getGoogleMapsUrl(fullAddress) : "";
+
             return (
               <div key={item.id} className="rounded-2xl bg-card p-3 shadow-card">
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
@@ -3474,17 +3944,44 @@ function Admin() {
                   </p>
                 )}
 
-                {tutorLink && (
-                  <a
-                    href={tutorLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-flex items-center gap-1 rounded-lg bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground"
-                  >
-                    <MessageCircle className="h-3.5 w-3.5" />
-                    Falar com o tutor
-                  </a>
-                )}
+                <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                  {tutorLink && (
+                    <a
+                      href={tutorLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded-lg bg-secondary px-2.5 py-1.5 text-[11px] font-semibold text-secondary-foreground hover:bg-secondary/80 transition-colors"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5 text-emerald-600" />
+                      Falar com o tutor
+                    </a>
+                  )}
+
+                  {fullAddress && (
+                    <>
+                      <a
+                        href={wazeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-lg bg-sky-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-sky-600 hover:bg-sky-500/20 dark:text-sky-400 transition-colors"
+                        title={`Navegar no Waze até ${fullAddress}`}
+                      >
+                        <Navigation className="h-3.5 w-3.5" />
+                        📍 Waze
+                      </a>
+                      <a
+                        href={gmapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400 transition-colors"
+                        title={`Navegar no Google Maps até ${fullAddress}`}
+                      >
+                        <Compass className="h-3.5 w-3.5" />
+                        🗺️ Google Maps
+                      </a>
+                    </>
+                  )}
+                </div>
 
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <Select

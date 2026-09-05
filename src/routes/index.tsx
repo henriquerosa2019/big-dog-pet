@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Bath, Check, Copy, Gift, MapPin, MessageCircle, Scissors, Sparkles, Stethoscope } from "lucide-react";
+import { Bath, Check, Copy, Gift, MapPin, MessageCircle, Scissors, Sparkles, Stethoscope, Truck } from "lucide-react";
 import { useState } from "react";
 import heroImage from "@/assets/hero-pets.jpg";
 import { supabase } from "@/integrations/supabase/client";
@@ -88,6 +88,23 @@ function Home() {
     },
   });
 
+  const { data: userAddress } = useQuery({
+    queryKey: ["user-home-address", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("addresses")
+        .select("street, number, district, city")
+        .eq("user_id", user!.id)
+        .order("is_default", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const birthdayPet = (ownPets ?? []).find((p) => isBirthdayToday(p.birth_date));
   const isOwnerBirthday = isBirthdayToday(ownProfile?.birth_date);
   const rawBirthdayName = birthdayPet
@@ -98,6 +115,17 @@ function Home() {
   const birthdayName = rawBirthdayName ? capitalizeWords(rawBirthdayName) : null;
   const couponCode = birthdayCouponCode(rawBirthdayName);
   const [couponCopied, setCouponCopied] = useState(false);
+
+  // Regra de Negócio Táxi Pet:
+  // Se endereço cadastrado -> "Buscamos e devolvemos seu pet em sua casa em [Rua, Nº (Bairro)]"
+  // Caso não -> "Buscamos e devolvemos seu pet em sua casa em Franco da Rocha"
+  const transportAddressText = userAddress?.street
+    ? `${userAddress.street}${userAddress.number ? `, ${userAddress.number}` : ""}${userAddress.district ? ` (${userAddress.district})` : ""}`
+    : null;
+
+  const transportMessage = transportAddressText
+    ? `Buscamos e devolvemos seu pet em sua casa em ${transportAddressText}.`
+    : "Buscamos e devolvemos seu pet em sua casa em Franco da Rocha.";
 
   async function copyCoupon() {
     try {
@@ -140,6 +168,36 @@ function Home() {
         <Button asChild size="lg" variant="secondary" className="h-12 rounded-2xl">
           <Link to="/loja">Ir para a loja</Link>
         </Button>
+      </section>
+
+      {/* Destaque Táxi Pet: Busca e Devolução em Casa */}
+      <section className="px-4 pb-2">
+        <div className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-3.5 shadow-card transition-all hover:bg-primary/[0.08]">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+            <Truck className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                Táxi Pet Big Dog
+              </span>
+              <span className="text-[11px] text-muted-foreground">Comodidade no seu lar</span>
+            </div>
+            <p className="mt-1 text-xs font-semibold leading-snug text-foreground">
+              {transportMessage}
+            </p>
+          </div>
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            className="shrink-0 h-8 rounded-xl border-primary/30 text-xs font-semibold hover:bg-primary hover:text-primary-foreground"
+          >
+            <Link to="/agendar" search={{ tipo: "buscar_e_devolver" }}>
+              Agendar
+            </Link>
+          </Button>
+        </div>
       </section>
 
       {birthdayName && (

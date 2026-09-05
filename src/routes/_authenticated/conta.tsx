@@ -1,10 +1,25 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
-import { AlertTriangle, ChevronRight, Gift, LogOut, PawPrint, ShoppingBag } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  ChevronRight,
+  Gift,
+  LogOut,
+  MapPin,
+  PawPrint,
+  Pencil,
+  Plus,
+  ShoppingBag,
+  Truck,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { fetchAddressByCep, maskCep } from "@/lib/navigation";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   alertTone,
   appointmentStatusTone,
@@ -96,6 +111,111 @@ function Conta() {
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
+    },
+  });
+
+  const { data: tutorAddresses } = useQuery({
+    queryKey: ["tutor-addresses", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("addresses")
+        .select("id, label, cep, street, number, complement, district, city, state, reference, is_default")
+        .eq("user_id", user!.id)
+        .order("is_default", { ascending: false })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [addressForm, setAddressForm] = useState({
+    cep: "",
+    street: "",
+    number: "",
+    complement: "",
+    district: "",
+    city: "Franco da Rocha",
+    state: "SP",
+    reference: "",
+  });
+  const [isAddressCepLoading, setIsAddressCepLoading] = useState(false);
+
+  async function handleTutorCepChange(val: string) {
+    const masked = maskCep(val);
+    setAddressForm((prev) => ({ ...prev, cep: masked }));
+    const raw = val.replace(/\D/g, "");
+    if (raw.length === 8) {
+      setIsAddressCepLoading(true);
+      try {
+        const info = await fetchAddressByCep(raw);
+        if (info) {
+          setAddressForm((prev) => ({
+            ...prev,
+            cep: masked,
+            street: info.logradouro || prev.street,
+            district: info.bairro || prev.district,
+            city: info.localidade || prev.city,
+            state: info.uf || prev.state,
+          }));
+          toast.success("Endereço preenchido pelo CEP!");
+        }
+      } finally {
+        setIsAddressCepLoading(false);
+      }
+    }
+  }
+
+  const saveAddress = useMutation({
+    mutationFn: async () => {
+      if (!user?.id) throw new Error("Não autenticado");
+      if (!addressForm.street.trim()) throw new Error("Informe a rua ou logradouro");
+      if (!addressForm.district.trim()) throw new Error("Informe o bairro");
+
+      if (editingAddressId) {
+        const { error } = await supabase
+          .from("addresses")
+          .update({
+            cep: addressForm.cep.trim() || null,
+            street: addressForm.street.trim(),
+            number: addressForm.number.trim() || null,
+            complement: addressForm.complement.trim() || null,
+            district: addressForm.district.trim(),
+            city: addressForm.city.trim() || "Franco da Rocha",
+            state: addressForm.state.trim() || "SP",
+            reference: addressForm.reference.trim() || null,
+          })
+          .eq("id", editingAddressId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("addresses").insert({
+          user_id: user.id,
+          label: "Casa",
+          cep: addressForm.cep.trim() || null,
+          street: addressForm.street.trim(),
+          number: addressForm.number.trim() || null,
+          complement: addressForm.complement.trim() || null,
+          district: addressForm.district.trim(),
+          city: addressForm.city.trim() || "Franco da Rocha",
+          state: addressForm.state.trim() || "SP",
+          reference: addressForm.reference.trim() || null,
+          is_default: true,
+        });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tutor-addresses", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["user-home-address", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["addresses", user?.id] });
+      toast.success(editingAddressId ? "Endereço atualizado com sucesso!" : "Endereço cadastrado com sucesso!");
+      setShowAddressForm(false);
+      setEditingAddressId(null);
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar endereço");
     },
   });
 
@@ -477,6 +597,277 @@ function Conta() {
             </li>
           )}
         </ul>
+      </section>
+
+      {/* Seção Meu Endereço (Táxi Pet / Delivery) */}
+      <section className="mt-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <h2 className="font-display text-lg">Meu endereço</h2>
+            <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary">
+              Táxi Pet
+            </Badge>
+          </div>
+          {!showAddressForm && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 rounded-xl text-xs gap-1"
+              onClick={() => {
+                const defaultAddr = tutorAddresses?.[0];
+                if (defaultAddr) {
+                  setEditingAddressId(defaultAddr.id);
+                  setAddressForm({
+                    cep: defaultAddr.cep ?? "",
+                    street: defaultAddr.street ?? "",
+                    number: defaultAddr.number ?? "",
+                    complement: defaultAddr.complement ?? "",
+                    district: defaultAddr.district ?? "",
+                    city: defaultAddr.city ?? "Franco da Rocha",
+                    state: defaultAddr.state ?? "SP",
+                    reference: defaultAddr.reference ?? "",
+                  });
+                } else {
+                  setEditingAddressId(null);
+                  setAddressForm({
+                    cep: "",
+                    street: "",
+                    number: "",
+                    complement: "",
+                    district: "",
+                    city: "Franco da Rocha",
+                    state: "SP",
+                    reference: "",
+                  });
+                }
+                setShowAddressForm(true);
+              }}
+            >
+              {tutorAddresses && tutorAddresses.length > 0 ? (
+                <>
+                  <Pencil className="h-3.5 w-3.5" />
+                  Editar
+                </>
+              ) : (
+                <>
+                  <Plus className="h-3.5 w-3.5" />
+                  Cadastrar
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Usado para buscar e devolver seu pet no conforto do seu lar.
+        </p>
+
+        {showAddressForm ? (
+          <div className="mt-3 rounded-2xl bg-card p-3 shadow-card space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold">
+                {editingAddressId ? "Editar endereço" : "Novo endereço"}
+              </span>
+              {isAddressCepLoading && (
+                <span className="text-[10px] font-semibold text-primary animate-pulse">
+                  Buscando CEP...
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <Label htmlFor="tutor-cep" className="text-[11px] text-muted-foreground">
+                  CEP
+                </Label>
+                <Input
+                  id="tutor-cep"
+                  placeholder="00000-000"
+                  maxLength={9}
+                  value={addressForm.cep}
+                  onChange={(e) => handleTutorCepChange(e.target.value)}
+                  className="mt-1 h-9 rounded-lg text-xs"
+                />
+              </div>
+              <div className="col-span-2">
+                <Label htmlFor="tutor-street" className="text-[11px] text-muted-foreground">
+                  Rua / Logradouro
+                </Label>
+                <Input
+                  id="tutor-street"
+                  placeholder="Ex: Rua Nelson Rodrigues"
+                  maxLength={150}
+                  value={addressForm.street}
+                  onChange={(e) => setAddressForm({ ...addressForm, street: e.target.value })}
+                  className="mt-1 h-9 rounded-lg text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <Label htmlFor="tutor-num" className="text-[11px] text-muted-foreground">
+                  Número
+                </Label>
+                <Input
+                  id="tutor-num"
+                  placeholder="Ex: 120"
+                  maxLength={20}
+                  value={addressForm.number}
+                  onChange={(e) => setAddressForm({ ...addressForm, number: e.target.value })}
+                  className="mt-1 h-9 rounded-lg text-xs"
+                />
+              </div>
+              <div className="col-span-2">
+                <Label htmlFor="tutor-comp" className="text-[11px] text-muted-foreground">
+                  Complemento
+                </Label>
+                <Input
+                  id="tutor-comp"
+                  placeholder="Ex: Apto 42"
+                  maxLength={50}
+                  value={addressForm.complement}
+                  onChange={(e) => setAddressForm({ ...addressForm, complement: e.target.value })}
+                  className="mt-1 h-9 rounded-lg text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="tutor-dist" className="text-[11px] text-muted-foreground">
+                  Bairro
+                </Label>
+                <Input
+                  id="tutor-dist"
+                  placeholder="Ex: Centro"
+                  maxLength={100}
+                  value={addressForm.district}
+                  onChange={(e) => setAddressForm({ ...addressForm, district: e.target.value })}
+                  className="mt-1 h-9 rounded-lg text-xs"
+                />
+              </div>
+              <div>
+                <Label htmlFor="tutor-ref" className="text-[11px] text-muted-foreground">
+                  Ponto de referência
+                </Label>
+                <Input
+                  id="tutor-ref"
+                  placeholder="Ex: Portão branco"
+                  maxLength={150}
+                  value={addressForm.reference}
+                  onChange={(e) => setAddressForm({ ...addressForm, reference: e.target.value })}
+                  className="mt-1 h-9 rounded-lg text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="mt-3 flex gap-2">
+              <Button
+                size="sm"
+                className="h-9 flex-1 rounded-xl"
+                disabled={saveAddress.isPending}
+                onClick={() => saveAddress.mutate()}
+              >
+                {saveAddress.isPending ? "Salvando..." : "Salvar endereço"}
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-9 rounded-xl"
+                onClick={() => {
+                  setShowAddressForm(false);
+                  setEditingAddressId(null);
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {(tutorAddresses ?? []).map((addr) => (
+              <div
+                key={addr.id}
+                className="flex items-start justify-between gap-2 rounded-2xl bg-card p-3 shadow-card"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-semibold">
+                      {addr.street}{addr.number ? `, ${addr.number}` : ""}
+                    </p>
+                    {addr.is_default && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        Padrão
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {addr.complement ? `${addr.complement} — ` : ""}{addr.district}, Franco da Rocha
+                    {addr.cep ? ` · CEP ${addr.cep}` : ""}
+                  </p>
+                  {addr.reference && (
+                    <p className="text-[11px] text-muted-foreground">
+                      Ref.: {addr.reference}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  aria-label="Editar endereço"
+                  onClick={() => {
+                    setEditingAddressId(addr.id);
+                    setAddressForm({
+                      cep: addr.cep ?? "",
+                      street: addr.street ?? "",
+                      number: addr.number ?? "",
+                      complement: addr.complement ?? "",
+                      district: addr.district ?? "",
+                      city: addr.city ?? "Franco da Rocha",
+                      state: addr.state ?? "SP",
+                      reference: addr.reference ?? "",
+                    });
+                    setShowAddressForm(true);
+                  }}
+                  className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:text-primary"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+
+            {(tutorAddresses ?? []).length === 0 && (
+              <div className="flex items-center gap-3 rounded-2xl border-2 border-dashed border-border bg-card p-4">
+                <Truck className="h-6 w-6 shrink-0 text-primary" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold">Nenhum endereço cadastrado</p>
+                  <p className="text-xs text-muted-foreground">
+                    Cadastre seu endereço para que a Big Dog busque e devolva seu pet em casa.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingAddressId(null);
+                      setAddressForm({
+                        cep: "",
+                        street: "",
+                        number: "",
+                        complement: "",
+                        district: "",
+                        city: "Franco da Rocha",
+                        state: "SP",
+                        reference: "",
+                      });
+                      setShowAddressForm(true);
+                    }}
+                    className="mt-2 inline-block text-xs font-semibold text-primary underline"
+                  >
+                    + Cadastrar endereço agora
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </section>
     </div>
   );
