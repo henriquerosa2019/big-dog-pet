@@ -32,6 +32,7 @@ import {
   formatDateTime,
   isBirthdayToday,
   isBirthdayTomorrow,
+  orderStatusTone,
   statusToneCardClass,
   statusToneClass,
   statusToneIconClass,
@@ -115,6 +116,100 @@ function Conta() {
       return data;
     },
   });
+
+  type ApptFilter = "abertos" | "concluidos" | "cancelados" | "todos";
+  const [apptFilter, setApptFilter] = useState<ApptFilter>("abertos");
+
+  const apptFilterLabels: Record<ApptFilter, string> = {
+    abertos: "Em andamento / Em aberto",
+    concluidos: "Concluídos",
+    cancelados: "Cancelados",
+    todos: "Todos os agendamentos",
+  };
+
+  type OrderFilter = "abertos" | "entregues" | "cancelados" | "todos";
+  const [orderFilter, setOrderFilter] = useState<OrderFilter>("abertos");
+
+  const orderFilterLabels: Record<OrderFilter, string> = {
+    abertos: "Em andamento / Em aberto",
+    entregues: "Entregues",
+    cancelados: "Cancelados",
+    todos: "Todos os pedidos",
+  };
+
+  function isAppointmentOpen(item: { status: string; ops_status?: string | null }) {
+    if (item.status === "cancelado" || item.ops_status === "cancelado") return false;
+    if (item.ops_status === "finalizado" || item.ops_status === "pet_entregue") return false;
+    if (item.status === "concluido" && item.ops_status !== "em_rota_devolucao") return false;
+    return true;
+  }
+
+  function isAppointmentConcluded(item: { status: string; ops_status?: string | null }) {
+    if (item.status === "cancelado" || item.ops_status === "cancelado") return false;
+    return (
+      item.status === "concluido" ||
+      item.ops_status === "finalizado" ||
+      item.ops_status === "pet_entregue"
+    );
+  }
+
+  function isAppointmentCancelled(item: { status: string; ops_status?: string | null }) {
+    return item.status === "cancelado" || item.ops_status === "cancelado";
+  }
+
+  const openAppts = useMemo(() => (appointments ?? []).filter(isAppointmentOpen), [appointments]);
+  const concludedAppts = useMemo(
+    () => (appointments ?? []).filter(isAppointmentConcluded),
+    [appointments],
+  );
+  const cancelledAppts = useMemo(
+    () => (appointments ?? []).filter(isAppointmentCancelled),
+    [appointments],
+  );
+
+  const filteredAppointments = useMemo(() => {
+    switch (apptFilter) {
+      case "abertos":
+        return openAppts;
+      case "concluidos":
+        return concludedAppts;
+      case "cancelados":
+        return cancelledAppts;
+      case "todos":
+      default:
+        return appointments ?? [];
+    }
+  }, [apptFilter, openAppts, concludedAppts, cancelledAppts, appointments]);
+
+  function isOrderOpen(order: { status: string }) {
+    return order.status === "novo" || order.status === "em_preparo";
+  }
+
+  function isOrderDelivered(order: { status: string }) {
+    return order.status === "entregue";
+  }
+
+  function isOrderCancelled(order: { status: string }) {
+    return order.status === "cancelado";
+  }
+
+  const openOrders = useMemo(() => (orders ?? []).filter(isOrderOpen), [orders]);
+  const deliveredOrders = useMemo(() => (orders ?? []).filter(isOrderDelivered), [orders]);
+  const cancelledOrders = useMemo(() => (orders ?? []).filter(isOrderCancelled), [orders]);
+
+  const filteredOrders = useMemo(() => {
+    switch (orderFilter) {
+      case "abertos":
+        return openOrders;
+      case "entregues":
+        return deliveredOrders;
+      case "cancelados":
+        return cancelledOrders;
+      case "todos":
+      default:
+        return orders ?? [];
+    }
+  }, [orderFilter, openOrders, deliveredOrders, cancelledOrders, orders]);
 
   const { data: tutorAddresses } = useQuery({
     queryKey: ["tutor-addresses", user?.id],
@@ -465,13 +560,91 @@ function Conta() {
 
       <section className="mt-6">
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-lg">Meus agendamentos</h2>
-          <Link to="/agendar" className="text-xs font-semibold text-primary underline">
-            Novo
+          <div>
+            <h2 className="font-display text-lg">Meus agendamentos e serviços</h2>
+            <p className="text-xs text-muted-foreground">
+              {apptFilter === "abertos"
+                ? "Mostrando apenas em andamento / em aberto"
+                : `Filtro: ${apptFilterLabels[apptFilter]}`}
+            </p>
+          </div>
+          <Link to="/agendar" className="text-xs font-semibold text-primary underline shrink-0">
+            Novo agendamento
           </Link>
         </div>
+
+        {/* Filtros de Agendamento */}
+        <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none">
+          <button
+            type="button"
+            onClick={() => setApptFilter("abertos")}
+            className={cn(
+              "rounded-full px-3 py-1 font-semibold transition-all shrink-0",
+              apptFilter === "abertos"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+            )}
+          >
+            Em andamento ({openAppts.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setApptFilter("concluidos")}
+            className={cn(
+              "rounded-full px-3 py-1 font-semibold transition-all shrink-0",
+              apptFilter === "concluidos"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+            )}
+          >
+            Concluídos ({concludedAppts.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setApptFilter("cancelados")}
+            className={cn(
+              "rounded-full px-3 py-1 font-semibold transition-all shrink-0",
+              apptFilter === "cancelados"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+            )}
+          >
+            Cancelados ({cancelledAppts.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setApptFilter("todos")}
+            className={cn(
+              "rounded-full px-3 py-1 font-semibold transition-all shrink-0",
+              apptFilter === "todos"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+            )}
+          >
+            Todos ({appointments?.length ?? 0})
+          </button>
+        </div>
+
+        {/* Barra com Botão Fechar Filtro para voltar à posição anterior */}
+        {apptFilter !== "abertos" && (
+          <div className="mt-2 flex items-center justify-between rounded-xl bg-primary/10 px-3 py-1.5 text-xs text-primary">
+            <span>
+              Visualizando <strong>{apptFilterLabels[apptFilter]}</strong> ({filteredAppointments.length})
+            </span>
+            <button
+              type="button"
+              onClick={() => setApptFilter("abertos")}
+              className="flex items-center gap-1 font-bold underline hover:opacity-80 transition-opacity"
+              title="Voltar para em andamento"
+            >
+              <X className="h-3.5 w-3.5" />
+              Fechar filtro
+            </button>
+          </div>
+        )}
+
         <ul className="mt-3 space-y-2">
-          {(appointments ?? []).map((item) => {
+          {filteredAppointments.map((item) => {
             const hasTransport = item.logistics_type && item.logistics_type !== "levar";
             return (
               <li key={item.id} className="rounded-2xl bg-card p-3 shadow-card">
@@ -533,19 +706,133 @@ function Conta() {
               </li>
             );
           })}
-          {(appointments ?? []).length === 0 && (
-            <li className="text-sm text-muted-foreground">Nenhum agendamento ainda.</li>
+          {filteredAppointments.length === 0 && (
+            <li className="rounded-2xl border border-dashed border-border p-4 text-center">
+              <p className="text-xs text-muted-foreground">
+                {apptFilter === "abertos"
+                  ? "Nenhum agendamento em andamento no momento."
+                  : `Nenhum agendamento com status "${apptFilterLabels[apptFilter].toLowerCase()}" encontrado.`}
+              </p>
+              {apptFilter === "abertos" && (concludedAppts.length > 0 || cancelledAppts.length > 0) && (
+                <button
+                  type="button"
+                  onClick={() => setApptFilter("concluidos")}
+                  className="mt-2 inline-block text-xs font-semibold text-primary underline"
+                >
+                  Ver histórico de agendamentos ({concludedAppts.length} concluído(s))
+                </button>
+              )}
+            </li>
           )}
         </ul>
       </section>
 
       <section className="mt-6">
-        <h2 className="font-display text-lg">Meus pedidos</h2>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-display text-lg">Meus pedidos</h2>
+            <p className="text-xs text-muted-foreground">
+              {orderFilter === "abertos"
+                ? "Mostrando apenas pedidos em andamento"
+                : `Filtro: ${orderFilterLabels[orderFilter]}`}
+            </p>
+          </div>
+          <Link to="/loja" className="text-xs font-semibold text-primary underline shrink-0">
+            Ir para a loja
+          </Link>
+        </div>
+
+        {/* Filtros de Pedidos */}
+        <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none">
+          <button
+            type="button"
+            onClick={() => setOrderFilter("abertos")}
+            className={cn(
+              "rounded-full px-3 py-1 font-semibold transition-all shrink-0",
+              orderFilter === "abertos"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+            )}
+          >
+            Em andamento ({openOrders.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setOrderFilter("entregues")}
+            className={cn(
+              "rounded-full px-3 py-1 font-semibold transition-all shrink-0",
+              orderFilter === "entregues"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+            )}
+          >
+            Entregues ({deliveredOrders.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setOrderFilter("cancelados")}
+            className={cn(
+              "rounded-full px-3 py-1 font-semibold transition-all shrink-0",
+              orderFilter === "cancelados"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+            )}
+          >
+            Cancelados ({cancelledOrders.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setOrderFilter("todos")}
+            className={cn(
+              "rounded-full px-3 py-1 font-semibold transition-all shrink-0",
+              orderFilter === "todos"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+            )}
+          >
+            Todos ({orders?.length ?? 0})
+          </button>
+        </div>
+
+        {/* Barra com Botão Fechar Filtro para voltar à posição anterior */}
+        {orderFilter !== "abertos" && (
+          <div className="mt-2 flex items-center justify-between rounded-xl bg-primary/10 px-3 py-1.5 text-xs text-primary">
+            <span>
+              Visualizando <strong>{orderFilterLabels[orderFilter]}</strong> ({filteredOrders.length})
+            </span>
+            <button
+              type="button"
+              onClick={() => setOrderFilter("abertos")}
+              className="flex items-center gap-1 font-bold underline hover:opacity-80 transition-opacity"
+              title="Voltar para em andamento"
+            >
+              <X className="h-3.5 w-3.5" />
+              Fechar filtro
+            </button>
+          </div>
+        )}
+
         <ul className="mt-3 space-y-2">
-          {(orders ?? []).map((order) => (
+          {filteredOrders.map((order) => (
             <li key={order.id} className="rounded-2xl bg-card p-3 shadow-card">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-xs text-muted-foreground">{formatDateTime(order.created_at)}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-muted-foreground">{formatDateTime(order.created_at)}</p>
+                  <Badge
+                    variant="secondary"
+                    className={cn("capitalize text-[10px] px-1.5 py-0.2", statusToneClass(orderStatusTone(order.status)))}
+                  >
+                    {order.status === "novo"
+                      ? "Novo"
+                      : order.status === "em_preparo"
+                        ? "Em preparo"
+                        : order.status === "entregue"
+                          ? "Entregue"
+                          : order.status === "cancelado"
+                            ? "Cancelado"
+                            : order.status}
+                  </Badge>
+                </div>
                 <span className="font-display text-sm text-primary">
                   {formatBRL(order.total_cents)}
                 </span>
@@ -555,14 +842,24 @@ function Conta() {
               </p>
             </li>
           ))}
-          {(orders ?? []).length === 0 && (
+          {filteredOrders.length === 0 && (
             <li className="flex items-center gap-3 rounded-2xl border-2 border-dashed border-border bg-card p-4">
               <ShoppingBag className="h-6 w-6 shrink-0 text-primary" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">Nenhum pedido ainda.</p>
-                <p className="text-xs text-muted-foreground">
-                  Confira nossas rações e petiscos e aproveite pra fazer o primeiro pedido.
+                <p className="text-sm font-semibold">
+                  {orderFilter === "abertos"
+                    ? "Nenhum pedido em andamento no momento."
+                    : `Nenhum pedido com status "${orderFilterLabels[orderFilter].toLowerCase()}" encontrado.`}
                 </p>
+                {orderFilter === "abertos" && (deliveredOrders.length > 0 || cancelledOrders.length > 0) && (
+                  <button
+                    type="button"
+                    onClick={() => setOrderFilter("entregues")}
+                    className="mt-1 text-xs font-semibold text-primary underline block"
+                  >
+                    Ver pedidos anteriores ({deliveredOrders.length} entregue(s))
+                  </button>
+                )}
                 <Link
                   to="/loja"
                   className="mt-2 inline-block text-xs font-semibold text-primary underline"
