@@ -1,5 +1,5 @@
 import type { Tables } from "@/integrations/supabase/types";
-import type { StatusTone } from "./format";
+import { capitalizeWords, type StatusTone } from "./format";
 
 /** Modalidade escolhida pelo tutor no agendamento. */
 export type LogisticsType = "levar" | "buscar" | "devolver" | "buscar_e_devolver";
@@ -127,6 +127,87 @@ export const opsStatusTutorMessage: Record<OpsStatus, string> = {
   finalizado: "Atendimento finalizado. Obrigado por confiar no Big Dog Pet!",
   cancelado: "Este agendamento foi cancelado.",
 };
+
+/**
+ * Retorna o rótulo de status operacional personalizado com o nome do pet (quando disponível).
+ * Ex: "Agendado (Thor)", "Buscando Thor", "Thor no petshop", "Thor em atendimento", etc.
+ */
+export function formatOpsStatusWithPet(
+  status: OpsStatus | string | null | undefined,
+  petName?: string | null,
+): string {
+  if (!status) return "";
+  const base = opsStatusLabels[status as OpsStatus] ?? status;
+  if (!petName || !petName.trim()) return base;
+  const name = capitalizeWords(petName.trim());
+
+  switch (status) {
+    case "agendado":
+      return `Agendado (${name})`;
+    case "motorista_designado":
+      return `Motorista designado (${name})`;
+    case "em_deslocamento_retirada":
+      return `Buscando ${name}`;
+    case "pet_retirado":
+      return `${name} a caminho do petshop`;
+    case "pet_chegou_petshop":
+      return `${name} no petshop`;
+    case "em_atendimento":
+      return `${name} em atendimento`;
+    case "servico_concluido":
+      return `Serviço de ${name} concluído`;
+    case "em_rota_devolucao":
+      return `Levando ${name} para casa`;
+    case "pet_entregue":
+      return `${name} entregue em casa`;
+    case "finalizado":
+      return `Atendimento de ${name} finalizado`;
+    case "cancelado":
+      return `Cancelado (${name})`;
+    default:
+      return `${base} (${name})`;
+  }
+}
+
+/**
+ * Retorna a mensagem em tempo real para o tutor personalizada com o nome do pet.
+ */
+export function getOpsStatusTutorMessage(
+  status: OpsStatus | string | null | undefined,
+  petName?: string | null,
+): string {
+  if (!status) return "";
+  const validStatus = status as OpsStatus;
+  if (!petName || !petName.trim()) return opsStatusTutorMessage[validStatus] ?? "";
+  const name = capitalizeWords(petName.trim());
+
+  switch (validStatus) {
+    case "agendado":
+      return `O agendamento de ${name} foi recebido. Em breve um motorista será designado.`;
+    case "motorista_designado":
+      return `Um motorista foi designado para buscar ${name}.`;
+    case "em_deslocamento_retirada":
+      return `Nosso motorista está a caminho para buscar ${name}.`;
+    case "pet_retirado":
+      return `${name} foi retirado(a) e está a caminho do petshop.`;
+    case "pet_chegou_petshop":
+      return `${name} chegou ao petshop.`;
+    case "em_atendimento":
+      return `${name} está em atendimento.`;
+    case "servico_concluido":
+      return `O serviço de ${name} foi concluído!`;
+    case "em_rota_devolucao":
+      return `${name} está voltando para casa.`;
+    case "pet_entregue":
+      return `${name} foi entregue em casa! 🐶❤️`;
+    case "finalizado":
+      return `Atendimento de ${name} finalizado. Obrigado por confiar no Big Dog Pet!`;
+    case "cancelado":
+      return `O agendamento de ${name} foi cancelado.`;
+    default:
+      return opsStatusTutorMessage[validStatus] ?? "";
+  }
+}
 
 /** Cor por etapa operacional de transporte, usada nos badges de status. */
 export function opsStatusTone(status: string): StatusTone {

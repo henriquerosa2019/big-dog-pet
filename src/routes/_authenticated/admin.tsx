@@ -90,6 +90,7 @@ import type { TablesUpdate } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
 import {
   CLOSING_OPS_STATUS,
+  formatOpsStatusWithPet,
   isServiceExecuted,
   isVehicleAllowedForPet,
   logisticsTypeLabels,
@@ -3914,10 +3915,11 @@ function Admin() {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">
                       #{item.code} · {appt?.services?.name ?? "Serviço"}
+                      {appt?.pets?.name ? ` ${capitalizeWords(appt.pets.name)}` : ""}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {appt ? formatDateTime(appt.scheduled_at) : ""}
-                      {appt?.pets?.name ? ` · ${appt.pets.name}` : ""}
+                      {appt?.pets?.name ? ` · ${capitalizeWords(appt.pets.name)}` : ""}
                       {client?.full_name ? ` · ${client.full_name}` : ""}
                     </p>
                   </div>
@@ -3925,7 +3927,7 @@ function Admin() {
                     variant="secondary"
                     className={cn("shrink-0", statusToneClass(opsStatusTone(currentStatus)))}
                   >
-                    {opsStatusLabels[currentStatus]}
+                    {formatOpsStatusWithPet(currentStatus, appt?.pets?.name)}
                   </Badge>
                 </div>
 
@@ -4088,7 +4090,7 @@ function Admin() {
                       })
                     }
                   >
-                    Avançar: {opsStatusLabels[next]}
+                    Avançar: {formatOpsStatusWithPet(next, appt?.pets?.name)}
                   </Button>
                 )}
 
@@ -4099,7 +4101,11 @@ function Admin() {
                     currentStatus === "em_rota_devolucao"
                   }
                 />
-                <TransportHistoryList appointmentId={item.appointment_id} currentStatus={currentStatus} />
+                <TransportHistoryList
+                  appointmentId={item.appointment_id}
+                  currentStatus={currentStatus}
+                  petName={appt?.pets?.name}
+                />
               </div>
             );
           })}

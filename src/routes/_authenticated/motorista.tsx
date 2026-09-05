@@ -6,10 +6,11 @@ import { Compass, MapPin, MessageCircle, Navigation, Truck } from "lucide-react"
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesUpdate } from "@/integrations/supabase/types";
 import { useAuth, useIsDriver } from "@/hooks/useAuth";
-import { AVISO_AUTOMATICO_WHATSAPP, formatDateTime, whatsappLinkTo } from "@/lib/format";
+import { AVISO_AUTOMATICO_WHATSAPP, capitalizeWords, formatDateTime, whatsappLinkTo } from "@/lib/format";
 import { formatFullAddress, getGoogleMapsUrl, getWazeUrl } from "@/lib/navigation";
 import {
   CLOSING_OPS_STATUS,
+  formatOpsStatusWithPet,
   isVehicleAllowedForPet,
   logisticsTypeLabels,
   nextOpsStatus,
@@ -307,14 +308,17 @@ function RouteCard({
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">
             #{item.code} · {item.appointments?.services?.name ?? "Serviço"}
+            {item.appointments?.pets?.name ? ` ${capitalizeWords(item.appointments.pets.name)}` : ""}
           </p>
           <p className="text-xs text-muted-foreground">
             {item.appointments ? formatDateTime(item.appointments.scheduled_at) : ""}
-            {item.appointments?.pets?.name ? ` · ${item.appointments.pets.name}` : ""}
+            {item.appointments?.pets?.name ? ` · ${capitalizeWords(item.appointments.pets.name)}` : ""}
             {client?.full_name ? ` · ${client.full_name}` : ""}
           </p>
         </div>
-        <Badge className="shrink-0">{opsStatusLabels[currentStatus]}</Badge>
+        <Badge className="shrink-0">
+          {formatOpsStatusWithPet(currentStatus, item.appointments?.pets?.name)}
+        </Badge>
       </div>
 
       {isEnRoute && (
@@ -397,11 +401,15 @@ function RouteCard({
           disabled={isPending}
           onClick={() => onAdvance(next)}
         >
-          Avançar: {opsStatusLabels[next]}
+          Avançar: {formatOpsStatusWithPet(next, item.appointments?.pets?.name)}
         </Button>
       )}
 
-      <TransportHistoryList appointmentId={item.appointment_id} />
+      <TransportHistoryList
+        appointmentId={item.appointment_id}
+        currentStatus={currentStatus}
+        petName={item.appointments?.pets?.name}
+      />
     </div>
   );
 }

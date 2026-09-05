@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDateTime } from "@/lib/format";
-import { opsStatusLabels, opsStatusOrder, type OpsStatus } from "@/lib/transport";
+import { formatOpsStatusWithPet, opsStatusLabels, opsStatusOrder, type OpsStatus } from "@/lib/transport";
 import { cn } from "@/lib/utils";
 
 /**
@@ -16,9 +16,11 @@ import { cn } from "@/lib/utils";
 export function TransportHistoryList({
   appointmentId,
   currentStatus,
+  petName,
 }: {
   appointmentId: string;
   currentStatus?: string;
+  petName?: string | null;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -39,7 +41,7 @@ export function TransportHistoryList({
   return (
     <div className="mt-2">
       {currentStatus && currentStatus !== "cancelado" && (
-        <OpsStatusProgress status={currentStatus as OpsStatus} />
+        <OpsStatusProgress status={currentStatus as OpsStatus} petName={petName} />
       )}
       <button
         onClick={() => setExpanded((v) => !v)}
@@ -54,7 +56,7 @@ export function TransportHistoryList({
           {isLoading && <li className="text-xs text-muted-foreground">Carregando...</li>}
           {(history ?? []).map((h) => (
             <li key={h.id} className="text-xs">
-              <p className="font-semibold">{opsStatusLabels[h.status as OpsStatus] ?? h.status}</p>
+              <p className="font-semibold">{formatOpsStatusWithPet(h.status as OpsStatus, petName)}</p>
               <p className="text-muted-foreground">{formatDateTime(h.created_at)}</p>
               {h.note && <p className="text-muted-foreground">{h.note}</p>}
             </li>
@@ -69,16 +71,17 @@ export function TransportHistoryList({
 }
 
 /** Barra segmentada com a etapa atual dentre as 10 etapas não-terminais de ops_status. */
-function OpsStatusProgress({ status }: { status: OpsStatus }) {
+function OpsStatusProgress({ status, petName }: { status: OpsStatus; petName?: string | null }) {
   const steps = opsStatusOrder.filter((s) => s !== "cancelado");
   const idx = Math.max(0, (steps as readonly OpsStatus[]).indexOf(status));
+  const label = formatOpsStatusWithPet(status, petName);
 
   return (
     <div>
       <div
         className="flex items-center gap-1"
         role="img"
-        aria-label={`Etapa ${idx + 1} de ${steps.length}: ${opsStatusLabels[status]}`}
+        aria-label={`Etapa ${idx + 1} de ${steps.length}: ${label}`}
       >
         {steps.map((step, i) => (
           <span
@@ -91,7 +94,7 @@ function OpsStatusProgress({ status }: { status: OpsStatus }) {
         ))}
       </div>
       <p className="mt-1 text-[11px] text-muted-foreground">
-        Etapa {idx + 1} de {steps.length} · {opsStatusLabels[status]}
+        Etapa {idx + 1} de {steps.length} · {label}
       </p>
     </div>
   );

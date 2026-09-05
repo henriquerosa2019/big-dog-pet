@@ -44,6 +44,8 @@ import { DriverContact } from "@/components/DriverContact";
 import { DriverLiveMap } from "@/components/DriverLiveMap";
 import { cn } from "@/lib/utils";
 import {
+  formatOpsStatusWithPet,
+  getOpsStatusTutorMessage,
   logisticsTypeLabels,
   opsStatusLabels,
   opsStatusTone,
@@ -477,6 +479,7 @@ function Conta() {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">
                       {item.services?.name ?? "Serviço"}
+                      {item.pets?.name ? ` ${capitalizeWords(item.pets.name)}` : ""}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {formatDateTime(item.scheduled_at)}
@@ -502,9 +505,14 @@ function Conta() {
                         variant="secondary"
                         className={cn("shrink-0", statusToneClass(opsStatusTone(item.ops_status ?? "agendado")))}
                       >
-                        {opsStatusLabels[item.ops_status as OpsStatus] ?? item.ops_status}
+                        {formatOpsStatusWithPet(item.ops_status as OpsStatus, item.pets?.name)}
                       </Badge>
                     </div>
+                    {item.ops_status && (
+                      <p className="mt-1 text-xs italic text-muted-foreground">
+                        "{getOpsStatusTutorMessage(item.ops_status, item.pets?.name)}"
+                      </p>
+                    )}
                     {item.ops_status && item.ops_status !== "agendado" && (
                       <DriverContact appointmentId={item.id} />
                     )}
@@ -515,7 +523,11 @@ function Conta() {
                         item.ops_status === "em_rota_devolucao"
                       }
                     />
-                    <TransportHistoryList appointmentId={item.id} currentStatus={item.ops_status ?? undefined} />
+                    <TransportHistoryList
+                      appointmentId={item.id}
+                      currentStatus={item.ops_status ?? undefined}
+                      petName={item.pets?.name}
+                    />
                   </div>
                 )}
               </li>
