@@ -41,10 +41,13 @@ import {
   formatDateTime,
   BIRTHDAY_DISCOUNT_PERCENT,
   formatPetAge,
+  isAppointmentInService,
   isBirthdayToday,
   isBirthdayTomorrow,
+  isOrderInService,
   maskPhoneBR,
   orderStatusTone,
+  sortInServiceFirst,
   statusToneClass,
   whatsappLinkTo,
   AVISO_AUTOMATICO_WHATSAPP,
@@ -658,6 +661,21 @@ function Admin() {
         return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime();
       });
   }, [appointments, getClientAbcInfo]);
+
+  const sortedAgendaAppointments = useMemo(() => {
+    return sortInServiceFirst(appointments ?? [], isAppointmentInService);
+  }, [appointments]);
+
+  const sortedOrders = useMemo(() => {
+    return sortInServiceFirst(orders ?? [], isOrderInService);
+  }, [orders]);
+
+  const sortedTransportOrders = useMemo(() => {
+    return sortInServiceFirst(
+      transportOrders ?? [],
+      (item) => isAppointmentInService(item.appointments),
+    );
+  }, [transportOrders]);
 
   const [newClient, setNewClient] = useState({
     fullName: "",
@@ -2071,27 +2089,42 @@ function Admin() {
                 Vacinas e retornos (30 dias) · {returnsNext30Days.length}
               </p>
               <div className="mt-2 space-y-1.5">
-                {returnsNext30Days.slice(0, 8).map((item) => (
-                  <div
-                    key={item.key}
-                    className="flex items-center justify-between gap-2 rounded-xl surface-paper px-2.5 py-2 text-xs"
-                  >
-                    <span className="min-w-0 truncate">
-                      <span className="font-semibold">{item.petName}</span>{" "}
-                      <span className="text-muted-foreground">· {item.title}</span>
-                    </span>
-                    <Badge
-                      variant={item.days <= 1 ? "default" : "secondary"}
-                      className="shrink-0 whitespace-nowrap"
+                {returnsNext30Days.slice(0, 8).map((item) => {
+                  const isHoje = item.days === 0;
+                  return (
+                    <div
+                      key={item.key}
+                      className={cn(
+                        "flex items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-xs transition-all",
+                        isHoje
+                          ? "border-2 border-emerald-500/80 bg-emerald-50/60 dark:border-emerald-500/60 dark:bg-emerald-950/30 text-emerald-950 dark:text-emerald-100 font-medium ring-1 ring-emerald-400/40"
+                          : "surface-paper",
+                      )}
                     >
-                      {item.days === 0
-                        ? "Hoje"
-                        : item.days === 1
-                          ? "Amanhã"
-                          : `Em ${item.days} dias`}
-                    </Badge>
-                  </div>
-                ))}
+                      <span className="min-w-0 truncate">
+                        <span className="font-semibold">{item.petName}</span>{" "}
+                        <span className="text-muted-foreground">· {item.title}</span>
+                      </span>
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          "shrink-0 whitespace-nowrap",
+                          isHoje
+                            ? "bg-emerald-600 text-white font-bold"
+                            : item.days <= 1
+                              ? "bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300"
+                              : "bg-secondary text-secondary-foreground",
+                        )}
+                      >
+                        {item.days === 0
+                          ? "Retorno hoje"
+                          : item.days === 1
+                            ? "Amanhã"
+                            : `Em ${item.days} dias`}
+                      </Badge>
+                    </div>
+                  );
+                })}
               </div>
               {returnsNext30Days.length > 8 && (
                 <p className="mt-2 text-[11px] text-muted-foreground">
@@ -3637,22 +3670,39 @@ function Admin() {
             Confirme os agendamentos pendentes para avisar o cliente automaticamente pelo WhatsApp.
           </p>
 
-          {(appointments ?? []).map((item) => {
+          {sortedAgendaAppointments.map((item) => {
             const clientInfo = getClientAbcInfo(item.user_id);
             const clientName = profileById.get(item.user_id)?.full_name || clientInfo?.name;
+            const inService = isAppointmentInService(item);
 
             return (
               <div
                 key={item.id}
                 className={cn(
-                  "rounded-2xl bg-card p-3 shadow-card transition-all",
-                  clientInfo?.abcClass === "A"
-                    ? "border-2 border-emerald-500/50"
+                  "rounded-2xl p-3 shadow-card transition-all",
+                  inService
+                    ? "border-2 border-emerald-500/80 bg-emerald-50/50 dark:border-emerald-500/60 dark:bg-emerald-950/30 ring-1 ring-emerald-400/40 shadow-md"
+                    : clientInfo?.abcClass === "A"
+                    ? "border-2 border-emerald-500/50 bg-card"
                     : clientInfo?.abcClass === "B"
-                    ? "border-2 border-blue-500/40"
-                    : "",
+                    ? "border-2 border-blue-500/40 bg-card"
+                    : "bg-card",
                 )}
               >
+                {inService && (
+                  <div className="mb-2 flex items-center justify-between gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:text-emerald-200">
+                    <span className="flex items-center gap-1.5">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                      </span>
+                      🟢 Em atendimento agora
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                      Início da fila
+                    </span>
+                  </div>
+                )}
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <p className="text-sm font-semibold">{item.services?.name ?? "Serviço"}</p>
@@ -3893,7 +3943,7 @@ function Admin() {
             tutor” quando precisar avisar.
           </p>
 
-          {(transportOrders ?? []).map((item) => {
+          {sortedTransportOrders.map((item) => {
             const appt = item.appointments;
             const currentStatus = (appt?.ops_status ?? "agendado") as OpsStatus;
             const next = nextOpsStatus(currentStatus);
@@ -3908,9 +3958,32 @@ function Admin() {
             const fullAddress = address ? formatFullAddress(address) : "";
             const wazeUrl = fullAddress ? getWazeUrl(fullAddress) : "";
             const gmapsUrl = fullAddress ? getGoogleMapsUrl(fullAddress) : "";
+            const inService = isAppointmentInService(appt);
 
             return (
-              <div key={item.id} className="rounded-2xl bg-card p-3 shadow-card">
+              <div
+                key={item.id}
+                className={cn(
+                  "rounded-2xl p-3 shadow-card transition-all",
+                  inService
+                    ? "border-2 border-emerald-500/80 bg-emerald-50/50 dark:border-emerald-500/60 dark:bg-emerald-950/30 ring-1 ring-emerald-400/40 shadow-md"
+                    : "bg-card",
+                )}
+              >
+                {inService && (
+                  <div className="mb-2 flex items-center justify-between gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:text-emerald-200">
+                    <span className="flex items-center gap-1.5">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                      </span>
+                      🟢 Pet em atendimento no petshop
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                      Início da fila
+                    </span>
+                  </div>
+                )}
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">
@@ -4162,8 +4235,31 @@ function Admin() {
               const client = item.ownerId ? profileById.get(item.ownerId) : undefined;
               const message = `Olá${client?.full_name ? `, ${client.full_name}` : ""}! Aqui é do ${CLINIC.name}. Passando para lembrar: ${item.title} do seu pet ${item.petName}, previsto para ${formatDate(item.dueDate)}. Podemos agendar?`;
               const link = whatsappLinkTo(client?.phone, message);
+              const isHoje = item.dueDate === (returnFilter === "todos" ? todayISODate() : selectedReturnDateISO) && item.dueDate === todayISODate();
               return (
-                <li key={item.key} className="rounded-2xl bg-card p-3 shadow-card">
+                <li
+                  key={item.key}
+                  className={cn(
+                    "rounded-2xl p-3 shadow-card transition-all",
+                    isHoje
+                      ? "border-2 border-emerald-500/80 bg-emerald-50/60 dark:border-emerald-500/60 dark:bg-emerald-950/30 ring-1 ring-emerald-400/40 shadow-md"
+                      : "bg-card",
+                  )}
+                >
+                  {isHoje && (
+                    <div className="mb-2 flex items-center justify-between gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:text-emerald-200">
+                      <span className="flex items-center gap-1.5">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                        </span>
+                        🟢 Retorno previsto para hoje
+                      </span>
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                        Hoje
+                      </span>
+                    </div>
+                  )}
                   <div className="min-w-0">
                     <Badge variant="outline" className="mb-1 text-[10px]">
                       {returnTypeLabels[item.type]}
@@ -4215,21 +4311,38 @@ function Admin() {
         </TabsContent>
 
         <TabsContent value="pedidos" className="mt-4 space-y-2">
-          {(orders ?? []).map((order) => {
+          {sortedOrders.map((order) => {
             const clientInfo = getClientAbcInfo(order.user_id, order.phone);
+            const inService = isOrderInService(order);
 
             return (
               <div
                 key={order.id}
                 className={cn(
-                  "rounded-2xl bg-card p-3 shadow-card transition-all",
-                  clientInfo?.abcClass === "A"
-                    ? "border-2 border-emerald-500/50"
+                  "rounded-2xl p-3 shadow-card transition-all",
+                  inService
+                    ? "border-2 border-emerald-500/80 bg-emerald-50/50 dark:border-emerald-500/60 dark:bg-emerald-950/30 ring-1 ring-emerald-400/40 shadow-md"
+                    : clientInfo?.abcClass === "A"
+                    ? "border-2 border-emerald-500/50 bg-card"
                     : clientInfo?.abcClass === "B"
-                    ? "border-2 border-blue-500/40"
-                    : "",
+                    ? "border-2 border-blue-500/40 bg-card"
+                    : "bg-card",
                 )}
               >
+                {inService && (
+                  <div className="mb-2 flex items-center justify-between gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:text-emerald-200">
+                    <span className="flex items-center gap-1.5">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                      </span>
+                      🟢 Em atendimento (em preparo)
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                      Início da fila
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <p className="truncate text-sm font-semibold">{order.customer_name ?? "Cliente"}</p>

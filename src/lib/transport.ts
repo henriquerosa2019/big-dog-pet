@@ -217,8 +217,8 @@ export function opsStatusTone(status: string): StatusTone {
     case "finalizado":
     case "pet_entregue":
     case "servico_concluido":
-      return "success";
     case "em_atendimento":
+      return "success";
     case "em_deslocamento_retirada":
     case "em_rota_devolucao":
       return "info";

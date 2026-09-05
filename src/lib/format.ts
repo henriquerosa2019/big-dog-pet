@@ -196,13 +196,14 @@ export function statusToneIconClass(tone: StatusTone): string {
   return STATUS_TONE_ICON_CLASSES[tone];
 }
 
-/** Cor por status de agendamento (appointments.status: pendente/confirmado/concluido/cancelado). */
+/** Cor por status de agendamento (appointments.status: pendente/confirmado/em_atendimento/concluido/cancelado). */
 export function appointmentStatusTone(status: string): StatusTone {
   switch (status) {
     case "pendente":
       return "pending";
     case "confirmado":
       return "info";
+    case "em_atendimento":
     case "concluido":
       return "success";
     case "cancelado":
@@ -212,13 +213,13 @@ export function appointmentStatusTone(status: string): StatusTone {
   }
 }
 
-/** Cor por status de pedido da loja (orders.status: novo/em_preparo/entregue/cancelado). */
+/** Cor por status de pedido da loja (orders.status: novo/em_preparo/em_atendimento/entregue/cancelado). */
 export function orderStatusTone(status: string): StatusTone {
   switch (status) {
     case "novo":
       return "pending";
     case "em_preparo":
-      return "info";
+    case "em_atendimento":
     case "entregue":
       return "success";
     case "cancelado":
@@ -226,6 +227,43 @@ export function orderStatusTone(status: string): StatusTone {
     default:
       return "neutral";
   }
+}
+
+/**
+ * Retorna true se o agendamento estiver com status operacional ou geral "em_atendimento".
+ */
+export function isAppointmentInService(item: {
+  status?: string | null;
+  ops_status?: string | null;
+} | null | undefined): boolean {
+  if (!item) return false;
+  return item.ops_status === "em_atendimento" || item.status === "em_atendimento";
+}
+
+/**
+ * Retorna true se o pedido estiver em atendimento / em preparo.
+ */
+export function isOrderInService(order: {
+  status?: string | null;
+} | null | undefined): boolean {
+  if (!order) return false;
+  return order.status === "em_preparo" || order.status === "em_atendimento";
+}
+
+/**
+ * Reordena uma lista de itens mantendo os itens "Em Atendimento" no início da fila (topo),
+ * preservando a ordem relativa original entre itens da mesma prioridade (ordenação estável).
+ */
+export function sortInServiceFirst<T>(
+  items: T[],
+  isInService: (item: T) => boolean,
+): T[] {
+  if (!items || items.length <= 1) return items ?? [];
+  return [...items].sort((a, b) => {
+    const aInService = isInService(a) ? 1 : 0;
+    const bInService = isInService(b) ? 1 : 0;
+    return bInService - aInService;
+  });
 }
 
 /** Tom de um alerta (vacina/retorno) conforme já esteja atrasado (days < 0) ou só se aproximando. */

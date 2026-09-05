@@ -19,8 +19,8 @@ export function TransportHistoryList({
   petName,
 }: {
   appointmentId: string;
-  currentStatus?: string;
-  petName?: string | null;
+  currentStatus?: string | null | undefined;
+  petName?: string | null | undefined;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -58,10 +58,10 @@ export function TransportHistoryList({
             <li key={h.id} className="text-xs">
               <p className="font-semibold">{formatOpsStatusWithPet(h.status as OpsStatus, petName)}</p>
               <p className="text-muted-foreground">{formatDateTime(h.created_at)}</p>
-              {h.note && <p className="text-muted-foreground">{h.note}</p>}
+              {h.note && <p className="text-muted-foreground italic">{h.note}</p>}
             </li>
           ))}
-          {!isLoading && (history ?? []).length === 0 && (
+          {(history ?? []).length === 0 && !isLoading && (
             <li className="text-xs text-muted-foreground">Sem histórico ainda.</li>
           )}
         </ol>
@@ -71,7 +71,7 @@ export function TransportHistoryList({
 }
 
 /** Barra segmentada com a etapa atual dentre as 10 etapas não-terminais de ops_status. */
-function OpsStatusProgress({ status, petName }: { status: OpsStatus; petName?: string | null }) {
+function OpsStatusProgress({ status, petName }: { status: OpsStatus; petName?: string | null | undefined }) {
   const steps = opsStatusOrder.filter((s) => s !== "cancelado");
   const idx = Math.max(0, (steps as readonly OpsStatus[]).indexOf(status));
   const label = formatOpsStatusWithPet(status, petName);

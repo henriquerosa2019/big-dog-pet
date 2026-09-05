@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   Calendar,
@@ -30,7 +30,9 @@ import {
   formatBRL,
   formatDate,
   formatDateTime,
+  isAppointmentInService,
   isBirthdayToday,
+  sortInServiceFirst,
   statusToneClass,
   whatsappLink,
 } from "@/lib/format";
@@ -135,6 +137,11 @@ function Home() {
       );
     },
   });
+
+  const sortedAppointments = useMemo(
+    () => sortInServiceFirst(appointments ?? [], isAppointmentInService),
+    [appointments],
+  );
 
   // 4. Avisos de Vacina
   const { data: vaccineAlerts } = useQuery({
@@ -339,14 +346,34 @@ function Home() {
 
         {user?.id ? (
           <div className="mt-3 space-y-3">
-            {(appointments ?? []).map((item) => {
+            {sortedAppointments.map((item) => {
               const hasTransport = item.logistics_type && item.logistics_type !== "levar";
               const petNameFormatted = item.pets?.name ? capitalizeWords(item.pets.name) : null;
+              const inService = isAppointmentInService(item);
               return (
                 <div
                   key={item.id}
-                  className="rounded-2xl border border-border/80 bg-card p-4 shadow-card"
+                  className={cn(
+                    "rounded-2xl p-4 shadow-card transition-all",
+                    inService
+                      ? "border-2 border-emerald-500/80 bg-emerald-50/60 dark:border-emerald-500/60 dark:bg-emerald-950/30 ring-1 ring-emerald-400/40 shadow-md"
+                      : "border border-border/80 bg-card",
+                  )}
                 >
+                  {inService && (
+                    <div className="mb-2.5 flex items-center justify-between gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:text-emerald-200">
+                      <span className="flex items-center gap-1.5">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                        </span>
+                        🟢 Em atendimento agora
+                      </span>
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                        Início da fila
+                      </span>
+                    </div>
+                  )}
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                     <div className="min-w-0">
                       <p className="truncate text-base font-bold text-foreground">

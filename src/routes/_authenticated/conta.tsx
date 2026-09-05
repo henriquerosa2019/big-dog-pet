@@ -30,9 +30,12 @@ import {
   formatBRL,
   formatDate,
   formatDateTime,
+  isAppointmentInService,
   isBirthdayToday,
   isBirthdayTomorrow,
+  isOrderInService,
   orderStatusTone,
+  sortInServiceFirst,
   statusToneCardClass,
   statusToneClass,
   statusToneIconClass,
@@ -168,21 +171,27 @@ function Conta() {
   );
 
   const filteredAppointments = useMemo(() => {
+    let list = appointments ?? [];
     switch (apptFilter) {
       case "abertos":
-        return openAppts;
+        list = openAppts;
+        break;
       case "concluidos":
-        return concludedAppts;
+        list = concludedAppts;
+        break;
       case "cancelados":
-        return cancelledAppts;
+        list = cancelledAppts;
+        break;
       case "todos":
       default:
-        return appointments ?? [];
+        list = appointments ?? [];
+        break;
     }
+    return sortInServiceFirst(list, isAppointmentInService);
   }, [apptFilter, openAppts, concludedAppts, cancelledAppts, appointments]);
 
   function isOrderOpen(order: { status: string }) {
-    return order.status === "novo" || order.status === "em_preparo";
+    return order.status === "novo" || order.status === "em_preparo" || order.status === "em_atendimento";
   }
 
   function isOrderDelivered(order: { status: string }) {
@@ -198,17 +207,23 @@ function Conta() {
   const cancelledOrders = useMemo(() => (orders ?? []).filter(isOrderCancelled), [orders]);
 
   const filteredOrders = useMemo(() => {
+    let list = orders ?? [];
     switch (orderFilter) {
       case "abertos":
-        return openOrders;
+        list = openOrders;
+        break;
       case "entregues":
-        return deliveredOrders;
+        list = deliveredOrders;
+        break;
       case "cancelados":
-        return cancelledOrders;
+        list = cancelledOrders;
+        break;
       case "todos":
       default:
-        return orders ?? [];
+        list = orders ?? [];
+        break;
     }
+    return sortInServiceFirst(list, isOrderInService);
   }, [orderFilter, openOrders, deliveredOrders, cancelledOrders, orders]);
 
   const { data: tutorAddresses } = useQuery({
@@ -494,13 +509,15 @@ function Conta() {
             Vacinas e retornos dos próximos 30 dias, e aniversários de hoje e amanhã.
           </p>
           {avisos.map((item) => {
-            const tone = item.kind === "aniversario" ? "success" : alertTone(item.days);
+            const isRetornoHoje = item.kind === "retorno" && item.days === 0;
+            const tone = item.kind === "aniversario" || isRetornoHoje ? "success" : alertTone(item.days);
             return (
               <div
                 key={item.key}
                 className={cn(
-                  "flex items-start gap-2 rounded-2xl border-2 p-3",
+                  "flex items-start gap-2 rounded-2xl border-2 p-3 transition-all",
                   statusToneCardClass(tone),
+                  isRetornoHoje && "border-emerald-500/80 bg-emerald-50/60 dark:border-emerald-500/60 dark:bg-emerald-950/30 ring-1 ring-emerald-400/40",
                 )}
               >
                 {item.kind === "aniversario" ? (
@@ -518,7 +535,9 @@ function Conta() {
                       {item.days < 0
                         ? "Atrasado"
                         : item.days === 0
-                          ? "Hoje"
+                          ? isRetornoHoje
+                            ? "Retorno hoje"
+                            : "Hoje"
                           : item.days === 1
                             ? "Amanhã"
                             : `Em ${item.days} dias`}
@@ -646,8 +665,31 @@ function Conta() {
         <ul className="mt-3 space-y-2">
           {filteredAppointments.map((item) => {
             const hasTransport = item.logistics_type && item.logistics_type !== "levar";
+            const inService = isAppointmentInService(item);
             return (
-              <li key={item.id} className="rounded-2xl bg-card p-3 shadow-card">
+              <li
+                key={item.id}
+                className={cn(
+                  "rounded-2xl p-3 shadow-card transition-all",
+                  inService
+                    ? "border-2 border-emerald-500/80 bg-emerald-50/60 dark:border-emerald-500/60 dark:bg-emerald-950/30 ring-1 ring-emerald-400/40 shadow-md"
+                    : "bg-card",
+                )}
+              >
+                {inService && (
+                  <div className="mb-2 flex items-center justify-between gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:text-emerald-200">
+                    <span className="flex items-center gap-1.5">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                      </span>
+                      🟢 Em atendimento agora
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                      Início da fila
+                    </span>
+                  </div>
+                )}
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">
@@ -813,35 +855,60 @@ function Conta() {
         )}
 
         <ul className="mt-3 space-y-2">
-          {filteredOrders.map((order) => (
-            <li key={order.id} className="rounded-2xl bg-card p-3 shadow-card">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <p className="text-xs text-muted-foreground">{formatDateTime(order.created_at)}</p>
-                  <Badge
-                    variant="secondary"
-                    className={cn("capitalize text-[10px] px-1.5 py-0.2", statusToneClass(orderStatusTone(order.status)))}
-                  >
-                    {order.status === "novo"
-                      ? "Novo"
-                      : order.status === "em_preparo"
-                        ? "Em preparo"
-                        : order.status === "entregue"
-                          ? "Entregue"
-                          : order.status === "cancelado"
-                            ? "Cancelado"
-                            : order.status}
-                  </Badge>
+          {filteredOrders.map((order) => {
+            const inService = isOrderInService(order);
+            return (
+              <li
+                key={order.id}
+                className={cn(
+                  "rounded-2xl p-3 shadow-card transition-all",
+                  inService
+                    ? "border-2 border-emerald-500/80 bg-emerald-50/60 dark:border-emerald-500/60 dark:bg-emerald-950/30 ring-1 ring-emerald-400/40 shadow-md"
+                    : "bg-card",
+                )}
+              >
+                {inService && (
+                  <div className="mb-2 flex items-center justify-between gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:text-emerald-200">
+                    <span className="flex items-center gap-1.5">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                      </span>
+                      🟢 Em atendimento (em preparo)
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                      Início da fila
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-muted-foreground">{formatDateTime(order.created_at)}</p>
+                    <Badge
+                      variant="secondary"
+                      className={cn("capitalize text-[10px] px-1.5 py-0.2", statusToneClass(orderStatusTone(order.status)))}
+                    >
+                      {order.status === "novo"
+                        ? "Novo"
+                        : order.status === "em_preparo" || order.status === "em_atendimento"
+                          ? "Em preparo"
+                          : order.status === "entregue"
+                            ? "Entregue"
+                            : order.status === "cancelado"
+                              ? "Cancelado"
+                              : order.status}
+                    </Badge>
+                  </div>
+                  <span className="font-display text-sm text-primary">
+                    {formatBRL(order.total_cents)}
+                  </span>
                 </div>
-                <span className="font-display text-sm text-primary">
-                  {formatBRL(order.total_cents)}
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {order.order_items.map((i) => `${i.quantity}x ${i.product_name}`).join(", ")}
-              </p>
-            </li>
-          ))}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {order.order_items.map((i) => `${i.quantity}x ${i.product_name}`).join(", ")}
+                </p>
+              </li>
+            );
+          })}
           {filteredOrders.length === 0 && (
             <li className="flex items-center gap-3 rounded-2xl border-2 border-dashed border-border bg-card p-4">
               <ShoppingBag className="h-6 w-6 shrink-0 text-primary" />

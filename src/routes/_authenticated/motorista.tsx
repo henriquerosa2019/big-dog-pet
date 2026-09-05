@@ -6,7 +6,15 @@ import { Compass, MapPin, MessageCircle, Navigation, Truck } from "lucide-react"
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesUpdate } from "@/integrations/supabase/types";
 import { useAuth, useIsDriver } from "@/hooks/useAuth";
-import { AVISO_AUTOMATICO_WHATSAPP, capitalizeWords, formatDateTime, whatsappLinkTo } from "@/lib/format";
+import {
+  AVISO_AUTOMATICO_WHATSAPP,
+  capitalizeWords,
+  formatDateTime,
+  isAppointmentInService,
+  sortInServiceFirst,
+  statusToneClass,
+  whatsappLinkTo,
+} from "@/lib/format";
 import { formatFullAddress, getGoogleMapsUrl, getWazeUrl } from "@/lib/navigation";
 import {
   CLOSING_OPS_STATUS,
@@ -16,6 +24,7 @@ import {
   nextOpsStatus,
   opsStatusLabels,
   opsStatusTimestampColumn,
+  opsStatusTone,
   opsStatusTutorMessage,
   petSizeLabels,
   type LogisticsType,
@@ -27,6 +36,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TransportHistoryList } from "@/components/TransportHistoryList";
 import { useDriverLocationBroadcast } from "@/lib/driverLocation";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/motorista")({
   head: () => ({
@@ -155,7 +165,10 @@ function Motorista() {
     );
   }
 
-  const myRoutes = (routes ?? []).filter((r) => r.driver_id === user?.id);
+  const myRoutes = useMemo(() => {
+    const list = (routes ?? []).filter((r) => r.driver_id === user?.id);
+    return sortInServiceFirst(list, (r) => isAppointmentInService(r.appointments));
+  }, [routes, user?.id]);
   const available = (routes ?? []).filter((r) => r.driver_id === null);
   const myVehicleType = (user?.id ? profileById.get(user.id)?.vehicle_type : null) as
     VehicleType | null | undefined;
@@ -302,8 +315,31 @@ function RouteCard({
     isEnRoute,
   );
 
+  const inService = isAppointmentInService(item.appointments);
+
   return (
-    <div className="rounded-2xl bg-card p-3 shadow-card">
+    <div
+      className={cn(
+        "rounded-2xl p-3 shadow-card transition-all",
+        inService
+          ? "border-2 border-emerald-500/80 bg-emerald-50/50 dark:border-emerald-500/60 dark:bg-emerald-950/30 ring-1 ring-emerald-400/40 shadow-md"
+          : "bg-card",
+      )}
+    >
+      {inService && (
+        <div className="mb-2 flex items-center justify-between gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:text-emerald-200">
+          <span className="flex items-center gap-1.5">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+            </span>
+            🟢 Pet em atendimento no petshop
+          </span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+            Início da fila
+          </span>
+        </div>
+      )}
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">
@@ -316,7 +352,10 @@ function RouteCard({
             {client?.full_name ? ` · ${client.full_name}` : ""}
           </p>
         </div>
-        <Badge className="shrink-0">
+        <Badge
+          variant="secondary"
+          className={cn("shrink-0 font-semibold", statusToneClass(opsStatusTone(currentStatus)))}
+        >
           {formatOpsStatusWithPet(currentStatus, item.appointments?.pets?.name)}
         </Badge>
       </div>
