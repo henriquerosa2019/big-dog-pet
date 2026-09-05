@@ -2,6 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import {
+  Activity,
+  AlertTriangle,
   Bell,
   Calendar,
   CalendarPlus,
@@ -13,6 +15,7 @@ import {
   MapPin,
   MessageCircle,
   Sparkles,
+  Stethoscope,
   Syringe,
   Truck,
   User,
@@ -21,6 +24,7 @@ import heroImage from "@/assets/hero-pets.jpg";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
+  alertTone,
   appointmentStatusTone,
   BIRTHDAY_DISCOUNT_PERCENT,
   birthdayCouponCode,
@@ -33,7 +37,9 @@ import {
   isAppointmentInService,
   isBirthdayToday,
   sortInServiceFirst,
+  statusToneCardClass,
   statusToneClass,
+  statusToneIconClass,
   whatsappLink,
 } from "@/lib/format";
 import {
@@ -160,11 +166,45 @@ function Home() {
     },
   });
 
-  // Atualização em tempo real dos agendamentos na Home
+  // 5. Lembretes de Retorno, Consultas e Cuidados (care_reminders)
+  const { data: careReminders } = useQuery({
+    queryKey: ["home-care-reminders", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const limit = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+      const { data, error } = await supabase
+        .from("care_reminders")
+        .select("id, reminder_type, title, due_date, pet_id, pets(name)")
+        .eq("completed", false)
+        .lte("due_date", limit)
+        .order("due_date");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // 6. Prontuários com próximo retorno agendado (medical_records)
+  const { data: medicalRecordReturns } = useQuery({
+    queryKey: ["home-medical-returns", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: async () => {
+      const limit = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+      const { data, error } = await supabase
+        .from("medical_records")
+        .select("id, record_type, reason, next_return_date, pet_id, pets(name)")
+        .not("next_return_date", "is", null)
+        .lte("next_return_date", limit)
+        .order("next_return_date");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Atualização em tempo real dos agendamentos, retornos e vacinas na Home
   useEffect(() => {
     if (!user?.id) return;
     const channel = supabase
-      .channel(`home-appointments-realtime-${user.id}`)
+      .channel(`home-realtime-${user.id}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "appointments", filter: `user_id=eq.${user.id}` },
@@ -172,11 +212,147 @@ function Home() {
           queryClient.invalidateQueries({ queryKey: ["home-active-appointments", user.id] });
         },
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "care_reminders" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["home-care-reminders", user.id] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "vaccinations" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["home-vaccine-alerts", user.id] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "medical_records" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["home-medical-returns", user.id] });
+        },
+      )
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);
     };
   }, [user?.id, queryClient]);
+
+  // Junta vacinas + retornos + consultas num único conjunto ordenado com prioridade para hoje
+  type HomeAlert = {
+    key: string;
+    kind: "retorno" | "consulta" | "exame" | "vacina" | "outro";
+    typeLabel: string;
+    title: string;
+    petName: string;
+    days: number;
+    dueDate: string;
+    whatsappMessage: string;
+    isHoje: boolean;
+    isOverdue: boolean;
+  };
+
+  const homeAlerts = useMemo(() => {
+    const list: HomeAlert[] = [];
+    const seenKeys = new Set<string>();
+
+    // 1. Vacinas
+    for (const v of vaccineAlerts ?? []) {
+      const days = daysUntil(v.next_due_at!);
+      const petNameCap = v.pets?.name ? capitalizeWords(v.pets.name) : "Pet";
+      const key = `vacina-${v.id}`;
+      seenKeys.add(key);
+      list.push({
+        key,
+        kind: "vacina",
+        typeLabel: "Reforço de Vacina",
+        title: v.vaccine_name,
+        petName: petNameCap,
+        days,
+        dueDate: v.next_due_at!,
+        whatsappMessage: `Olá, ${CLINIC.name}! Quero agendar o reforço da vacina ${v.vaccine_name} de ${petNameCap}.`,
+        isHoje: days === 0,
+        isOverdue: days < 0,
+      });
+    }
+
+    // 2. Lembretes de Retorno, Consultas e Cuidados (care_reminders)
+    for (const r of careReminders ?? []) {
+      const days = daysUntil(r.due_date);
+      const petNameCap = r.pets?.name ? capitalizeWords(r.pets.name) : "Pet";
+      const key = `care-${r.id}`;
+      seenKeys.add(key);
+      const rType = (r.reminder_type || "retorno").toLowerCase();
+      const typeLabel =
+        rType === "consulta"
+          ? "Consulta"
+          : rType === "exame"
+            ? "Exame de Retorno"
+            : rType === "retirada_pontos"
+              ? "Retirada de Pontos"
+              : "Consulta de Retorno";
+
+      list.push({
+        key,
+        kind: rType === "consulta" ? "consulta" : rType === "exame" ? "exame" : "retorno",
+        typeLabel,
+        title: r.title,
+        petName: petNameCap,
+        days,
+        dueDate: r.due_date,
+        whatsappMessage: `Olá, ${CLINIC.name}! Quero agendar o ${typeLabel.toLowerCase()} (${r.title}) de ${petNameCap}.`,
+        isHoje: days === 0,
+        isOverdue: days < 0,
+      });
+    }
+
+    // 3. Prontuários com próximo retorno agendado (evita duplicar com care_reminders)
+    for (const m of medicalRecordReturns ?? []) {
+      if (!m.next_return_date) continue;
+      const petNameCap = m.pets?.name ? capitalizeWords(m.pets.name) : "Pet";
+      const dedupeKey = `med-${m.pet_id}-${m.next_return_date}`;
+      const alreadyHasReminder = (careReminders ?? []).some(
+        (cr) => cr.pet_id === m.pet_id && cr.due_date === m.next_return_date,
+      );
+      if (alreadyHasReminder || seenKeys.has(dedupeKey)) continue;
+      seenKeys.add(dedupeKey);
+
+      const days = daysUntil(m.next_return_date);
+      const mType = (m.record_type || "retorno").toLowerCase();
+      const typeLabel =
+        mType === "consulta"
+          ? "Consulta de Retorno"
+          : mType === "cirurgia"
+            ? "Retorno Pós-Cirúrgico"
+            : "Retorno Clínico";
+
+      list.push({
+        key: dedupeKey,
+        kind: "retorno",
+        typeLabel,
+        title: m.reason ? `Retorno: ${m.reason}` : typeLabel,
+        petName: petNameCap,
+        days,
+        dueDate: m.next_return_date,
+        whatsappMessage: `Olá, ${CLINIC.name}! Gostaria de confirmar o ${typeLabel.toLowerCase()} de ${petNameCap} previsto para ${formatDate(m.next_return_date)}.`,
+        isHoje: days === 0,
+        isOverdue: days < 0,
+      });
+    }
+
+    // Ordenação prioritária:
+    // 1º: Retornos de Hoje (days === 0) no topo absoluto!
+    // 2º: Atrasados (days < 0)
+    // 3º: Próximos dias em ordem crescente
+    return list.sort((a, b) => {
+      if (a.isHoje && !b.isHoje) return -1;
+      if (!a.isHoje && b.isHoje) return 1;
+      if (a.isOverdue && !b.isOverdue) return -1;
+      if (!a.isOverdue && b.isOverdue) return 1;
+      return a.days - b.days;
+    });
+  }, [vaccineAlerts, careReminders, medicalRecordReturns]);
 
   // Checagem de Aniversário (Pet ou Tutor)
   const birthdayPet = (ownPets ?? []).find((p) => isBirthdayToday(p.birth_date));
@@ -481,51 +657,92 @@ function Home() {
         )}
       </section>
 
-      {/* 6. Avisos de Vacina */}
-      {user?.id && (vaccineAlerts ?? []).length > 0 && (
+      {/* 6. Avisos de Saúde, Vacinas, Consultas e Retornos */}
+      {user?.id && homeAlerts.length > 0 && (
         <section className="px-4 pb-3">
           <div className="flex items-center gap-2 mb-2">
-            <Syringe className="h-4 w-4 text-primary" />
-            <h2 className="font-display text-base font-bold">Avisos de Vacina e Cuidados</h2>
+            <Bell className="h-4 w-4 text-primary" />
+            <h2 className="font-display text-base font-bold">Avisos de Saúde e Retornos</h2>
           </div>
           <div className="space-y-2">
-            {(vaccineAlerts ?? []).map((v) => {
-              const days = daysUntil(v.next_due_at!);
-              const isOverdue = days < 0;
-              const petNameCap = v.pets?.name ? capitalizeWords(v.pets.name) : "Pet";
+            {homeAlerts.map((item) => {
+              const isRetornoHoje = item.isHoje;
+              const tone = isRetornoHoje ? "success" : alertTone(item.days);
+              const isVaccine = item.kind === "vacina";
               return (
                 <div
-                  key={v.id}
-                  className="flex items-center justify-between gap-3 rounded-2xl bg-card border border-border p-3 shadow-card"
+                  key={item.key}
+                  className={cn(
+                    "rounded-2xl border-2 p-3 shadow-card transition-all",
+                    statusToneCardClass(tone),
+                    isRetornoHoje &&
+                      "border-emerald-500/80 bg-emerald-50/70 dark:border-emerald-500/60 dark:bg-emerald-950/40 ring-1 ring-emerald-400/40 shadow-emerald-500/10",
+                  )}
                 >
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-bold text-foreground">
-                      Reforço: {v.vaccine_name} · 🐾 {petNameCap}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {isOverdue
-                        ? `Atrasado há ${Math.abs(days)} dia(s)!`
-                        : days === 0
-                          ? "Vence hoje!"
-                          : `Vence em ${days} dia(s) (${formatDate(v.next_due_at!)})`}
-                    </p>
-                  </div>
-                  <Button
-                    asChild
-                    size="sm"
-                    variant={isOverdue ? "destructive" : "secondary"}
-                    className="h-8 shrink-0 rounded-xl text-xs font-semibold"
-                  >
-                    <a
-                      href={whatsappLink(
-                        `Olá, ${CLINIC.name}! Quero agendar o reforço da vacina ${v.vaccine_name} de ${petNameCap}.`,
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      {isVaccine ? (
+                        <Syringe className={cn("mt-0.5 h-4 w-4 shrink-0", statusToneIconClass(tone))} />
+                      ) : (
+                        <Stethoscope className={cn("mt-0.5 h-4 w-4 shrink-0", statusToneIconClass(tone))} />
                       )}
-                      target="_blank"
-                      rel="noreferrer"
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-bold text-foreground">
+                          {item.typeLabel}: {item.title} · 🐾 {item.petName}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {item.isOverdue
+                            ? `Atrasado há ${Math.abs(item.days)} dia(s)! (${formatDate(item.dueDate)})`
+                            : item.isHoje
+                              ? "🟢 Retorno previsto para hoje!"
+                              : item.days === 1
+                                ? `Vence amanhã (${formatDate(item.dueDate)})`
+                                : `Previsto para ${formatDate(item.dueDate)} (em ${item.days} dias)`}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge
+                      variant="secondary"
+                      className={cn("shrink-0 whitespace-nowrap text-[10px] font-semibold", statusToneClass(tone))}
                     >
-                      Agendar
-                    </a>
-                  </Button>
+                      {item.isOverdue
+                        ? "Atrasado"
+                        : item.isHoje
+                          ? "Retorno hoje"
+                          : item.days === 1
+                            ? "Amanhã"
+                            : `Em ${item.days} dias`}
+                    </Badge>
+                  </div>
+
+                  <div className="mt-2.5 flex items-center justify-end gap-2 pt-2 border-t border-border/40">
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="outline"
+                      className="h-7 rounded-xl text-xs font-medium border-primary/30 hover:bg-primary/5"
+                    >
+                      <Link to="/agendar">Agendar</Link>
+                    </Button>
+                    <Button
+                      asChild
+                      size="sm"
+                      variant={isRetornoHoje ? "default" : item.isOverdue ? "destructive" : "secondary"}
+                      className={cn(
+                        "h-7 rounded-xl text-xs font-semibold gap-1",
+                        isRetornoHoje && "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm",
+                      )}
+                    >
+                      <a
+                        href={whatsappLink(item.whatsappMessage)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <MessageCircle className="h-3 w-3" />
+                        Falar no WhatsApp
+                      </a>
+                    </Button>
+                  </div>
                 </div>
               );
             })}
