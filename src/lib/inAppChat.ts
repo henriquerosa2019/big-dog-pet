@@ -7,19 +7,23 @@
  * Dispara alarme sonoro de 2 toques e badge "(Msg Nova)" ao receber mensagens.
  */
 
-import { useEffect, useState } from "react";
 import { playChatNotificationSound } from "./soundAlerts";
 
 export type SenderRole = "tutor" | "loja" | "motorista" | "vet";
 export type RecipientRole = "tutor" | "loja";
+export type ChatMessageStatus = "aberto" | "respondido" | "fechado";
+export type ChatPeriodFilter = "hoje" | "semana" | "mes" | "todos";
 
 export interface ChatMessage {
   id: string;
-  conversationId: string; // Ex: ID do tutor ou pet
+  conversationId: string; // ID do tutor ou pet
   senderId: string;
   senderName: string;
   senderRole: SenderRole;
   recipientRole: RecipientRole;
+  tutorId?: string | null;
+  tutorName?: string | null;
+  tutorPhone?: string | null;
   petId?: string | null;
   petName?: string | null;
   contextTag?: string | null; // Ex: "Vacina: V10", "Retorno: Pontos", "Consulta Clínica"
@@ -27,6 +31,7 @@ export interface ChatMessage {
   createdAt: string;
   readByTutor: boolean;
   readByStore: boolean;
+  status?: ChatMessageStatus;
 }
 
 export interface OpenChatDetail {
@@ -35,6 +40,26 @@ export interface OpenChatDetail {
   petId?: string | undefined;
   petName?: string | undefined;
   conversationId?: string | undefined;
+  tutorId?: string | undefined;
+  tutorName?: string | undefined;
+  tutorPhone?: string | undefined;
+}
+
+export interface ChatConversationSummary {
+  conversationId: string;
+  tutorId: string;
+  tutorName: string;
+  tutorPhone?: string | null;
+  petId?: string | null;
+  petName?: string | null;
+  contextTag?: string | null;
+  lastMessage: ChatMessage;
+  lastMessageText: string;
+  lastMessageAt: string;
+  unreadCountStore: number;
+  unreadCountTutor: number;
+  status: ChatMessageStatus;
+  messageCount: number;
 }
 
 /**
@@ -45,22 +70,59 @@ export function openInAppChat(detail?: OpenChatDetail): void {
   window.dispatchEvent(new CustomEvent("open_inapp_chat", { detail }));
 }
 
-const STORAGE_KEY = "bigdog_inapp_chat_v2";
+const STORAGE_KEY = "bigdog_inapp_chat_v3";
 const BROADCAST_CHANNEL_NAME = "bigdog_inapp_chat_channel";
 
-// Mensagens padrão iniciais de boas-vindas caso o histórico esteja vazio
+// Mensagens padrão iniciais demonstrativas
 const DEFAULT_INITIAL_MESSAGES: ChatMessage[] = [
   {
-    id: "msg-welcome-1",
+    id: "msg-init-1",
+    conversationId: "tutor-maria-silva",
+    senderId: "tutor-maria",
+    senderName: "Maria Silva",
+    senderRole: "tutor",
+    recipientRole: "loja",
+    tutorId: "tutor-maria",
+    tutorName: "Maria Silva",
+    tutorPhone: "(11) 99876-5432",
+    petName: "Thor",
+    contextTag: "Vacina V10",
+    text: "Olá! Gostaria de confirmar se posso levar o Thor amanhã às 14h para o reforço da V10.",
+    createdAt: new Date(Date.now() - 1000 * 60 * 18).toISOString(), // há 18 min
+    readByTutor: true,
+    readByStore: false,
+    status: "aberto",
+  },
+  {
+    id: "msg-init-2",
+    conversationId: "tutor-carlos-souza",
+    senderId: "tutor-carlos",
+    senderName: "Carlos Souza",
+    senderRole: "tutor",
+    recipientRole: "loja",
+    tutorId: "tutor-carlos",
+    tutorName: "Carlos Souza",
+    tutorPhone: "(11) 98765-4321",
+    petName: "Luna",
+    contextTag: "Táxi Pet / Banho",
+    text: "Boa tarde! O motorista já está a caminho para buscar a Luna em casa?",
+    createdAt: new Date(Date.now() - 1000 * 60 * 42).toISOString(), // há 42 min
+    readByTutor: true,
+    readByStore: false,
+    status: "aberto",
+  },
+  {
+    id: "msg-welcome-store",
     conversationId: "geral",
     senderId: "loja-bigdog",
     senderName: "Big Dog Pet",
     senderRole: "loja",
     recipientRole: "tutor",
     text: "Olá! Bem-vindo ao Bate-papo da Big Dog Pet. Envie suas dúvidas sobre banho, vacinas, consultas ou entregas por aqui!",
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
     readByTutor: true,
     readByStore: true,
+    status: "respondido",
   },
 ];
 
@@ -81,6 +143,17 @@ export function getAllChatMessages(): ChatMessage[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
+      // Migra da versão anterior se houver
+      const oldRaw = localStorage.getItem("bigdog_inapp_chat_v2");
+      if (oldRaw) {
+        try {
+          const oldList: ChatMessage[] = JSON.parse(oldRaw);
+          if (Array.isArray(oldList) && oldList.length > 0) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(oldList));
+            return oldList;
+          }
+        } catch {}
+      }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_INITIAL_MESSAGES));
       return DEFAULT_INITIAL_MESSAGES;
     }
@@ -93,12 +166,29 @@ export function getAllChatMessages(): ChatMessage[] {
 /**
  * Salva as mensagens no localStorage
  */
-function saveAllChatMessages(messages: ChatMessage[]): void {
+export function saveAllChatMessages(messages: ChatMessage[]): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
   } catch (err) {
     console.error("Erro ao salvar mensagens de chat:", err);
+  }
+}
+
+/**
+ * Obtém ou cria identificador estável de sessão do tutor
+ */
+export function getOrCreateTutorSessionId(): string {
+  if (typeof window === "undefined") return "tutor-anon";
+  try {
+    let id = localStorage.getItem("bigdog_tutor_session_id");
+    if (!id) {
+      id = `tutor-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+      localStorage.setItem("bigdog_tutor_session_id", id);
+    }
+    return id;
+  } catch {
+    return "tutor-anon";
   }
 }
 
@@ -111,6 +201,9 @@ export function sendChatMessage(params: {
   senderName: string;
   senderRole: SenderRole;
   recipientRole?: RecipientRole;
+  tutorId?: string | null;
+  tutorName?: string | null;
+  tutorPhone?: string | null;
   petId?: string | null;
   petName?: string | null;
   contextTag?: string | null;
@@ -121,13 +214,20 @@ export function sendChatMessage(params: {
   const recipientRole: RecipientRole =
     params.recipientRole || (params.senderRole === "tutor" ? "loja" : "tutor");
 
+  const conversationId =
+    params.conversationId ||
+    (params.senderRole === "tutor" ? params.senderId : "geral");
+
   const newMessage: ChatMessage = {
     id: `chat-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    conversationId: params.conversationId || "geral",
+    conversationId,
     senderId: params.senderId,
     senderName: params.senderName,
     senderRole: params.senderRole,
     recipientRole,
+    tutorId: params.tutorId ?? (params.senderRole === "tutor" ? params.senderId : null),
+    tutorName: params.tutorName ?? (params.senderRole === "tutor" ? params.senderName : null),
+    tutorPhone: params.tutorPhone ?? null,
     petId: params.petId ?? null,
     petName: params.petName ?? null,
     contextTag: params.contextTag ?? null,
@@ -135,17 +235,18 @@ export function sendChatMessage(params: {
     createdAt: new Date().toISOString(),
     readByTutor: params.senderRole === "tutor",
     readByStore: params.senderRole !== "tutor",
+    status: params.senderRole === "loja" ? "respondido" : "aberto",
   };
 
   const updated = [...currentMessages, newMessage];
   saveAllChatMessages(updated);
 
-  // Alerta sonoro de 2 toques (requisito: ao chegar msg na loja e no tutor)
+  // Alerta sonoro de 2 toques (ao chegar msg na loja e no tutor)
   if (params.playSound !== false) {
     playChatNotificationSound();
   }
 
-  // Notifica outras janelas/abas
+  // Notifica outras abas/janelas
   try {
     broadcastChannel?.postMessage({ type: "NEW_MESSAGE", message: newMessage });
   } catch {}
@@ -163,25 +264,25 @@ export function sendChatMessage(params: {
 }
 
 /**
- * Marca mensagens de uma conversa ou papel como lidas
+ * Marca mensagens de uma conversa específica ou geral como lidas
  */
-export function markChatAsRead(options: {
-  role: "tutor" | "loja";
-  conversationId?: string | undefined;
-}): void {
+export function markConversationAsRead(
+  conversationId: string,
+  role: "tutor" | "loja"
+): void {
   const current = getAllChatMessages();
   let changed = false;
 
   const updated = current.map((msg) => {
-    if (options.conversationId && msg.conversationId !== options.conversationId && msg.conversationId !== "geral") {
+    if (msg.conversationId !== conversationId && !(conversationId === "geral" && msg.conversationId === "geral")) {
       return msg;
     }
 
-    if (options.role === "tutor" && !msg.readByTutor) {
+    if (role === "tutor" && !msg.readByTutor) {
       changed = true;
       return { ...msg, readByTutor: true };
     }
-    if (options.role === "loja" && !msg.readByStore) {
+    if (role === "loja" && !msg.readByStore) {
       changed = true;
       return { ...msg, readByStore: true };
     }
@@ -199,12 +300,26 @@ export function markChatAsRead(options: {
 }
 
 /**
+ * Compatibilidade legada para markChatAsRead
+ */
+export function markChatAsRead(options: {
+  role: "tutor" | "loja";
+  conversationId?: string | undefined;
+}): void {
+  if (options.conversationId) {
+    markConversationAsRead(options.conversationId, options.role);
+  } else {
+    markConversationAsRead("geral", options.role);
+  }
+}
+
+/**
  * Conta mensagens não lidas para o papel (tutor ou loja)
  */
 export function getUnreadCount(role: "tutor" | "loja", conversationId?: string): number {
   const list = getAllChatMessages();
   return list.filter((m) => {
-    if (conversationId && m.conversationId !== conversationId && m.conversationId !== "geral") {
+    if (conversationId && m.conversationId !== conversationId) {
       return false;
     }
     return role === "tutor" ? !m.readByTutor : !m.readByStore;
@@ -212,7 +327,177 @@ export function getUnreadCount(role: "tutor" | "loja", conversationId?: string):
 }
 
 /**
- * Hook React completo para consumir o bate-papo em qualquer tela
+ * Retorna as conversas agrupadas em FILA POR ORDEM DE CHEGADA para a loja.
+ * Conversas com mensagens não lidas ficam no topo; em seguida, por data mais recente.
+ */
+export function getAllChatConversations(): ChatConversationSummary[] {
+  const messages = getAllChatMessages();
+  const map = new Map<string, ChatMessage[]>();
+
+  for (const msg of messages) {
+    const cid = msg.conversationId || "geral";
+    if (!map.has(cid)) {
+      map.set(cid, []);
+    }
+    map.get(cid)!.push(msg);
+  }
+
+  const summaries: ChatConversationSummary[] = [];
+
+  for (const [cid, msgList] of map.entries()) {
+    if (msgList.length === 0) continue;
+
+    // Ordena do mais antigo para o mais recente para achar o último
+    msgList.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    const lastMsg = msgList[msgList.length - 1];
+
+    // Encontra informações mais ricas do tutor entre todas as mensagens da conversa
+    let tutorName = "Tutor";
+    let tutorId = cid;
+    let tutorPhone: string | null = null;
+    let petId: string | null = null;
+    let petName: string | null = null;
+    let contextTag: string | null = null;
+
+    for (let i = msgList.length - 1; i >= 0; i--) {
+      const m = msgList[i];
+      if (m.tutorName && tutorName === "Tutor") tutorName = m.tutorName;
+      if (m.senderRole === "tutor" && m.senderName && tutorName === "Tutor") tutorName = m.senderName;
+      if (m.tutorId && !tutorId) tutorId = m.tutorId;
+      if (m.tutorPhone && !tutorPhone) tutorPhone = m.tutorPhone;
+      if (m.petId && !petId) petId = m.petId;
+      if (m.petName && !petName) petName = m.petName;
+      if (m.contextTag && !contextTag) contextTag = m.contextTag;
+    }
+
+    if (cid === "geral" && tutorName === "Tutor") {
+      tutorName = "Atendimento Geral";
+    }
+
+    const unreadStore = msgList.filter((m) => !m.readByStore).length;
+    const unreadTutor = msgList.filter((m) => !m.readByTutor).length;
+
+    // Status: se a última mensagem foi da loja, status é "respondido"; se foi do tutor e loja ainda não leu/respondeu, "aberto"
+    const status: ChatMessageStatus =
+      lastMsg.status ?? (lastMsg.senderRole === "loja" ? "respondido" : "aberto");
+
+    summaries.push({
+      conversationId: cid,
+      tutorId: tutorId || cid,
+      tutorName,
+      tutorPhone,
+      petId,
+      petName,
+      contextTag,
+      lastMessage: lastMsg,
+      lastMessageText: lastMsg.text,
+      lastMessageAt: lastMsg.createdAt,
+      unreadCountStore: unreadStore,
+      unreadCountTutor: unreadTutor,
+      status,
+      messageCount: msgList.length,
+    });
+  }
+
+  // Ordenação da Fila:
+  // 1º: Não lidas da loja (ou abertas) no topo absoluto
+  // 2º: Data da última mensagem decrescente (mais recentes primeiro)
+  return summaries.sort((a, b) => {
+    if (a.unreadCountStore > 0 && b.unreadCountStore === 0) return -1;
+    if (a.unreadCountStore === 0 && b.unreadCountStore > 0) return 1;
+    if (a.status === "aberto" && b.status !== "aberto") return -1;
+    if (a.status !== "aberto" && b.status === "aberto") return 1;
+    return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+  });
+}
+
+/**
+ * Retorna as mensagens de uma conversa específica ordenadas cronologicamente
+ */
+export function getMessagesForConversation(conversationId: string): ChatMessage[] {
+  const all = getAllChatMessages();
+  return all
+    .filter((m) => m.conversationId === conversationId || (conversationId === "geral" && !m.conversationId))
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+}
+
+/**
+ * Filtra as conversas e mensagens para a tela de Log & Histórico com filtros
+ */
+export function getChatLogs(filters?: {
+  search?: string;
+  period?: ChatPeriodFilter;
+}): ChatConversationSummary[] {
+  const all = getAllChatConversations();
+  const search = filters?.search?.trim().toLowerCase();
+  const period = filters?.period ?? "todos";
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const sevenDaysAgo = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+  return all.filter((conv) => {
+    // Filtro por Data
+    const convTime = new Date(conv.lastMessageAt).getTime();
+    if (period === "hoje" && convTime < startOfToday) return false;
+    if (period === "semana" && convTime < sevenDaysAgo) return false;
+    if (period === "mes" && convTime < startOfMonth) return false;
+
+    // Filtro por Busca (Nome do tutor, pet, telefone, tag de contexto ou texto da mensagem)
+    if (search) {
+      const matchName = conv.tutorName.toLowerCase().includes(search);
+      const matchPet = conv.petName?.toLowerCase().includes(search) ?? false;
+      const matchTag = conv.contextTag?.toLowerCase().includes(search) ?? false;
+      const matchText = conv.lastMessageText.toLowerCase().includes(search);
+      const matchPhone = conv.tutorPhone?.includes(search) ?? false;
+      if (!matchName && !matchPet && !matchTag && !matchText && !matchPhone) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
+
+/**
+ * Hook reativo para a Loja acompanhar a Fila de Atendimentos em tempo real
+ */
+export function useChatQueue() {
+  const [conversations, setConversations] = useState<ChatConversationSummary[]>(() =>
+    getAllChatConversations()
+  );
+  const [totalUnread, setTotalUnread] = useState<number>(() => getUnreadCount("loja"));
+
+  const refresh = () => {
+    setConversations(getAllChatConversations());
+    setTotalUnread(getUnreadCount("loja"));
+  };
+
+  useEffect(() => {
+    refresh();
+
+    const handleEvent = () => refresh();
+    window.addEventListener("bigdog_chat_event", handleEvent);
+    window.addEventListener("storage", refresh);
+    broadcastChannel?.addEventListener("message", handleEvent);
+
+    return () => {
+      window.removeEventListener("bigdog_chat_event", handleEvent);
+      window.removeEventListener("storage", refresh);
+      broadcastChannel?.removeEventListener("message", handleEvent);
+    };
+  }, []);
+
+  return {
+    conversations,
+    totalUnread,
+    refresh,
+  };
+}
+
+/**
+ * Hook React completo para consumir o bate-papo em qualquer tela (tutor ou conversa ativa)
  */
 export function useInAppChat(options?: {
   role?: "tutor" | "loja";
@@ -277,6 +562,9 @@ export function useInAppChat(options?: {
     senderId: string;
     senderName: string;
     senderRole: SenderRole;
+    tutorId?: string | null;
+    tutorName?: string | null;
+    tutorPhone?: string | null;
     petId?: string | null;
     petName?: string | null;
     contextTag?: string | null;
@@ -284,7 +572,7 @@ export function useInAppChat(options?: {
   }) => {
     const msg = sendChatMessage({
       ...params,
-      conversationId: options?.conversationId || "geral",
+      conversationId: options?.conversationId || (params.senderRole === "tutor" ? params.senderId : "geral"),
       recipientRole: params.recipientRole || (params.senderRole === "tutor" ? "loja" : "tutor"),
     });
     refresh();
@@ -292,15 +580,21 @@ export function useInAppChat(options?: {
   };
 
   const markAsRead = () => {
-    markChatAsRead({ role: currentRole, conversationId: options?.conversationId });
+    if (options?.conversationId) {
+      markConversationAsRead(options.conversationId, currentRole);
+    } else {
+      markConversationAsRead("geral", currentRole);
+    }
     refresh();
   };
 
+  const conversationMessages = messages.filter((m) => {
+    if (!options?.conversationId || options.conversationId === "geral") return true;
+    return m.conversationId === options.conversationId;
+  });
+
   return {
-    messages: messages.filter((m) => {
-      if (!options?.conversationId || options.conversationId === "geral") return true;
-      return m.conversationId === options.conversationId || m.conversationId === "geral";
-    }),
+    messages: conversationMessages,
     unreadCount,
     hasNewMessage: unreadCount > 0,
     send,

@@ -24,6 +24,8 @@ import {
   Truck,
   Volume2,
   X,
+  Clock,
+  ChevronRight,
 } from "lucide-react";
 import { getCapacitySettings, saveCapacitySettings, type CapacitySettings } from "@/lib/schedulingCapacity";
 import { playStatusSound, testSoundAlert } from "@/lib/soundAlerts";
@@ -82,6 +84,8 @@ import { CurvaAbcServicos } from "@/components/CurvaAbcServicos";
 import { CurvaAbcClientes } from "@/components/CurvaAbcClientes";
 import { RelatorioEntregasMotoristas } from "@/components/RelatorioEntregasMotoristas";
 import { openInAppChat } from "@/components/InAppChatDrawer";
+import { useChatQueue } from "@/lib/inAppChat";
+import { AdminChatLogs } from "@/components/AdminChatLogs";
 import { getCriticalStock, setCriticalStock, findCurveACriticalProducts } from "@/lib/stockSettings";
 import { calculateProductAbc } from "@/lib/curvaAbc";
 import { useClientAbcMap } from "@/hooks/useClientAbcMap";
@@ -215,11 +219,27 @@ function todayISODate() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function formatChatRelativeTime(isoString: string) {
+  try {
+    const diffMs = Date.now() - new Date(isoString).getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    if (diffMins < 1) return "agora";
+    if (diffMins < 60) return `há ${diffMins} min`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `há ${diffHours}h`;
+    return new Date(isoString).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  } catch {
+    return "";
+  }
+}
+
 function Admin() {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, loading: adminLoading } = useIsAdminStatus(user?.id);
   const queryClient = useQueryClient();
   const { getClientAbcInfo } = useClientAbcMap();
+  const [currentTab, setCurrentTab] = useState("dashboard");
+  const { conversations: chatQueue, totalUnread: totalChatUnread } = useChatQueue();
   const [capacitySettings, setCapacitySettings] = useState<CapacitySettings>(getCapacitySettings);
 
   function handleSaveCapacity() {
@@ -1949,23 +1969,206 @@ function Admin() {
   const selectedPet = (allPets ?? []).find((p) => p.id === recordPetId);
 
   return (
-    <div className="p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="font-display text-2xl">Painel administrativo</h1>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => openInAppChat()}
-          className="h-8 gap-1.5 rounded-xl text-xs font-bold text-primary"
-        >
-          <MessageCircle className="h-3.5 w-3.5" />
-          Bate-papo Loja (Offline)
-        </Button>
+    <div className="p-4 space-y-4">
+      {/* 1. HERO OPERACIONAL DA LOJA (ESTILO DA HOME DO TUTOR) */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-primary/95 via-primary/85 to-primary/75 p-5 text-primary-foreground shadow-card">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-400"></span>
+              </span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-primary-foreground/90">
+                Central de Operações · Loja Aberta
+              </span>
+            </div>
+            <h1 className="font-display text-2xl sm:text-3xl font-bold mt-1 tracking-tight">
+              Painel Big Dog Pet
+            </h1>
+            <p className="text-xs sm:text-sm text-primary-foreground/85 mt-0.5">
+              {CLINIC.unit} · Vila Bazú, Franco da Rocha
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => openInAppChat()}
+              className="h-9 px-3.5 rounded-xl text-xs font-bold gap-2 shadow-xs bg-white text-primary hover:bg-white/90"
+            >
+              <MessageCircle className="h-4 w-4 text-primary" />
+              Bate-papo Loja
+              {totalChatUnread > 0 && (
+                <Badge variant="destructive" className="animate-pulse text-[10px] py-0 px-1.5 h-5">
+                  {totalChatUnread}
+                </Badge>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Mini Contadores Rápidos da Operação */}
+        <div className="mt-4 pt-3.5 border-t border-white/20 grid grid-cols-3 gap-2 text-center sm:text-left">
+          <div className="bg-black/15 rounded-xl p-2 sm:px-3">
+            <p className="text-[10px] uppercase font-semibold text-primary-foreground/75">
+              Mensagens Chat
+            </p>
+            <p className="text-lg font-bold font-display text-white mt-0.5">
+              {chatQueue.length} <span className="text-xs font-normal opacity-80">chamados</span>
+            </p>
+          </div>
+          <div className="bg-black/15 rounded-xl p-2 sm:px-3">
+            <p className="text-[10px] uppercase font-semibold text-primary-foreground/75">
+              Novos Agendamentos
+            </p>
+            <p className="text-lg font-bold font-display text-white mt-0.5">
+              {pendingAppointments.length} <span className="text-xs font-normal opacity-80">pendentes</span>
+            </p>
+          </div>
+          <div className="bg-black/15 rounded-xl p-2 sm:px-3">
+            <p className="text-[10px] uppercase font-semibold text-primary-foreground/75">
+              Transportes Ativos
+            </p>
+            <p className="text-lg font-bold font-display text-white mt-0.5">
+              {transportOrders?.filter(t => t.appointments?.ops_status && t.appointments.ops_status !== "concluido" && t.appointments.ops_status !== "cancelado").length ?? 0} <span className="text-xs font-normal opacity-80">em rota</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. DESTAQUE NO TOPO: MENSAGENS E CHAMADOS RECENTES DOS TUTORES NO CHAT */}
+      <div className="rounded-3xl border-2 border-primary/25 bg-card p-4 shadow-card">
+        <div className="flex items-center justify-between gap-2 pb-3 border-b border-border/60">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-3 w-3">
+              <span className={cn(
+                "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
+                totalChatUnread > 0 ? "bg-emerald-400" : "bg-primary/50"
+              )}></span>
+              <span className={cn(
+                "relative inline-flex rounded-full h-3 w-3",
+                totalChatUnread > 0 ? "bg-emerald-500" : "bg-primary"
+              )}></span>
+            </span>
+            <h2 className="font-display text-base font-bold text-foreground flex items-center gap-2">
+              Mensagens do Chat dos Tutores
+              {totalChatUnread > 0 && (
+                <Badge className="bg-emerald-600 text-white font-bold text-[10px] py-0 px-2 animate-pulse">
+                  {totalChatUnread} Nova(s)
+                </Badge>
+              )}
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setCurrentTab("atendimentos")}
+            className="text-xs font-semibold text-primary hover:underline"
+          >
+            Ver todos ({chatQueue.length})
+          </button>
+        </div>
+
+        {/* Fila de cards recentes de tutores */}
+        <div className="mt-3 space-y-2.5">
+          {chatQueue.length === 0 ? (
+            <div className="p-4 rounded-2xl border border-dashed border-border/80 text-center text-xs text-muted-foreground">
+              Nenhuma mensagem no chat no momento. Todas as conversas estão respondidas!
+            </div>
+          ) : (
+            chatQueue.slice(0, 3).map((conv) => {
+              const hasUnread = conv.unreadCountStore > 0;
+              const isAberto = conv.status === "aberto";
+
+              return (
+                <div
+                  key={conv.conversationId}
+                  className={cn(
+                    "rounded-2xl border p-3.5 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs",
+                    hasUnread
+                      ? "border-emerald-500/50 bg-emerald-50/50 dark:bg-emerald-950/20 ring-1 ring-emerald-500/20"
+                      : isAberto
+                        ? "border-amber-500/40 bg-amber-50/40 dark:bg-amber-950/20"
+                        : "border-border/80 bg-card hover:bg-muted/20"
+                  )}
+                >
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    {/* Avatar inicial */}
+                    <div className={cn(
+                      "grid h-10 w-10 shrink-0 place-items-center rounded-xl font-bold text-sm",
+                      hasUnread
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "bg-primary/10 text-primary"
+                    )}>
+                      {conv.tutorName.charAt(0).toUpperCase()}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-bold text-xs sm:text-sm text-foreground">
+                          {conv.tutorName}
+                        </p>
+                        {conv.petName && (
+                          <Badge variant="secondary" className="text-[10px] py-0 font-bold">
+                            🐾 {conv.petName}
+                          </Badge>
+                        )}
+                        {conv.contextTag && (
+                          <Badge variant="outline" className="text-[10px] py-0 border-primary/30 text-primary font-semibold">
+                            🏷️ {conv.contextTag}
+                          </Badge>
+                        )}
+                        {hasUnread && (
+                          <Badge className="bg-emerald-600 text-white text-[9px] py-0 px-1.5 font-bold">
+                            Nova Mensagem
+                          </Badge>
+                        )}
+                      </div>
+
+                      <p className="mt-1 text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                        {conv.lastMessage.senderRole === "loja" && (
+                          <strong className="text-foreground/80 font-semibold">Loja: </strong>
+                        )}
+                        "{conv.lastMessageText}"
+                      </p>
+
+                      <p className="mt-1 text-[11px] text-muted-foreground flex items-center gap-1">
+                        <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
+                        Recebida {formatChatRelativeTime(conv.lastMessageAt)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Botão de Resposta em 1 Toque */}
+                  <div className="flex items-center justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40 shrink-0">
+                    <Button
+                      size="sm"
+                      onClick={() =>
+                        openInAppChat({
+                          conversationId: conv.conversationId,
+                          tutorName: conv.tutorName,
+                          petName: conv.petName ?? undefined,
+                          contextTag: conv.contextTag ?? undefined,
+                        })
+                      }
+                      className="h-8 rounded-xl text-xs font-semibold gap-1.5 px-3.5 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      Responder Tutor
+                    </Button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
 
       {/* Alerta de Estoque Crítico de Produtos Curva A (Amarelo Destacado) */}
       {curveACriticalAlerts.length > 0 && (
-        <div className="mt-3 rounded-2xl border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/40 p-3.5 shadow-md space-y-2">
+        <div className="rounded-2xl border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/40 p-3.5 shadow-md space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="flex h-3 w-3 relative">
@@ -2000,6 +2203,7 @@ function Admin() {
                   className="h-7 text-xs rounded-lg font-bold bg-amber-300 hover:bg-amber-400 text-amber-950"
                   onClick={() => {
                     setEditingCatalogId(alert.id);
+                    setCurrentTab("produtos");
                   }}
                 >
                   Repor / Ajustar
@@ -2010,10 +2214,19 @@ function Admin() {
         </div>
       )}
 
-      <Tabs defaultValue="dashboard" className="mt-4">
+      <Tabs value={currentTab} onValueChange={setCurrentTab} className="mt-4">
         <TabsList className="flex w-full items-center justify-start gap-1 overflow-x-auto">
           <TabsTrigger value="dashboard" className="shrink-0">
             Dashboard
+          </TabsTrigger>
+          <TabsTrigger value="atendimentos" className="shrink-0 gap-1.5 font-semibold text-primary">
+            <MessageCircle className="h-3.5 w-3.5" />
+            Atendimentos & Chat
+            {totalChatUnread > 0 && (
+              <Badge variant="destructive" className="ml-1 text-[9px] py-0 px-1 font-bold">
+                {totalChatUnread}
+              </Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger value="novo-cliente" className="shrink-0">
             Novo Cliente
@@ -4914,6 +5127,10 @@ function Admin() {
               }
             />
           ))}
+        </TabsContent>
+
+        <TabsContent value="atendimentos" className="mt-4">
+          <AdminChatLogs />
         </TabsContent>
       </Tabs>
     </div>
