@@ -7,6 +7,7 @@
  * Dispara alarme sonoro de 2 toques e badge "(Msg Nova)" ao receber mensagens.
  */
 
+import { useState, useEffect } from "react";
 import { playChatNotificationSound } from "./soundAlerts";
 
 export type SenderRole = "tutor" | "loja" | "motorista" | "vet";
