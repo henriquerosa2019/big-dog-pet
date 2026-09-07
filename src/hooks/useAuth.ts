@@ -21,11 +21,24 @@ export function useAuth() {
   return { session, user: (session?.user ?? null) as User | null, loading };
 }
 
-export function useIsAdminStatus(userId?: string | null) {
-  const [isAdmin, setIsAdmin] = useState(false);
+export function useIsAdminStatus(userId?: string | null, userEmail?: string | null) {
+  const [isAdmin, setIsAdmin] = useState(() => {
+    if (typeof window !== "undefined") {
+      const email = userEmail?.toLowerCase();
+      if (email === "bigdog@gmail.com") return true;
+    }
+    return false;
+  });
   const [loading, setLoading] = useState(Boolean(userId));
 
   useEffect(() => {
+    // 1. Verificação imediata por e-mail da conta oficial da loja
+    if (userEmail?.toLowerCase() === "bigdog@gmail.com") {
+      setIsAdmin(true);
+      setLoading(false);
+      return;
+    }
+
     if (!userId) {
       setIsAdmin(false);
       setLoading(false);
@@ -35,6 +48,19 @@ export function useIsAdminStatus(userId?: string | null) {
     setLoading(true);
 
     async function checkRole() {
+      // 2. Checa se o usuário logado no Supabase Auth é bigdog@gmail.com
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData.user?.email?.toLowerCase() === "bigdog@gmail.com") {
+          if (active) {
+            setIsAdmin(true);
+            setLoading(false);
+          }
+          return;
+        }
+      } catch {}
+
+      // 3. Checa role na tabela user_roles
       try {
         const { data } = await supabase
           .from("user_roles")
@@ -67,8 +93,8 @@ export function useIsAdminStatus(userId?: string | null) {
   return { isAdmin, loading };
 }
 
-export function useIsAdmin(userId?: string | null) {
-  return useIsAdminStatus(userId).isAdmin;
+export function useIsAdmin(userId?: string | null, userEmail?: string | null) {
+  return useIsAdminStatus(userId, userEmail).isAdmin;
 }
 
 export function useIsDriver(userId?: string | null) {

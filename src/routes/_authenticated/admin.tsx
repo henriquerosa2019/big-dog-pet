@@ -1543,6 +1543,7 @@ function Admin() {
         price_cents?: number | undefined;
         duration_min?: number | undefined;
         stock?: number | undefined;
+        image_url?: string | null | undefined;
         active?: boolean | undefined;
       };
     }) => {

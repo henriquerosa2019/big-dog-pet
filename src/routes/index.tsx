@@ -22,7 +22,8 @@ import {
 } from "lucide-react";
 import heroImage from "@/assets/hero-pets.jpg";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, useIsAdminStatus } from "@/hooks/useAuth";
+import { useChatQueue } from "@/lib/inAppChat";
 import {
   alertTone,
   appointmentStatusTone,
@@ -79,6 +80,8 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const { user } = useAuth();
+  const { isAdmin } = useIsAdminStatus(user?.id, user?.email);
+  const { conversations: chatQueue, totalUnread: totalChatUnread } = useChatQueue();
   const queryClient = useQueryClient();
 
   // 1. Dados de aniversário do tutor e dos seus pets
@@ -449,6 +452,167 @@ function Home() {
 
   return (
     <div>
+      {/* 0. DESTAQUE DA LOJA / ADMIN NO TOPO DA TELA PRINCIPAL */}
+      {isAdmin && (
+        <section className="px-4 pt-4 pb-2 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="rounded-3xl bg-gradient-to-r from-primary to-primary/85 p-4 text-primary-foreground shadow-lg mb-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="grid h-10 w-10 place-items-center rounded-2xl bg-white/15 text-xl font-bold backdrop-blur-xs">
+                  🏪
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+                    </span>
+                    <h2 className="font-display text-sm font-bold text-white leading-tight">
+                      Central da Loja · Vila Bazú
+                    </h2>
+                  </div>
+                  <p className="text-[11px] text-primary-foreground/80 mt-0.5">
+                    Conta Loja: <strong className="text-white">{user?.email || "bigdog@gmail.com"}</strong>
+                  </p>
+                </div>
+              </div>
+
+              <Link
+                to="/admin"
+                className="flex items-center gap-1 rounded-xl bg-white/20 hover:bg-white/30 px-3 py-1.5 text-xs font-bold text-white transition backdrop-blur-xs shrink-0"
+              >
+                <span>Painel Completo</span>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+
+            {/* Contadores Rápidos da Operação */}
+            <div className="mt-3 pt-2.5 border-t border-white/20 grid grid-cols-2 gap-2 text-left">
+              <div className="bg-black/15 rounded-xl p-2 px-3">
+                <p className="text-[10px] uppercase font-semibold text-primary-foreground/75">
+                  Mensagens no Chat
+                </p>
+                <p className="text-base font-bold font-display text-white mt-0.5 flex items-center gap-1.5">
+                  {totalChatUnread > 0 ? (
+                    <span className="inline-flex items-center gap-1 text-emerald-300">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                      {totalChatUnread} nova(s)
+                    </span>
+                  ) : (
+                    <span>{chatQueue.length} chamados</span>
+                  )}
+                </p>
+              </div>
+              <div className="bg-black/15 rounded-xl p-2 px-3">
+                <p className="text-[10px] uppercase font-semibold text-primary-foreground/75">
+                  Fila de Atendimento
+                </p>
+                <button
+                  type="button"
+                  onClick={() => openInAppChat()}
+                  className="text-xs font-bold text-white underline hover:opacity-80 mt-1 block text-left"
+                >
+                  Abrir Fila da Loja ➔
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Destaque das Mensagens do Chat que Chegam dos Tutores */}
+          <div className="rounded-3xl border-2 border-primary/30 bg-card p-4 shadow-card">
+            <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-border/60">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-3 w-3">
+                  <span className={cn(
+                    "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
+                    totalChatUnread > 0 ? "bg-emerald-400" : "bg-primary/50"
+                  )}></span>
+                  <span className={cn(
+                    "relative inline-flex rounded-full h-3 w-3",
+                    totalChatUnread > 0 ? "bg-emerald-500" : "bg-primary"
+                  )}></span>
+                </span>
+                <h3 className="font-display text-sm sm:text-base font-bold text-foreground flex items-center gap-1.5">
+                  Mensagens do Chat dos Tutores
+                  {totalChatUnread > 0 && (
+                    <Badge className="bg-emerald-600 text-white font-bold text-[10px] py-0 px-2 animate-pulse">
+                      {totalChatUnread} Nova(s)
+                    </Badge>
+                  )}
+                </h3>
+              </div>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs font-semibold text-primary hover:bg-primary/10 h-7"
+                onClick={() => openInAppChat()}
+              >
+                Ver Fila ({chatQueue.length})
+              </Button>
+            </div>
+
+            <div className="mt-3 space-y-2.5">
+              {chatQueue.length === 0 ? (
+                <div className="p-4 rounded-2xl border border-dashed border-border/80 text-center text-xs text-muted-foreground">
+                  Nenhuma mensagem no chat no momento. Todas as conversas estão respondidas!
+                </div>
+              ) : (
+                chatQueue.slice(0, 3).map((conv) => {
+                  const hasUnread = conv.unreadCountStore > 0;
+                  return (
+                    <div
+                      key={conv.conversationId}
+                      className={cn(
+                        "rounded-2xl border p-3 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs",
+                        hasUnread
+                          ? "border-emerald-500/50 bg-emerald-50/50 dark:bg-emerald-950/20 ring-1 ring-emerald-500/20"
+                          : "border-border/80 bg-card hover:bg-muted/20"
+                      )}
+                    >
+                      <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                        <div className={cn(
+                          "grid h-9 w-9 shrink-0 place-items-center rounded-xl font-bold text-xs",
+                          hasUnread ? "bg-emerald-600 text-white" : "bg-primary/10 text-primary"
+                        )}>
+                          {conv.tutorName.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-bold text-xs text-foreground">{conv.tutorName}</span>
+                            {conv.petName && (
+                              <Badge variant="secondary" className="text-[9px] py-0 font-bold">
+                                🐾 {conv.petName}
+                              </Badge>
+                            )}
+                            {conv.contextTag && (
+                              <Badge variant="outline" className="text-[9px] py-0 text-primary border-primary/30">
+                                🏷️ {conv.contextTag}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
+                            "{conv.lastMessageText}"
+                          </p>
+                        </div>
+                      </div>
+
+                      <Button
+                        size="sm"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shrink-0 h-8 rounded-xl"
+                        onClick={() => openInAppChat({ conversationId: conv.conversationId, tutorName: conv.tutorName, petName: conv.petName ?? undefined })}
+                      >
+                        💬 Responder Tutor
+                      </Button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* 1. Hero Seção Principal */}
       <section className="relative">
         <img

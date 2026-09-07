@@ -9,6 +9,7 @@
 
 import { useState, useEffect } from "react";
 import { playChatNotificationSound } from "./soundAlerts";
+import { supabase } from "@/integrations/supabase/client";
 
 export type SenderRole = "tutor" | "loja" | "motorista" | "vet";
 export type RecipientRole = "tutor" | "loja";
@@ -136,6 +137,86 @@ if (typeof window !== "undefined" && "BroadcastChannel" in window) {
   }
 }
 
+let supabaseChatChannel: ReturnType<typeof supabase.channel> | null = null;
+
+/**
+ * Inicializa e obtém o canal Realtime do Supabase para sincronização instantânea
+ * de mensagens entre múltiplos dispositivos, computadores e navegadores.
+ */
+export function getSupabaseChatChannel() {
+  if (typeof window === "undefined") return null;
+  if (!supabaseChatChannel) {
+    try {
+      supabaseChatChannel = supabase.channel("bigdog_inapp_chat_realtime", {
+        config: { broadcast: { self: false } },
+      });
+
+      supabaseChatChannel
+        .on("broadcast", { event: "NEW_MESSAGE" }, ({ payload }) => {
+          if (!payload?.message) return;
+          const incoming = payload.message as ChatMessage;
+
+          const current = getAllChatMessages();
+          if (current.some((m) => m.id === incoming.id)) return;
+
+          const updated = [...current, incoming];
+          saveAllChatMessages(updated);
+
+          // Dispara evento local para que a UI de todas as abas/telas atualize na mesma hora
+          window.dispatchEvent(
+            new CustomEvent("bigdog_chat_event", {
+              detail: { type: "NEW_MESSAGE", message: incoming },
+            })
+          );
+
+          // Alerta sonoro de 2 toques nítidos
+          playChatNotificationSound();
+        })
+        .on("broadcast", { event: "CONVERSATION_READ" }, ({ payload }) => {
+          if (!payload?.conversationId || !payload?.role) return;
+          const current = getAllChatMessages();
+          let changed = false;
+          const updated = current.map((m) => {
+            if (m.conversationId === payload.conversationId) {
+              if (payload.role === "loja" && !m.readByStore) {
+                changed = true;
+                const nextStatus: ChatMessageStatus =
+                  m.status === "aberto" ? "respondido" : (m.status ?? "respondido");
+                return {
+                  ...m,
+                  readByStore: true,
+                  status: nextStatus,
+                };
+              }
+              if (payload.role === "tutor" && !m.readByTutor) {
+                changed = true;
+                return { ...m, readByTutor: true };
+              }
+            }
+            return m;
+          });
+          if (changed) {
+            saveAllChatMessages(updated);
+            window.dispatchEvent(
+              new CustomEvent("bigdog_chat_event", {
+                detail: { type: "READ", conversationId: payload.conversationId },
+              })
+            );
+          }
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn("Supabase Realtime Chat error:", e);
+    }
+  }
+  return supabaseChatChannel;
+}
+
+// Conecta o canal Realtime no navegador
+if (typeof window !== "undefined") {
+  getSupabaseChatChannel();
+}
+
 /**
  * Carrega todas as mensagens salvas
  */
@@ -247,10 +328,21 @@ export function sendChatMessage(params: {
     playChatNotificationSound();
   }
 
-  // Notifica outras abas/janelas
+  // Notifica outras abas/janelas locais
   try {
     broadcastChannel?.postMessage({ type: "NEW_MESSAGE", message: newMessage });
   } catch {}
+
+  // Notifica TODOS os dispositivos e navegadores conectados via Supabase Realtime Broadcast!
+  try {
+    getSupabaseChatChannel()?.send({
+      type: "broadcast",
+      event: "NEW_MESSAGE",
+      payload: { message: newMessage },
+    });
+  } catch (err) {
+    console.warn("Erro ao transmitir via Supabase Realtime:", err);
+  }
 
   // Dispara evento local
   if (typeof window !== "undefined") {
@@ -292,6 +384,15 @@ export function markConversationAsRead(
 
   if (changed) {
     saveAllChatMessages(updated);
+    // Notifica outros dispositivos sobre a leitura
+    try {
+      getSupabaseChatChannel()?.send({
+        type: "broadcast",
+        event: "CONVERSATION_READ",
+        payload: { conversationId, role },
+      });
+    } catch {}
+
     if (typeof window !== "undefined") {
       window.dispatchEvent(
         new CustomEvent("bigdog_chat_event", { detail: { type: "READ_STATUS_UPDATED" } })
@@ -351,6 +452,7 @@ export function getAllChatConversations(): ChatConversationSummary[] {
     // Ordena do mais antigo para o mais recente para achar o último
     msgList.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     const lastMsg = msgList[msgList.length - 1];
+    if (!lastMsg) continue;
 
     // Encontra informações mais ricas do tutor entre todas as mensagens da conversa
     let tutorName = "Tutor";
@@ -362,6 +464,7 @@ export function getAllChatConversations(): ChatConversationSummary[] {
 
     for (let i = msgList.length - 1; i >= 0; i--) {
       const m = msgList[i];
+      if (!m) continue;
       if (m.tutorName && tutorName === "Tutor") tutorName = m.tutorName;
       if (m.senderRole === "tutor" && m.senderName && tutorName === "Tutor") tutorName = m.senderName;
       if (m.tutorId && !tutorId) tutorId = m.tutorId;
@@ -476,6 +579,7 @@ export function useChatQueue() {
   };
 
   useEffect(() => {
+    getSupabaseChatChannel();
     refresh();
 
     const handleEvent = () => refresh();
@@ -517,6 +621,7 @@ export function useInAppChat(options?: {
   };
 
   useEffect(() => {
+    getSupabaseChatChannel();
     refresh();
 
     const handleLocalEvent = (e: Event) => {

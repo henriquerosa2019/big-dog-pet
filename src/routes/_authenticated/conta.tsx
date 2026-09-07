@@ -579,7 +579,7 @@ function Conta() {
                       className="mt-2 h-7 rounded-xl text-xs font-semibold gap-1.5 px-3 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
                       onClick={() =>
                         openInAppChat({
-                          contextTag: item.title,
+                          contextTag: item.label,
                           defaultText: item.whatsappMessage,
                         })
                       }
