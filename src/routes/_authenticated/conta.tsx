@@ -673,7 +673,9 @@ function Conta() {
                   "rounded-2xl p-3 shadow-card transition-all",
                   inService
                     ? "border-2 border-emerald-500/80 bg-emerald-50/60 dark:border-emerald-500/60 dark:bg-emerald-950/30 ring-1 ring-emerald-400/40 shadow-md"
-                    : "bg-card",
+                    : apptFilter === "abertos"
+                      ? "border-2 border-emerald-500/70 bg-emerald-50/70 dark:border-emerald-500/60 dark:bg-emerald-950/30 shadow-md"
+                      : "bg-card",
                 )}
               >
                 {inService && (

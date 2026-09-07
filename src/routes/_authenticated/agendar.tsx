@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/sheet";
 import { fetchAddressByCep, maskCep } from "@/lib/navigation";
 import { AlertTriangle, Clock, CheckCircle2, Check } from "lucide-react";
+import { dispatchStatusAlert } from "@/components/StatusAlertNotifier";
 import {
   evaluateSlotCapacity,
   findNextAvailableSlot,
@@ -591,6 +592,8 @@ function Agendar() {
     },
     onSuccess: ({ scheduled, transportPriceCents, servicePriceCents, wantsTransport, zoneNotCovered }) => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
+
       const serviceName = (services ?? []).find((s) => s.id === serviceId)?.name ?? "serviço";
       const rawPetName = (pets ?? []).find((p) => p.id === petId)?.name;
       const petName = rawPetName ? capitalizeWords(rawPetName) : undefined;
@@ -616,8 +619,16 @@ function Agendar() {
         // navegador): não perde a confirmação, mas navega a própria aba.
         window.location.href = link;
       }
-      toast.success("Agendamento enviado! Confirme a liberação pelo WhatsApp.");
-      navigate({ to: "/conta" });
+
+      // Alerta sonoro de 3 repetições (3 toques de alarme harmônicos) + Notificação
+      dispatchStatusAlert(
+        "confirmado",
+        `🔔 Agendamento Confirmado!${petName ? ` (${petName})` : ""}`,
+        `Horário agendado para ${formatDateTime(scheduled)}. Acompanhe em tempo real no início da tela principal!`,
+        3
+      );
+
+      navigate({ to: "/" });
     },
     onError: (error) => {
       whatsappWindowRef.current?.close();

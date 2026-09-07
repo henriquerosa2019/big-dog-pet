@@ -1,6 +1,14 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Agendamento e Proteção de Rotas', () => {
+  test.beforeEach(async ({ context, page }) => {
+    await context.clearCookies();
+    await page.addInitScript(() => {
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+    });
+  });
+
   test('Deve redirecionar para login ao tentar agendar sem estar autenticado', async ({ page }) => {
     await page.goto('/agendar');
     await expect(page).toHaveURL(/.*auth/, { timeout: 15000 });

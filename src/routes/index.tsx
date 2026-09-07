@@ -131,7 +131,7 @@ function Home() {
       const { data, error } = await supabase
         .from("appointments")
         .select(
-          "id, scheduled_at, status, ops_status, logistics_type, transport_price_cents, services(name), pets(name), addresses(street, number, district)",
+          "id, scheduled_at, status, ops_status, logistics_type, transport_price_cents, notes, services(name), pets(name), addresses(street, number, district)",
         )
         .eq("user_id", user!.id)
         .neq("status", "cancelado")
@@ -207,9 +207,13 @@ function Home() {
       .channel(`home-realtime-${user.id}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "appointments", filter: `user_id=eq.${user.id}` },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["home-active-appointments", user.id] });
+        { event: "*", schema: "public", table: "appointments" },
+        (payload) => {
+          const rec = (payload.new || payload.old) as { user_id?: string } | undefined;
+          if (!rec?.user_id || rec.user_id === user.id) {
+            queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
+            queryClient.invalidateQueries({ queryKey: ["appointments"] });
+          }
         },
       )
       .on(
@@ -234,8 +238,16 @@ function Home() {
         },
       )
       .subscribe();
+
+    function handleCustomAlert() {
+      queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+    }
+    window.addEventListener("bigdog_status_alert", handleCustomAlert);
+
     return () => {
       void supabase.removeChannel(channel);
+      window.removeEventListener("bigdog_status_alert", handleCustomAlert);
     };
   }, [user?.id, queryClient]);
 
@@ -410,7 +422,122 @@ function Home() {
         </div>
       </section>
 
-      {/* 2. Botões Rápidos: Agendar Serviço e Ir para a Loja */}
+      {/* 2. AGENDAMENTOS ATIVOS DO TUTOR - TOPO DA TELA DO TUTOR (SEMPRE EM VERDE!) */}
+      {user?.id && sortedAppointments.length > 0 && (
+        <section className="px-4 pt-4 pb-1 animate-in fade-in slide-in-from-top-3 duration-300">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-80"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-600"></span>
+              </span>
+              <h2 className="font-display text-lg font-bold text-emerald-950 dark:text-emerald-50">
+                Seu agendamento ativo
+              </h2>
+            </div>
+            <Link to="/conta" className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 underline hover:opacity-80">
+              Ver todos ({sortedAppointments.length})
+            </Link>
+          </div>
+
+          <div className="mt-2.5 space-y-3">
+            {sortedAppointments.map((item) => {
+              const hasTransport = item.logistics_type && item.logistics_type !== "levar";
+              const petNameFormatted = item.pets?.name ? capitalizeWords(item.pets.name) : null;
+              const inService = isAppointmentInService(item);
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-3xl border-2 border-emerald-500/90 bg-emerald-50/90 p-4 shadow-md ring-2 ring-emerald-400/40 transition-all dark:border-emerald-500/80 dark:bg-emerald-950/50"
+                >
+                  <div className="mb-2.5 flex items-center justify-between gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/20 px-3 py-1.5 text-xs font-bold text-emerald-900 dark:text-emerald-100">
+                    <span className="flex items-center gap-2">
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600"></span>
+                      </span>
+                      {inService ? "🟢 Pet em atendimento agora" : "🟢 Agendamento confirmado e ativo"}
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-200">
+                      {inService ? "Na loja" : "Garantido"}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-base font-bold text-emerald-950 dark:text-emerald-50">
+                        {item.services?.name ?? "Serviço"}
+                        {petNameFormatted ? ` · 🐾 ${petNameFormatted}` : ""}
+                      </p>
+                      <p className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-emerald-800 dark:text-emerald-300">
+                        <Clock className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                        {formatDateTime(item.scheduled_at)}
+                      </p>
+                    </div>
+                    <Badge className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white font-bold capitalize shadow-xs border-0">
+                      {item.status}
+                    </Badge>
+                  </div>
+
+                  {item.notes?.includes("[ENCAIXE") && (
+                    <div className="mt-2 inline-flex items-center gap-1 rounded-lg bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-900 dark:text-amber-200 border border-amber-500/30">
+                      ⚡ Encaixe / Exceção Autorizada
+                    </div>
+                  )}
+
+                  {hasTransport && (
+                    <div className="mt-3 border-t border-emerald-500/25 pt-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-900 dark:text-emerald-200">
+                          <Truck className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
+                          {logisticsTypeLabels[item.logistics_type as LogisticsType]}
+                          {item.transport_price_cents > 0 &&
+                            ` · ${formatBRL(item.transport_price_cents)}`}
+                        </p>
+                        <Badge className="shrink-0 font-bold bg-emerald-700 text-white border-0 text-[11px]">
+                          {formatOpsStatusWithPet(item.ops_status as OpsStatus, item.pets?.name)}
+                        </Badge>
+                      </div>
+
+                      {item.ops_status && (
+                        <p className="mt-1.5 text-xs italic text-emerald-800 dark:text-emerald-300">
+                          "{getOpsStatusTutorMessage(item.ops_status, item.pets?.name)}"
+                        </p>
+                      )}
+
+                      {item.ops_status && item.ops_status !== "agendado" && (
+                        <div className="mt-2">
+                          <DriverContact appointmentId={item.id} />
+                        </div>
+                      )}
+
+                      <div className="mt-2">
+                        <DriverLiveMap
+                          appointmentId={item.id}
+                          active={
+                            item.ops_status === "em_deslocamento_retirada" ||
+                            item.ops_status === "em_rota_devolucao"
+                          }
+                        />
+                      </div>
+
+                      <div className="mt-2">
+                        <TransportHistoryList
+                          appointmentId={item.id}
+                          currentStatus={item.ops_status ?? undefined}
+                          petName={item.pets?.name}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* 3. Botões Rápidos: Agendar Serviço e Ir para a Loja */}
       <section className="grid grid-cols-2 gap-3 p-4">
         <Button asChild size="lg" className="h-12 rounded-2xl font-bold shadow-sm">
           <Link to="/agendar">Agendar serviço</Link>
@@ -505,124 +632,24 @@ function Home() {
         </section>
       )}
 
-      {/* 5. Agendamentos em Andamento e Status de Delivery */}
-      <section className="px-4 pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-            </span>
-            <h2 className="font-display text-lg font-bold">Agendamentos e Delivery</h2>
+      {/* 5. Agendamentos em Andamento e Status de Delivery (Exibido se não houver agendamento ativo no topo) */}
+      {(!user?.id || sortedAppointments.length === 0) && (
+        <section className="px-4 pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <h2 className="font-display text-lg font-bold">Agendamentos e Delivery</h2>
+            </div>
+            <Link to="/conta" className="text-xs font-semibold text-primary underline">
+              Ver todos
+            </Link>
           </div>
-          <Link to="/conta" className="text-xs font-semibold text-primary underline">
-            Ver todos
-          </Link>
-        </div>
 
-        {user?.id ? (
-          <div className="mt-3 space-y-3">
-            {sortedAppointments.map((item) => {
-              const hasTransport = item.logistics_type && item.logistics_type !== "levar";
-              const petNameFormatted = item.pets?.name ? capitalizeWords(item.pets.name) : null;
-              const inService = isAppointmentInService(item);
-              return (
-                <div
-                  key={item.id}
-                  className={cn(
-                    "rounded-2xl p-4 shadow-card transition-all",
-                    inService
-                      ? "border-2 border-emerald-500/80 bg-emerald-50/60 dark:border-emerald-500/60 dark:bg-emerald-950/30 ring-1 ring-emerald-400/40 shadow-md"
-                      : "border border-border/80 bg-card",
-                  )}
-                >
-                  {inService && (
-                    <div className="mb-2.5 flex items-center justify-between gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:text-emerald-200">
-                      <span className="flex items-center gap-1.5">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
-                        </span>
-                        🟢 Em atendimento agora
-                      </span>
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-                        Início da fila
-                      </span>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-base font-bold text-foreground">
-                        {item.services?.name ?? "Serviço"}
-                        {petNameFormatted ? ` ${petNameFormatted}` : ""}
-                      </p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <Clock className="h-3 w-3" />
-                        {formatDateTime(item.scheduled_at)}
-                        {petNameFormatted ? ` · 🐾 ${petNameFormatted}` : ""}
-                      </p>
-                    </div>
-                    <Badge
-                      variant="secondary"
-                      className={cn("shrink-0 capitalize", statusToneClass(appointmentStatusTone(item.status)))}
-                    >
-                      {item.status}
-                    </Badge>
-                  </div>
-
-                  {hasTransport && (
-                    <div className="mt-2.5 border-t border-border/60 pt-2.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Truck className="h-3.5 w-3.5 text-primary" />
-                          {logisticsTypeLabels[item.logistics_type as LogisticsType]}
-                          {item.transport_price_cents > 0 &&
-                            ` · ${formatBRL(item.transport_price_cents)}`}
-                        </p>
-                        <Badge
-                          variant="secondary"
-                          className={cn("shrink-0 font-semibold", statusToneClass(opsStatusTone(item.ops_status ?? "agendado")))}
-                        >
-                          {formatOpsStatusWithPet(item.ops_status as OpsStatus, item.pets?.name)}
-                        </Badge>
-                      </div>
-
-                      {item.ops_status && (
-                        <p className="mt-1.5 text-xs italic text-muted-foreground">
-                          "{getOpsStatusTutorMessage(item.ops_status, item.pets?.name)}"
-                        </p>
-                      )}
-
-                      {item.ops_status && item.ops_status !== "agendado" && (
-                        <div className="mt-2">
-                          <DriverContact appointmentId={item.id} />
-                        </div>
-                      )}
-
-                      <div className="mt-2">
-                        <DriverLiveMap
-                          appointmentId={item.id}
-                          active={
-                            item.ops_status === "em_deslocamento_retirada" ||
-                            item.ops_status === "em_rota_devolucao"
-                          }
-                        />
-                      </div>
-
-                      <div className="mt-2">
-                        <TransportHistoryList
-                          appointmentId={item.id}
-                          currentStatus={item.ops_status ?? undefined}
-                          petName={item.pets?.name}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {(appointments ?? []).length === 0 && (
+          {user?.id ? (
+            <div className="mt-3">
               <div className="rounded-2xl border border-dashed border-border/80 bg-card/50 p-4 text-center">
                 <p className="text-xs text-muted-foreground">
                   Nenhum agendamento ativo no momento.
@@ -631,31 +658,31 @@ function Home() {
                   <Link to="/agendar">Fazer novo agendamento</Link>
                 </Button>
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="mt-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 shadow-card">
-            <div className="flex items-center gap-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
-                <User className="h-5 w-5" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-foreground">
-                  Acompanhe seus pets e agendamentos
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  Faça login para ver o status de delivery ao vivo, histórico e vacinas.
-                </p>
+            </div>
+          ) : (
+            <div className="mt-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 shadow-card">
+              <div className="flex items-center gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
+                  <User className="h-5 w-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-foreground">
+                    Acompanhe seus pets e agendamentos
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Faça login para ver o status de delivery ao vivo, histórico e vacinas.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 flex gap-2">
+                <Button asChild size="sm" className="h-8 rounded-xl text-xs font-semibold flex-1">
+                  <Link to="/auth">Entrar na minha conta</Link>
+                </Button>
               </div>
             </div>
-            <div className="mt-3 flex gap-2">
-              <Button asChild size="sm" className="h-8 rounded-xl text-xs font-semibold flex-1">
-                <Link to="/auth">Entrar na minha conta</Link>
-              </Button>
-            </div>
-          </div>
-        )}
-      </section>
+          )}
+        </section>
+      )}
 
       {/* 6. Avisos de Saúde, Vacinas, Consultas e Retornos */}
       {user?.id && homeAlerts.length > 0 && (

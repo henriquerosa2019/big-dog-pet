@@ -16,9 +16,10 @@ export interface StatusAlertEventDetail {
 export function dispatchStatusAlert(
   tone: SoundAlertTone,
   title: string,
-  description?: string
+  description?: string,
+  repeats = 3
 ): void {
-  playStatusSound(tone);
+  playStatusSound(tone, repeats);
   const options = description ? { description } : undefined;
 
   switch (tone) {
@@ -224,10 +225,9 @@ export function StatusAlertNotifier() {
       .on(
         "postgres_changes",
         {
-          event: "UPDATE",
+          event: "*",
           schema: "public",
           table: "appointments",
-          ...(isAdmin ? {} : { filter: `user_id=eq.${user.id}` }),
         },
         (payload) => {
           const newRecord = payload.new as {
@@ -238,6 +238,25 @@ export function StatusAlertNotifier() {
           };
           if (!newRecord || !newRecord.id) return;
 
+          // Se não for admin, garante que o agendamento pertence a este usuário
+          if (!isAdmin && newRecord.user_id && newRecord.user_id !== user.id) {
+            return;
+          }
+
+          // Se for INSERT de novo agendamento feito para o tutor
+          if (payload.eventType === "INSERT") {
+            knownStatusMap.current.set(newRecord.id, {
+              status: newRecord.status || "agendado",
+              ops_status: newRecord.ops_status || "",
+            });
+            playStatusSound("confirmado", 3);
+            toast.success("🔔 Agendamento Confirmado pela Loja!", {
+              description: "Seu pet está com agendamento ativo e garantido no topo da tela inicial!",
+            });
+            return;
+          }
+
+          // Se for UPDATE de status ou ops_status
           const prev = knownStatusMap.current.get(newRecord.id);
           const prevStatus = prev?.status;
           const newStatus = newRecord.status || "";
@@ -257,7 +276,7 @@ export function StatusAlertNotifier() {
 
           const alert = resolveStatusAlert(prevStatus, newStatus, prevOps, newOps);
           if (alert) {
-            playStatusSound(alert.tone);
+            playStatusSound(alert.tone, 3); // Soa 3 vezes o alarme
             const options = { description: alert.description };
             if (alert.tone === "confirmado" || alert.tone === "concluido") {
               toast.success(alert.title, options);
