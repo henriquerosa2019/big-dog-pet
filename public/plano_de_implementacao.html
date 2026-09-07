@@ -1,21 +1,55 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Plano de Implementação & Resumo Executivo - Big Dog Pet</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Plano Dinâmico de Implementação & Dashboard · Big Dog Pet v5</title>
+  <!-- Tailwind CSS via allowlisted CDN -->
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg: #0B0F19;
+      --card: #111827;
+      --card-border: #1F2937;
+      --text: #F3F4F6;
+      --muted: #9CA3AF;
+      --primary: #0284C7;
+      --primary-hover: #0369A1;
+      --accent: #10B981;
+    }
     body {
       font-family: 'Plus Jakarta Sans', sans-serif;
-      background-color: #0B0F19;
-      color: #E2E8F0;
+      background-color: var(--bg);
+      color: var(--text);
     }
     code, pre {
       font-family: 'JetBrains Mono', monospace;
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0B0F19;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1F2937;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #374151;
+    }
+    /* Pulse badge */
+    @keyframes softPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.8; transform: scale(1.03); }
+    }
+    .soft-pulse {
+      animation: softPulse 2s infinite ease-in-out;
     }
     @media print {
       body {
@@ -25,445 +59,1142 @@
       .no-print {
         display: none !important;
       }
-      .print-border {
-        border: 1px solid #CBD5E1 !important;
-        box-shadow: none !important;
+      .tab-pane {
+        display: block !important;
+        opacity: 1 !important;
       }
       .print-card {
         background-color: #F8FAFC !important;
+        border: 1px solid #E2E8F0 !important;
+        color: #0F172A !important;
+        break-inside: avoid;
+        margin-bottom: 1.5rem;
+      }
+      .print-title {
         color: #0F172A !important;
       }
-      .print-heading {
-        color: #0F172A !important;
-      }
-      a {
-        color: #0284C7 !important;
-        text-decoration: underline !important;
-      }
-    }
-    /* Smooth Scroll */
-    html {
-      scroll-behavior: smooth;
     }
   </style>
 </head>
-<body class="min-h-screen antialiased selection:bg-cyan-500 selection:text-white">
+<body class="min-h-screen antialiased selection:bg-cyan-500 selection:text-white pb-16">
 
-  <!-- TOP HEADER / ACTION BAR -->
+  <!-- TOP DYNAMIC NAVBAR -->
   <header class="sticky top-0 z-50 bg-[#0B0F19]/90 backdrop-blur-md border-b border-slate-800 no-print">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      
+      <!-- Brand & Project -->
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-xl shadow-lg shadow-amber-500/20">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-cyan-500 flex items-center justify-center text-xl shadow-lg shadow-cyan-500/10">
           🐾
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <h1 class="font-bold text-slate-100 text-base leading-tight">Big Dog Pet · Centro Veterinário & Estética</h1>
-            <span class="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Versão v5</span>
+            <h1 class="font-bold text-slate-100 text-sm sm:text-base leading-tight">Big Dog Pet · Centro Veterinário</h1>
+            <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+              Plano Dinâmico v5
+            </span>
           </div>
-          <p class="text-xs text-slate-400">Plano Técnico de Implementação & Resumo Executivo de Entregas</p>
+          <p class="text-xs text-slate-400">Ambiente Interativo de Gestão, Simulação & Implementação</p>
         </div>
       </div>
 
-      <!-- Action Buttons -->
-      <div class="flex items-center gap-2.5">
-        <!-- Download .md Button -->
-        <button id="btnDownloadMd" class="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition shadow-sm hover:border-slate-600">
-          <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <!-- Quick Action Toolbar -->
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- Audio Test Trigger -->
+        <button id="btnPlaySound" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-700/50 rounded-lg transition" title="Toca o alarme sonoro real de 2 toques (880Hz + 1174Hz)">
+          <span>🔔</span>
+          <span>Testar Som (2 Toques)</span>
+        </button>
+
+        <!-- Download .MD -->
+        <button id="btnDownloadMd" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition">
+          <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
           </svg>
-          <span>Baixar Plano (.MD)</span>
+          <span>Baixar .MD</span>
         </button>
 
-        <!-- Print / PDF Button -->
-        <button onclick="window.print()" class="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition shadow-lg shadow-cyan-600/20">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <!-- Download .JSON -->
+        <button id="btnDownloadJson" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition">
+          <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+          </svg>
+          <span>Baixar .JSON</span>
+        </button>
+
+        <!-- Print / PDF -->
+        <button onclick="window.print()" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition shadow-md shadow-cyan-600/20">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
           </svg>
-          <span>Imprimir / Salvar PDF</span>
+          <span>Salvar PDF</span>
         </button>
-
-        <!-- BPMN Link -->
-        <a href="file:///C:/Users/Henrique/.gemini/antigravity/brain/d6c4f97a-324d-4f20-b013-9c5c974d9ef5/bpmn_processo_atualizado_big_dog_pet.html" target="_blank" class="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg transition">
-          <span>📊 Ver BPMN Interativo</span>
-        </a>
       </div>
     </div>
   </header>
 
-  <!-- MAIN CONTAINER -->
-  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+  <!-- MAIN WRAPPER -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 pt-6">
 
-    <!-- HERO BANNER -->
-    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/40 border border-slate-800 p-6 sm:p-8 mb-8 shadow-2xl">
-      <div class="absolute -top-24 -right-24 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
-      <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold mb-3">
-            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
-            Engenharia de Software · Big Dog Pet v5
-          </div>
-          <h2 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight leading-tight">
-            Plano de Implementação & Relatório de Entregas
-          </h2>
-          <p class="mt-2 text-sm text-slate-300 max-w-2xl leading-relaxed">
-            Documentação técnica completa e consolidada das 12 grandes implementações no app: Fila de Atendimento por Tutor com Som de 2 Toques, Log Histórico com Filtros, Painel Operacional da Loja, Fotos Reais no Catálogo, Cálculo de Distância e Linhas do Tempo Clínicas.
-          </p>
+    <!-- KPI & STATUS CARDS (DINÂMICOS) -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+      <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-xl shadow-lg relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Entregas do Plano</span>
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
         </div>
-        <div class="flex flex-row md:flex-col gap-3 min-w-[200px]">
-          <div class="flex-1 bg-slate-800/80 border border-slate-700/60 rounded-xl p-3 text-center">
-            <div class="text-2xl font-black text-emerald-400">12 / 12</div>
-            <div class="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Metas Entregues</div>
-          </div>
-          <div class="flex-1 bg-slate-800/80 border border-slate-700/60 rounded-xl p-3 text-center">
-            <div class="text-2xl font-black text-cyan-400">0 Erros</div>
-            <div class="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Build Sincronizado</div>
-          </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span id="statDeliveries" class="text-2xl sm:text-3xl font-black text-emerald-400">12</span>
+          <span class="text-xs text-slate-500">/ 12 concluídas</span>
         </div>
+        <div class="w-full bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
+          <div class="bg-emerald-500 h-full rounded-full w-full"></div>
+        </div>
+      </div>
+
+      <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-xl shadow-lg">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Build & Tipos</span>
+          <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span class="text-2xl sm:text-3xl font-black text-cyan-400">100%</span>
+          <span class="text-xs text-slate-500">Zero erros</span>
+        </div>
+        <p class="text-[11px] text-slate-400 mt-3 font-mono">TanStack Start + Nitro</p>
+      </div>
+
+      <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-xl shadow-lg">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Custo de API</span>
+          <span class="text-xs text-emerald-400 font-bold">Grátis</span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span class="text-2xl sm:text-3xl font-black text-white">R$ 0,00</span>
+          <span class="text-xs text-slate-500">sem Meta API</span>
+        </div>
+        <p class="text-[11px] text-slate-400 mt-3">Chat interno nativo offline</p>
+      </div>
+
+      <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-xl shadow-lg">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Sincronização</span>
+          <span class="text-xs text-purple-400 font-mono">main</span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span class="text-xl sm:text-2xl font-black text-purple-400">Git Synced</span>
+        </div>
+        <p class="text-[11px] text-slate-400 mt-3 truncate font-mono">Commit: 3945479</p>
       </div>
     </div>
 
-    <!-- QUICK INDEX / NAVIGATION -->
-    <div class="mb-10 p-5 rounded-xl bg-slate-900/60 border border-slate-800 no-print">
-      <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
-        <span>📑</span> Índice do Documento
-      </h3>
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-        <a href="#plano-loja" class="p-2.5 rounded-lg bg-slate-800/50 hover:bg-cyan-500/10 hover:text-cyan-300 border border-slate-700/40 transition">
-          1. Reformulação da Loja & Fila de Chat
-        </a>
-        <a href="#plano-chat-drawer" class="p-2.5 rounded-lg bg-slate-800/50 hover:bg-cyan-500/10 hover:text-cyan-300 border border-slate-700/40 transition">
-          2. Fila por Ordem de Chegada no Topo
-        </a>
-        <a href="#plano-logs" class="p-2.5 rounded-lg bg-slate-800/50 hover:bg-cyan-500/10 hover:text-cyan-300 border border-slate-700/40 transition">
-          3. Log Histórico com Filtros por Tutor e Data
-        </a>
-        <a href="#plano-fotos" class="p-2.5 rounded-lg bg-slate-800/50 hover:bg-cyan-500/10 hover:text-cyan-300 border border-slate-700/40 transition">
-          4. Fotos Reais no Catálogo & Busca Web
-        </a>
-        <a href="#plano-wzap" class="p-2.5 rounded-lg bg-slate-800/50 hover:bg-cyan-500/10 hover:text-cyan-300 border border-slate-700/40 transition">
-          5. Substituição de WhatsApp por Chat Azul
-        </a>
-        <a href="#plano-offline" class="p-2.5 rounded-lg bg-slate-800/50 hover:bg-cyan-500/10 hover:text-cyan-300 border border-slate-700/40 transition">
-          6. Bate-papo Offline com Alarme de 2 Toques
-        </a>
-        <a href="#plano-timeline" class="p-2.5 rounded-lg bg-slate-800/50 hover:bg-cyan-500/10 hover:text-cyan-300 border border-slate-700/40 transition">
-          7. Linhas do Tempo Clínicas & 1 Toque
-        </a>
-        <a href="#plano-financeiro" class="p-2.5 rounded-lg bg-slate-800/50 hover:bg-cyan-500/10 hover:text-cyan-300 border border-slate-700/40 transition">
-          8. Relatório Financeiro de Entregas & Margem
-        </a>
-        <a href="#plano-distancia" class="p-2.5 rounded-lg bg-slate-800/50 hover:bg-cyan-500/10 hover:text-cyan-300 border border-slate-700/40 transition">
-          9. Distância do Tutor & Regra do Dobro
-        </a>
-        <a href="#plano-pagamento" class="p-2.5 rounded-lg bg-slate-800/50 hover:bg-cyan-500/10 hover:text-cyan-300 border border-slate-700/40 transition">
-          10. Pagamento em 1 Toque (Pix/Cartão/Dinheiro)
-        </a>
-        <a href="#plano-estoque" class="p-2.5 rounded-lg bg-slate-800/50 hover:bg-cyan-500/10 hover:text-cyan-300 border border-slate-700/40 transition">
-          11. Alerta de Estoque Crítico Curva A
-        </a>
-        <a href="#plano-bpmn" class="p-2.5 rounded-lg bg-slate-800/50 hover:bg-cyan-500/10 hover:text-cyan-300 border border-slate-700/40 transition">
-          12. Diagrama BPMN Ponta a Ponta Expansível
-        </a>
+    <!-- MAIN DYNAMIC TABS NAVIGATION -->
+    <div class="border-b border-slate-800 mb-6 flex flex-wrap items-center justify-between gap-3 no-print">
+      <nav class="flex space-x-1 sm:space-x-2" id="navTabs">
+        <button data-tab="tab-plan" class="tab-btn active px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-t-xl transition border-b-2 border-cyan-500 text-cyan-400 bg-slate-800/60">
+          📋 1. Plano Completo & Entregas
+        </button>
+        <button data-tab="tab-simulator" class="tab-btn px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-t-xl transition border-b-2 border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/30">
+          🧪 2. Simulador Interativo de Chat & Fila
+        </button>
+        <button data-tab="tab-logs" class="tab-btn px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-t-xl transition border-b-2 border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/30">
+          📊 3. Simulador de Log com Filtros
+        </button>
+        <button data-tab="tab-architecture" class="tab-btn px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-t-xl transition border-b-2 border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/30">
+          🗺️ 4. BPMN & Arquitetura de Dados
+        </button>
+      </nav>
+
+      <!-- Instant Search Input (Filtra dinamicamente os cards) -->
+      <div class="relative min-w-[240px] max-w-xs pb-2">
+        <input 
+          type="text" 
+          id="searchPlanInput" 
+          placeholder="Filtrar tópico ou arquivo..." 
+          class="w-full bg-slate-900 text-xs text-slate-200 placeholder-slate-500 border border-slate-700/80 rounded-lg pl-8 pr-3 py-1.5 focus:outline-none focus:border-cyan-500 transition"
+        />
+        <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+        </svg>
       </div>
     </div>
 
-    <!-- CONTENT SECTIONS -->
-    <div class="space-y-8">
+    <!-- ========================================== -->
+    <!-- TAB 1: PLANO COMPLETO & ENTREGAS           -->
+    <!-- ========================================== -->
+    <div id="tab-plan" class="tab-pane block space-y-4">
 
-      <!-- SECTION 1 -->
-      <section id="plano-loja" class="p-6 sm:p-7 rounded-2xl bg-slate-900/80 border border-slate-800 print-card print-border shadow-xl">
-        <div class="flex items-start justify-between gap-4 mb-4">
-          <div class="flex items-center gap-3">
-            <span class="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-sm">01</span>
-            <h3 class="text-lg sm:text-xl font-bold text-white print-heading">
-              Reformulação da Tela da Loja (Admin) com Hero Operacional & Chamados dos Tutores
+      <!-- Category Filter Pills -->
+      <div class="flex flex-wrap items-center gap-2 mb-2 no-print">
+        <span class="text-xs text-slate-400 font-semibold mr-1">Filtrar por Área:</span>
+        <button class="filter-pill active px-3 py-1 text-xs rounded-lg font-medium bg-cyan-600 text-white" data-category="all">Todos (12)</button>
+        <button class="filter-pill px-3 py-1 text-xs rounded-lg font-medium bg-slate-800 text-slate-300 hover:bg-slate-700" data-category="chat">💬 Chat & Atendimento</button>
+        <button class="filter-pill px-3 py-1 text-xs rounded-lg font-medium bg-slate-800 text-slate-300 hover:bg-slate-700" data-category="loja">🏪 Loja & Catálogo</button>
+        <button class="filter-pill px-3 py-1 text-xs rounded-lg font-medium bg-slate-800 text-slate-300 hover:bg-slate-700" data-category="clinica">🩺 Clínica & Pet</button>
+        <button class="filter-pill px-3 py-1 text-xs rounded-lg font-medium bg-slate-800 text-slate-300 hover:bg-slate-700" data-category="motorista">🚚 Motorista & Frete</button>
+      </div>
+
+      <!-- Expand/Collapse All Button -->
+      <div class="flex justify-end gap-2 text-xs no-print mb-2">
+        <button id="btnExpandAll" class="text-cyan-400 hover:underline">Expandir todos os detalhes [+]</button>
+        <span class="text-slate-600">·</span>
+        <button id="btnCollapseAll" class="text-slate-400 hover:underline">Recolher todos [-]</button>
+      </div>
+
+      <!-- LISTA DE CARDS DINÂMICOS -->
+      <div id="planCardsContainer" class="space-y-3">
+        <!-- Cards serão renderizados e filtrados via JS -->
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 2: SIMULADOR INTERATIVO DE CHAT & FILA -->
+    <!-- ========================================== -->
+    <div id="tab-simulator" class="tab-pane hidden space-y-6">
+      
+      <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="font-bold text-white text-base flex items-center gap-2">
+              <span>🧪</span> Laboratório do Chat Interno & Fila da Loja em Tempo Real
             </h3>
+            <p class="text-xs text-slate-400 mt-0.5">
+              Experimente a transmissão de mensagens entre o Tutor e a Loja, com disparo sonoro real (Web Audio API) e fila por ordem de chegada.
+            </p>
           </div>
-          <span class="px-2.5 py-1 text-[11px] font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Implementado</span>
+          <button id="btnResetSimulator" class="px-3 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg transition">
+            🔄 Reiniciar Simulação
+          </button>
         </div>
-        <p class="text-sm text-slate-300 mb-4 leading-relaxed">
-          A página inicial do administrador foi reestruturada para refletir o mesmo padrão visual e dinâmico da tela inicial do tutor. O topo agora contém o <strong>Hero Operacional da Loja</strong> com status em tempo real e os <strong>Chamados Recentes dos Tutores</strong> que enviaram mensagens pelo chat interno.
-        </p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
-          <div class="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
-            <h4 class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-2">Características Operacionais</h4>
-            <ul class="text-xs text-slate-300 space-y-1.5 list-disc list-inside">
-              <li>Identificação da Unidade Big Dog Pet (Vila Bazú, Franco da Rocha).</li>
-              <li>Status em tempo real: <code class="text-emerald-400 bg-slate-950 px-1.5 py-0.5 rounded">🟢 Loja Aberta · Atendimento Online</code>.</li>
-              <li>3 KPIs no topo: Chamados a Responder, Agendamentos Hoje e Transportes em Rota.</li>
-              <li>Botão azul de 1 toque <code class="text-cyan-300 bg-slate-950 px-1.5 py-0.5 rounded">[💬 Responder Tutor]</code> abrindo direto a conversa daquele tutor.</li>
-            </ul>
+      </div>
+
+      <!-- Two-Column Interactive Playground -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- SIMULADOR: TELA DO TUTOR -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow-2xl">
+          <div>
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-cyan-600 flex items-center justify-center font-bold text-white text-sm">
+                  👤
+                </div>
+                <div>
+                  <h4 class="font-bold text-slate-100 text-sm">Visão do Tutor</h4>
+                  <p class="text-[11px] text-slate-400">Carlos Eduardo · Tutor do Thor (Golden)</p>
+                </div>
+              </div>
+              <span id="tutorStatusBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+                Pronto para enviar
+              </span>
+            </div>
+
+            <!-- Messages Window (Tutor) -->
+            <div id="tutorChatBox" class="h-64 overflow-y-auto space-y-3 p-3 rounded-xl bg-slate-950/80 border border-slate-800/80 text-xs">
+              <div class="text-center text-[10px] text-slate-500 my-2">Conversa criptografada com a Loja Big Dog Pet</div>
+              <div class="flex justify-end">
+                <div class="bg-cyan-600 text-white rounded-2xl rounded-tr-none px-3.5 py-2 max-w-[80%] shadow-md">
+                  <p>Olá! Gostaria de tirar uma dúvida sobre o retorno da vacina V10 do Thor.</p>
+                  <span class="text-[9px] text-cyan-200 block text-right mt-1">16:40 · Entregue</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
-            <h4 class="text-xs font-bold uppercase tracking-wider text-amber-400 mb-2">Arquivo Modificado</h4>
-            <p class="text-xs font-mono text-slate-300 mb-2 break-all">src/routes/_authenticated/admin.tsx</p>
+
+          <!-- Tutor Controls & Form -->
+          <div class="mt-4 pt-3 border-t border-slate-800 space-y-3">
+            <div class="flex gap-2">
+              <select id="simContextSelect" class="bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-200 px-2.5 py-1.5 focus:outline-none focus:border-cyan-500">
+                <option value="Vacina V10">🐾 Contexto: Vacina V10</option>
+                <option value="Banho & Tosa">🛁 Contexto: Banho & Tosa</option>
+                <option value="Pedido Carrinho">🛒 Contexto: Pedido da Loja</option>
+                <option value="Consulta Veterinária">🩺 Contexto: Consulta Médica</option>
+              </select>
+            </div>
+            <div class="flex gap-2">
+              <input 
+                type="text" 
+                id="tutorMsgInput" 
+                placeholder="Digite uma mensagem como Tutor..." 
+                class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+              />
+              <button id="btnSendAsTutor" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 font-semibold text-xs text-white rounded-xl transition shadow-md shadow-cyan-600/30 flex items-center gap-1">
+                <span>Enviar</span>
+                <span>➤</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SIMULADOR: TELA DA LOJA / ADMIN -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow-2xl">
+          <div>
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center font-bold text-white text-sm">
+                  🏪
+                </div>
+                <div>
+                  <h4 class="font-bold text-slate-100 text-sm">Visão da Loja (Admin)</h4>
+                  <p class="text-[11px] text-slate-400">Fila de Atendimento por Ordem de Chegada</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span id="storeQueueCounter" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  1 na Fila
+                </span>
+                <span id="storeBadgeNew" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                  (Msg Nova)
+                </span>
+              </div>
+            </div>
+
+            <!-- Fila de Tutores na Loja -->
+            <div class="mb-3">
+              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
+                <span>Tutores Aguardando Atendimento:</span>
+                <span class="text-[10px] text-cyan-400">Mais recentes no topo</span>
+              </div>
+              <div id="storeQueueList" class="space-y-2 max-h-32 overflow-y-auto">
+                <!-- Itens da fila gerados dinamicamente -->
+              </div>
+            </div>
+
+            <!-- Active Conversation Box (Loja) -->
+            <div class="rounded-xl bg-slate-950/80 border border-slate-800/80 p-3">
+              <div class="flex items-center justify-between text-xs border-b border-slate-800 pb-2 mb-2">
+                <span class="font-bold text-slate-200" id="activeChatHeader">💬 Atendimento: Carlos Eduardo · 🐾 Thor</span>
+                <span class="text-[10px] text-emerald-400">🟢 Online</span>
+              </div>
+              <div id="storeChatBox" class="h-32 overflow-y-auto space-y-2 text-xs p-1">
+                <!-- Transcrição espelhada -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Store Controls & Reply Form -->
+          <div class="mt-4 pt-3 border-t border-slate-800 flex gap-2">
+            <input 
+              type="text" 
+              id="storeMsgInput" 
+              placeholder="Responder como Equipe Big Dog Pet..." 
+              class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+            />
+            <button id="btnSendAsStore" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 font-semibold text-xs text-slate-950 rounded-xl transition shadow-md shadow-amber-500/30 flex items-center gap-1">
+              <span>Responder</span>
+              <span>➤</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 3: SIMULADOR DE LOG COM FILTROS        -->
+    <!-- ========================================== -->
+    <div id="tab-logs" class="tab-pane hidden space-y-5">
+      
+      <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl shadow-xl">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4 mb-4">
+          <div>
+            <h3 class="font-bold text-white text-lg flex items-center gap-2">
+              <span>📊</span> Histórico Central de Atendimentos & Consultas (Log Interativo)
+            </h3>
+            <p class="text-xs text-slate-400 mt-1">
+              Simulador do componente <code class="text-cyan-400">AdminChatLogs.tsx</code> integrado na aba do administrador.
+            </p>
+          </div>
+          <button id="btnExportTableCsv" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition shadow-md shadow-emerald-600/20">
+            <span>📥 Exportar Registros (CSV)</span>
+          </button>
+        </div>
+
+        <!-- Filters Toolbar -->
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-medium text-slate-400">Período:</span>
+            <button class="log-filter-btn active px-3 py-1 text-xs rounded-lg font-semibold bg-cyan-600 text-white" data-period="all">Todos</button>
+            <button class="log-filter-btn px-3 py-1 text-xs rounded-lg font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700" data-period="today">Hoje</button>
+            <button class="log-filter-btn px-3 py-1 text-xs rounded-lg font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700" data-period="week">Últimos 7 dias</button>
+            <button class="log-filter-btn px-3 py-1 text-xs rounded-lg font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700" data-period="month">Mês Atual</button>
+          </div>
+
+          <!-- Text Search Filter in Log -->
+          <div class="w-full sm:w-auto">
+            <input 
+              type="text" 
+              id="logSearchInput" 
+              placeholder="Buscar tutor, pet ou assunto..." 
+              class="w-full sm:w-64 bg-slate-950 text-xs text-slate-200 border border-slate-700 rounded-lg px-3 py-1.5 focus:outline-none focus:border-cyan-500"
+            />
+          </div>
+        </div>
+
+        <!-- Interactive Log Table -->
+        <div class="overflow-x-auto rounded-xl border border-slate-800">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-950 text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-800 font-semibold">
+              <tr>
+                <th class="py-3 px-4">Data & Horário</th>
+                <th class="py-3 px-4">Tutor</th>
+                <th class="py-3 px-4">Pet / Espécie</th>
+                <th class="py-3 px-4">Contexto Clínico/Loja</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4 text-center">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="logTableBody" class="divide-y divide-slate-800/60 bg-slate-900/40">
+              <!-- Linhas geradas via JavaScript -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Counter summary -->
+        <div class="flex items-center justify-between text-xs text-slate-400 pt-3">
+          <span id="logRowsCount">Exibindo registros...</span>
+          <span class="text-slate-500">Persistência local auditada</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 4: ARQUITETURA & BPMN                  -->
+    <!-- ========================================== -->
+    <div id="tab-architecture" class="tab-pane hidden space-y-6">
+      
+      <div class="bg-slate-900/80 border border-slate-800 p-6 rounded-2xl shadow-xl">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4 mb-4">
+          <div>
+            <h3 class="font-bold text-white text-lg">Mapeamento Arquitetural & Fluxograma BPMN Ponta a Ponta</h3>
+            <p class="text-xs text-slate-400 mt-1">
+              Visão consolidada das integrações entre Cliente (Tutor), Central da Loja e Frota de Transporte.
+            </p>
+          </div>
+          <a 
+            href="file:///C:/Users/Henrique/.gemini/antigravity/brain/d6c4f97a-324d-4f20-b013-9c5c974d9ef5/bpmn_processo_atualizado_big_dog_pet.html" 
+            target="_blank"
+            class="px-3.5 py-1.5 text-xs font-semibold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg transition"
+          >
+            ↗ Abrir BPMN Interativo em Nova Aba
+          </a>
+        </div>
+
+        <!-- Grid of Architecture Pillars -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800">
+            <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider block mb-1">Pilar 1: Comunicação</span>
+            <h4 class="font-bold text-white text-sm mb-2">Chat Offline & Web Audio</h4>
             <p class="text-xs text-slate-400 leading-relaxed">
-              Integração completa com o hook reativo <code class="text-cyan-300">useChatQueue()</code> e tabs dinâmicos incluindo a nova aba "Atendimentos & Chat".
+              O motor <code class="text-cyan-300">inAppChat.ts</code> utiliza o canal broadcast nativo do navegador e Web Audio API. Alarme sonoro em frequências puras de 880Hz e 1174Hz sem dependência de internet ou cobrança por disparo.
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800">
+            <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider block mb-1">Pilar 2: Roteirização</span>
+            <h4 class="font-bold text-white text-sm mb-2">Distância & Regra do Dobro</h4>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              O módulo <code class="text-emerald-300">distanceCalculator.ts</code> analisa CEP e logradouro, dobra a quilometragem para agendamentos do tipo "Buscar e Devolver", calculando a estimativa exata de combustível e margem do frete.
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800">
+            <span class="text-xs font-bold text-purple-400 uppercase tracking-wider block mb-1">Pilar 3: Clínico</span>
+            <h4 class="font-bold text-white text-sm mb-2">Timelines Verticais</h4>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Histórico unificado na rota <code class="text-purple-300">/pets/$petId</code> com linhas verticais para vacinas, retornos e prontuário, permitindo acionar a clínica em 1 toque transmitindo o contexto exato do pet.
             </p>
           </div>
         </div>
-      </section>
 
-      <!-- SECTION 2 -->
-      <section id="plano-chat-drawer" class="p-6 sm:p-7 rounded-2xl bg-slate-900/80 border border-slate-800 print-card print-border shadow-xl">
-        <div class="flex items-start justify-between gap-4 mb-4">
-          <div class="flex items-center gap-3">
-            <span class="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-sm">02</span>
-            <h3 class="text-lg sm:text-xl font-bold text-white print-heading">
-              Fila de Mensagens por Ordem de Chegada no Chat Superior
-            </h3>
+        <!-- BPMN Direct Frame Preview Container -->
+        <div class="rounded-xl border border-slate-800 overflow-hidden bg-slate-950">
+          <div class="p-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-xs">
+            <span class="font-semibold text-slate-300">Visualização Integrada do Diagrama de Processos</span>
+            <span class="text-[10px] text-slate-500">Clique e explore os subprocessos [+] e [-]</span>
           </div>
-          <span class="px-2.5 py-1 text-[11px] font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Implementado</span>
+          <iframe 
+            src="file:///C:/Users/Henrique/.gemini/antigravity/brain/d6c4f97a-324d-4f20-b013-9c5c974d9ef5/bpmn_processo_atualizado_big_dog_pet.html" 
+            class="w-full h-[600px] border-0"
+            title="Diagrama BPMN"
+          ></iframe>
         </div>
-        <p class="text-sm text-slate-300 mb-4 leading-relaxed">
-          Ao clicar no botão de Chat no canto superior direito como Administrador, o modal exibe uma <strong>Fila de Atendimento por Ordem de Chegada</strong> (não lidas e mais recentes no topo), permitindo selecionar qualquer tutor para atendimento individualizado.
-        </p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
-          <div class="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
-            <h4 class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-2">Visão da Fila da Loja</h4>
-            <ul class="text-xs text-slate-300 space-y-1.5 list-disc list-inside">
-              <li>Cards com nome do tutor, avatar, pet e tag de contexto.</li>
-              <li>Trecho da última mensagem e tempo decorrido ("há 2 min", "15:30").</li>
-              <li>Badge <span class="bg-amber-500/20 text-amber-300 px-1 rounded text-[10px]">Aguardando Loja</span> e badge verde de mensagens novas.</li>
-              <li>Barra de busca instantânea para filtrar a fila pelo nome do tutor ou pet.</li>
-            </ul>
-          </div>
-          <div class="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
-            <h4 class="text-xs font-bold uppercase tracking-wider text-purple-400 mb-2">Visão Individualizada</h4>
-            <ul class="text-xs text-slate-300 space-y-1.5 list-disc list-inside">
-              <li>Cabeçalho com botão <code class="text-slate-300 bg-slate-950 px-1 rounded">[← Voltar à Fila]</code>.</li>
-              <li>Identificação clara: <code class="text-cyan-300">💬 Atendimento: [Nome do Tutor] · 🐾 [Pet]</code>.</li>
-              <li>Campo de resposta da loja ("Responder como Equipe Big Dog Pet").</li>
-              <li>Atualização automática de status para "Respondido" e disparo sonoro.</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <!-- SECTION 3 -->
-      <section id="plano-logs" class="p-6 sm:p-7 rounded-2xl bg-slate-900/80 border border-slate-800 print-card print-border shadow-xl">
-        <div class="flex items-start justify-between gap-4 mb-4">
-          <div class="flex items-center gap-3">
-            <span class="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-sm">03</span>
-            <h3 class="text-lg sm:text-xl font-bold text-white print-heading">
-              Log Histórico de Atendimentos com Filtros por Tutor e Período de Data
-            </h3>
-          </div>
-          <span class="px-2.5 py-1 text-[11px] font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Implementado</span>
-        </div>
-        <p class="text-sm text-slate-300 mb-4 leading-relaxed">
-          Nova aba dedicada <strong>"Atendimentos & Chat"</strong> no painel de administração com motor completo de auditoria e consulta de atendimentos, transcrições e exportação.
-        </p>
-        <div class="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50 mb-4">
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 text-center">
-            <div class="p-2.5 rounded-lg bg-slate-900/80 border border-slate-700">
-              <span class="text-xs text-slate-400">Total Chamados</span>
-              <p class="text-lg font-bold text-white">Consolidado</p>
-            </div>
-            <div class="p-2.5 rounded-lg bg-slate-900/80 border border-slate-700">
-              <span class="text-xs text-slate-400">Aguardando Loja</span>
-              <p class="text-lg font-bold text-amber-400">Fila Ativa</p>
-            </div>
-            <div class="p-2.5 rounded-lg bg-slate-900/80 border border-slate-700">
-              <span class="text-xs text-slate-400">Respondidos</span>
-              <p class="text-lg font-bold text-emerald-400">Finalizados</p>
-            </div>
-            <div class="p-2.5 rounded-lg bg-slate-900/80 border border-slate-700">
-              <span class="text-xs text-slate-400">Exportação</span>
-              <p class="text-lg font-bold text-cyan-400">CSV / Excel</p>
-            </div>
-          </div>
-          <p class="text-xs text-slate-300">
-            <strong>Filtros Disponíveis:</strong> Botões de 1 toque para <code class="text-cyan-300">[Hoje]</code>, <code class="text-cyan-300">[Semana (7 dias)]</code>, <code class="text-cyan-300">[Mês Atual]</code> e <code class="text-cyan-300">[Todos]</code>, combinados com caixa de texto com debounce para busca instantânea por Tutor ou Pet.
-          </p>
-        </div>
-      </section>
-
-      <!-- SECTION 4 -->
-      <section id="plano-fotos" class="p-6 sm:p-7 rounded-2xl bg-slate-900/80 border border-slate-800 print-card print-border shadow-xl">
-        <div class="flex items-start justify-between gap-4 mb-4">
-          <div class="flex items-center gap-3">
-            <span class="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-sm">04</span>
-            <h3 class="text-lg sm:text-xl font-bold text-white print-heading">
-              Melhoria Visual da Loja com Fotos Reais & Busca na Web
-            </h3>
-          </div>
-          <span class="px-2.5 py-1 text-[11px] font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Implementado</span>
-        </div>
-        <p class="text-sm text-slate-300 mb-4 leading-relaxed">
-          Eliminação dos placeholders com letra cinza ("A") no catálogo. Todos os 10 produtos cadastrados no banco Supabase foram atualizados com imagens de estúdio de alta resolução, e adicionado o assistente <strong>"🔍 Buscar Foto na Web"</strong> no editor de produtos da loja.
-        </p>
-      </section>
-
-      <!-- SECTION 5 -->
-      <section id="plano-wzap" class="p-6 sm:p-7 rounded-2xl bg-slate-900/80 border border-slate-800 print-card print-border shadow-xl">
-        <div class="flex items-start justify-between gap-4 mb-4">
-          <div class="flex items-center gap-3">
-            <span class="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-sm">05</span>
-            <h3 class="text-lg sm:text-xl font-bold text-white print-heading">
-              Substituição Definitiva do WhatsApp por Botões de Chat Azul
-            </h3>
-          </div>
-          <span class="px-2.5 py-1 text-[11px] font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Implementado</span>
-        </div>
-        <p class="text-sm text-slate-300 mb-4 leading-relaxed">
-          Todas as chamadas externas para o WhatsApp foram removidas do fluxo principal do aplicativo, substituídas pelo botão nativo azul <code class="text-cyan-300 bg-slate-950 px-2 py-0.5 rounded">[💬 Chat]</code> nas páginas:
-        </p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-          <div class="p-3 rounded-lg bg-slate-800/60 border border-slate-700">
-            <span class="font-bold text-white">Home do Tutor</span>
-            <p class="text-slate-400 mt-1">Acionamento rápido com a clínica.</p>
-          </div>
-          <div class="p-3 rounded-lg bg-slate-800/60 border border-slate-700">
-            <span class="font-bold text-white">Carrinho & Checkout</span>
-            <p class="text-slate-400 mt-1">Dúvidas sobre o pedido/frete.</p>
-          </div>
-          <div class="p-3 rounded-lg bg-slate-800/60 border border-slate-700">
-            <span class="font-bold text-white">Contato do Motorista</span>
-            <p class="text-slate-400 mt-1">Chat direto com a loja pelo app.</p>
-          </div>
-          <div class="p-3 rounded-lg bg-slate-800/60 border border-slate-700">
-            <span class="font-bold text-white">Ficha do Pet & Timelines</span>
-            <p class="text-slate-400 mt-1">Dúvida clínica contextualizada.</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- SECTION 6 -->
-      <section id="plano-offline" class="p-6 sm:p-7 rounded-2xl bg-slate-900/80 border border-slate-800 print-card print-border shadow-xl">
-        <div class="flex items-start justify-between gap-4 mb-4">
-          <div class="flex items-center gap-3">
-            <span class="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-sm">06</span>
-            <h3 class="text-lg sm:text-xl font-bold text-white print-heading">
-              Bate-papo Interno Offline no App com Alarme Sonoro de 2 Toques
-            </h3>
-          </div>
-          <span class="px-2.5 py-1 text-[11px] font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Implementado</span>
-        </div>
-        <p class="text-sm text-slate-300 leading-relaxed">
-          Arquitetura 100% nativa em Web Audio API e LocalStorage com sincronização por <code>BroadcastChannel</code>. Custo operacional zero (R$ 0,00 adicionais por mensagem, sem cobrança de tarifas Meta Cloud API). Ao chegar qualquer mensagem, o sintetizador gera dois bips distintos (880Hz e 1174Hz) e aciona o badge <span class="text-cyan-400 font-bold">(Msg Nova)</span>.
-        </p>
-      </section>
-
-      <!-- SECTION 7 A 12 EM GRID COMPACTO -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-        <!-- SECTION 7 -->
-        <section id="plano-timeline" class="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 print-card print-border">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-xs">07</span>
-            <h3 class="font-bold text-white text-base print-heading">Linhas do Tempo Clínicas Verticais & 1 Toque</h3>
-          </div>
-          <p class="text-xs text-slate-300 leading-relaxed">
-            Organização cronológica na ficha do pet (<code class="text-cyan-300">/pets/$petId</code>) para <strong>Vacinas</strong>, <strong>Retornos Clínicos</strong> e <strong>Prontuário Médico</strong>, com visual em timeline vertical e botão azul de contato direto com a clínica preenchendo o nome do pet e histórico médico.
-          </p>
-        </section>
-
-        <!-- SECTION 8 -->
-        <section id="plano-financeiro" class="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 print-card print-border">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-xs">08</span>
-            <h3 class="font-bold text-white text-base print-heading">Relatório Financeiro das Entregas & Histórico</h3>
-          </div>
-          <p class="text-xs text-slate-300 leading-relaxed">
-            Painel no módulo do motorista e admin com total de fretes faturados, estimativa de consumo de combustível, margem líquida e demonstrativo por método de pagamento com exportação em planilha.
-          </p>
-        </section>
-
-        <!-- SECTION 9 -->
-        <section id="plano-distancia" class="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 print-card print-border">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-xs">09</span>
-            <h3 class="font-bold text-white text-base print-heading">Cálculo de Distância do Tutor & Regra do Dobro</h3>
-          </div>
-          <p class="text-xs text-slate-300 leading-relaxed">
-            Algoritmo inteligente de geolocalização por CEP e endereço com a <strong>Regra do Dobro</strong> para serviços com transporte "Buscar e Devolver" (ida e volta), com registro da quilometragem e combustível estimado.
-          </p>
-        </section>
-
-        <!-- SECTION 10 -->
-        <section id="plano-pagamento" class="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 print-card print-border">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-xs">10</span>
-            <h3 class="font-bold text-white text-base print-heading">Recebimento em 1 Toque (Na Entrega e no Balcão)</h3>
-          </div>
-          <p class="text-xs text-slate-300 leading-relaxed">
-            Interface rápida para motoristas e recepcionistas com botões em 1 toque: <code class="text-emerald-400 bg-slate-950 px-1 rounded">[📱 Pix]</code>, <code class="text-cyan-400 bg-slate-950 px-1 rounded">[💵 Dinheiro]</code>, <code class="text-amber-400 bg-slate-950 px-1 rounded">[💳 Débito]</code> e <code class="text-purple-400 bg-slate-950 px-1 rounded">[💳 Crédito]</code>.
-          </p>
-        </section>
-
-        <!-- SECTION 11 -->
-        <section id="plano-estoque" class="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 print-card print-border">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-xs">11</span>
-            <h3 class="font-bold text-white text-base print-heading">Alerta em Amarelo de Estoque Crítico Curva A</h3>
-          </div>
-          <p class="text-xs text-slate-300 leading-relaxed">
-            Banner amarelo destacado no topo do painel operacional da loja identificando produtos de alto giro (Curva A) com estoque abaixo do ponto de reposição configurado.
-          </p>
-        </section>
-
-        <!-- SECTION 12 -->
-        <section id="plano-bpmn" class="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 print-card print-border">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-xs">12</span>
-            <h3 class="font-bold text-white text-base print-heading">Diagrama BPMN Ponta a Ponta com Subprocessos</h3>
-          </div>
-          <p class="text-xs text-slate-300 leading-relaxed">
-            Mapeamento BPMN de alta legibilidade em raias (Tutor, Loja/Clínica, Motorista), reposicionado e expandido com subprocessos de 3º nível expansíveis com botões <code class="text-cyan-300 bg-slate-950 px-1 rounded">[+]</code> e <code class="text-cyan-300 bg-slate-950 px-1 rounded">[-]</code>.
-          </p>
-        </section>
-
       </div>
 
     </div>
 
-    <!-- FOOTER / AUDIT BAR -->
-    <footer class="mt-12 pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-      <div>
-        <span>Big Dog Pet Centro Veterinário & Estética · Franco da Rocha - SP</span>
-      </div>
-      <div class="flex items-center gap-4">
-        <span>Commit: <code class="text-slate-400">916ca96</code></span>
-        <span>Branch: <code class="text-cyan-400">main</code></span>
-        <span>Build: <code class="text-emerald-400">Sucesso (0 erros)</code></span>
-      </div>
-    </footer>
+  </div>
 
-  </main>
-
-  <!-- SCRIPT PARA DOWNLOAD DO ARQUIVO MARKDOWN (.MD) -->
+  <!-- DYNAMIC DATA & SCRIPTS -->
   <script>
-    const markdownContent = `# Plano de Implementação & Resumo Executivo: Big Dog Pet v5
+    // ==========================================
+    // 1. DATA SOURCE: AS 12 IMPLEMENTAÇÕES
+    // ==========================================
+    const planItems = [
+      {
+        id: 1,
+        title: "Reformulação da Tela da Loja (Admin) com Hero Operacional & Chamados dos Tutores",
+        category: "chat",
+        categoryLabel: "💬 Chat & Atendimento",
+        badge: "Concluído",
+        badgeColor: "emerald",
+        files: ["src/routes/_authenticated/admin.tsx", "src/lib/inAppChat.ts"],
+        summary: "Hero da loja inspirado na elegância da tela do tutor, status '🟢 Loja Aberta · Atendimento Online' e seção dedicada no topo com os chamados recentes dos tutores identificando Nome, Pet, Contexto e botão azul de resposta em 1 toque.",
+        details: [
+          "Indicadores no topo: Total de Chamados no Chat, Agendamentos Pendentes e Transportes em Rota.",
+          "Cards de tutores que enviaram mensagem com botão direto [💬 Responder Tutor].",
+          "Abertura instantânea da conversa focada sem misturar atendimentos de outros tutores."
+        ]
+      },
+      {
+        id: 2,
+        title: "Fila de Mensagens por Ordem de Chegada no Chat Superior",
+        category: "chat",
+        categoryLabel: "💬 Chat & Atendimento",
+        badge: "Concluído",
+        badgeColor: "emerald",
+        files: ["src/components/InAppChatDrawer.tsx", "src/lib/inAppChat.ts"],
+        summary: "Ao clicar no Chat no canto superior, o administrador visualiza a Fila de Atendimentos organizada por ordem de chegada, com mensagens não lidas no topo, busca instantânea e transição para atendimento individual.",
+        details: [
+          "Visão individualizada com identificação: '💬 Atendimento: [Tutor] · 🐾 [Pet]'.",
+          "Botão de retorno rápido [← Voltar à Fila de Atendimentos].",
+          "Transição fluida para digitação de resposta com status atualizado para 'Respondido'."
+        ]
+      },
+      {
+        id: 3,
+        title: "Log Histórico de Atendimentos com Filtros por Tutor e Período de Data",
+        category: "chat",
+        categoryLabel: "💬 Chat & Atendimento",
+        badge: "Concluído",
+        badgeColor: "emerald",
+        files: ["src/components/AdminChatLogs.tsx", "src/routes/_authenticated/admin.tsx"],
+        summary: "Nova aba 'Atendimentos & Chat' no painel com filtros rápidos [Hoje], [Semana (7 dias)], [Mês Atual] e [Todos], busca em tempo real por tutor ou pet, visualização da transcrição completa e exportação para CSV.",
+        details: [
+          "Métricas consolidadas de total de conversas, aguardando resposta e concluídas.",
+          "Modal de transcrição histórica para consulta e auditoria clínica.",
+          "Exportação em 1 clique para planilha CSV."
+        ]
+      },
+      {
+        id: 4,
+        title: "Melhoria Visual da Loja com Fotos Reais & Busca na Web Inteligente",
+        category: "loja",
+        categoryLabel: "🏪 Loja & Catálogo",
+        badge: "Concluído",
+        badgeColor: "emerald",
+        files: ["src/routes/loja.tsx", "src/lib/productImageSuggestions.ts", "src/components/CatalogEditor.tsx"],
+        summary: "Eliminação definitiva dos placeholders cinzas com inicial ('A'). Atualização de fotos reais em alta resolução nos produtos do Supabase e assistente '🔍 Buscar Foto na Web' no catálogo.",
+        details: [
+          "Rações Premier, Golden, Royal Canin, brinquedos e medicamentos com fotos de catálogo.",
+          "Interface do administrador com sugestões inteligentes por categoria."
+        ]
+      },
+      {
+        id: 5,
+        title: "Substituição Definitiva de WhatsApp por Botões de Chat Azul",
+        category: "chat",
+        categoryLabel: "💬 Chat & Atendimento",
+        badge: "Concluído",
+        badgeColor: "emerald",
+        files: ["src/routes/index.tsx", "src/routes/_authenticated/conta.tsx", "src/routes/carrinho.tsx", "src/components/DriverContact.tsx"],
+        summary: "Remoção de todos os links externos de WhatsApp, substituídos de forma padronizada pelo botão azul [💬 Chat] nativo do aplicativo com contexto pré-formatado.",
+        details: [
+          "Botão azul no card de contato do motorista para conversa rápida via app.",
+          "Botão no carrinho e checkout para dúvidas antes da finalização da compra.",
+          "Botão na ficha clínica dos pets com histórico médico anexado."
+        ]
+      },
+      {
+        id: 6,
+        title: "Bate-papo Interno Offline com Alarme Sonoro de 2 Toques (Custo R$ 0,00)",
+        category: "chat",
+        categoryLabel: "💬 Chat & Atendimento",
+        badge: "Concluído",
+        badgeColor: "emerald",
+        files: ["src/lib/inAppChat.ts", "src/lib/soundAlerts.ts"],
+        summary: "Sistema de mensagens 100% nativo no app sem custos adicionais de API da Meta. Síntese de áudio por Web Audio API gerando 2 toques nítidos (880Hz e 1174Hz) e badge '(Msg Nova)'.",
+        details: [
+          "Economia total de tarifas Meta Cloud API por conversa aberta.",
+          "Sincronização em tempo real via BroadcastChannel entre abas abertas."
+        ]
+      },
+      {
+        id: 7,
+        title: "Linhas do Tempo Clínicas Verticais & Botão de 1 Toque",
+        category: "clinica",
+        categoryLabel: "🩺 Clínica & Pet",
+        badge: "Concluído",
+        badgeColor: "emerald",
+        files: ["src/routes/_authenticated/pets.$petId.tsx"],
+        summary: "Estruturação em linhas verticais para Vacinas, Retornos Clínicos e Prontuário Médico, com botão azul de 1 toque em cada evento para contato instantâneo com a clínica.",
+        details: [
+          "Timeline de vacinas com histórico de doses, data e veterinário responsável.",
+          "Timeline de retornos com status e observações clínicas.",
+          "Botão pré-preenche o chat com as informações do pet selecionado."
+        ]
+      },
+      {
+        id: 8,
+        title: "Relatório Financeiro das Entregas & Histórico dos Motoristas",
+        category: "motorista",
+        categoryLabel: "🚚 Motorista & Frete",
+        badge: "Concluído",
+        badgeColor: "emerald",
+        files: ["src/components/RelatorioEntregasMotoristas.tsx"],
+        summary: "Painel analítico detalhado com faturamento bruto de fretes, custo de combustível, margem líquida por motorista, distribuição de métodos de pagamento e exportação.",
+        details: [
+          "Cálculo de margem por viagem concluída.",
+          "Demonstrativo financeiro para acerto de contas com entregadores."
+        ]
+      },
+      {
+        id: 9,
+        title: "Cálculo de Distância do Tutor & Estimativa de Combustível (Regra do Dobro)",
+        category: "motorista",
+        categoryLabel: "🚚 Motorista & Frete",
+        badge: "Concluído",
+        badgeColor: "emerald",
+        files: ["src/lib/distanceCalculator.ts"],
+        summary: "Cálculo automático de quilometragem e combustível a partir do CEP/endereço do tutor, aplicando a Regra do Dobro para agendamentos com retirada e devolução (ida e volta).",
+        details: [
+          "Registro contábil persistido juntamente com o valor do frete.",
+          "Estimativa de consumo considerando a média de consumo por km."
+        ]
+      },
+      {
+        id: 10,
+        title: "Recebimento de Pagamento em 1 Toque (Na Entrega e no Balcão)",
+        category: "motorista",
+        categoryLabel: "🚚 Motorista & Frete",
+        badge: "Concluído",
+        badgeColor: "emerald",
+        files: ["src/routes/_authenticated/motorista.tsx", "src/routes/_authenticated/admin.tsx"],
+        summary: "Agilização do acerto financeiro com 4 botões de confirmação instantânea em 1 toque: [📱 Pix], [💵 Dinheiro], [💳 Débito] e [💳 Crédito].",
+        details: [
+          "Disponível no app do motorista ao concluir a entrega na casa do tutor.",
+          "Disponível no balcão da loja para atendimento presencial rápido."
+        ]
+      },
+      {
+        id: 11,
+        title: "Alerta em Amarelo de Estoque Crítico para Produtos Curva A",
+        category: "loja",
+        categoryLabel: "🏪 Loja & Catálogo",
+        badge: "Concluído",
+        badgeColor: "emerald",
+        files: ["src/lib/stockSettings.ts", "src/routes/_authenticated/admin.tsx"],
+        summary: "Banner amarelo destacado no topo do painel operacional da loja com contagem de produtos de alta saída (Curva A) com estoque abaixo do ponto de reposição.",
+        details: [
+          "Botão de ajuste rápido direcionando para a edição de catálogo.",
+          "Prevenção de rupturas de estoque dos itens mais vendidos da clínica."
+        ]
+      },
+      {
+        id: 12,
+        title: "Diagrama BPMN Interativo do Processo Ponta a Ponta com Subprocessos",
+        category: "clinica",
+        categoryLabel: "🩺 Processos & Gestão",
+        badge: "Concluído",
+        badgeColor: "emerald",
+        files: ["bpmn_processo_atualizado_big_dog_pet.html"],
+        summary: "Mapeamento em raias (Tutor, Loja/Clínica, Motorista) com subprocessos de 3º nível expansíveis com botões [+] e [-] e tipografia otimizada.",
+        details: [
+          "Subprocessos de agendamento, atendimento clínico e rota de entrega.",
+          "Visualização dinâmica e expansível para treinamento e auditoria."
+        ]
+      }
+    ];
 
-## Entregas Realizadas:
-1. Reformulação da Tela da Loja (Admin) com Hero Operacional & Chamados dos Tutores
-2. Fila de Mensagens por Ordem de Chegada no Chat Superior (Com Identificação do Tutor e Pet)
-3. Log Histórico de Atendimentos com Filtros por Tutor e Data (Hoje, Semana, Mês, Todos)
-4. Melhoria Visual da Loja com Fotos Reais no Catálogo & Busca Web Inteligente
-5. Substituição Global de WhatsApp por Botões de Chat Azul do Aplicativo
-6. Bate-papo Interno Offline com Alarme Sonoro de 2 Toques (R$ 0,00 de custo adicional)
-7. Linhas do Tempo Clínicas Verticais (Vacinas, Retornos, Prontuário) & Botão de 1 Toque
-8. Relatório Financeiro das Entregas & Histórico dos Motoristas com Margem Líquida
-9. Cálculo de Distância do Tutor & Estimativa de Combustível (Regra do Dobro)
-10. Recebimento de Pagamento em 1 Toque (Pix, Dinheiro, Débito, Crédito)
-11. Alerta em Amarelo de Estoque Crítico para Produtos Curva A
-12. BPMN Interativo do Processo Ponta a Ponta com Subprocessos de 3º Nível Expansíveis
+    // ==========================================
+    // 2. RENDER PLAN CARDS
+    // ==========================================
+    const container = document.getElementById("planCardsContainer");
 
-Repositório: henriquerosa2019/big-dog-pet
-Status: Sincronizado no GitHub (origin/main)
-Compilação: Validada (npm run build - código 0)`;
+    function renderCards(filterCategory = "all", searchText = "") {
+      container.innerHTML = "";
+      const search = searchText.toLowerCase().trim();
 
-    document.getElementById('btnDownloadMd').addEventListener('click', () => {
-      const blob = new Blob([markdownContent], { type: 'text/markdown;charset=utf-8;' });
+      const filtered = planItems.filter(item => {
+        const matchesCategory = filterCategory === "all" || item.category === filterCategory;
+        const matchesSearch = !search || 
+          item.title.toLowerCase().includes(search) || 
+          item.summary.toLowerCase().includes(search) ||
+          item.files.some(f => f.toLowerCase().includes(search));
+        return matchesCategory && matchesSearch;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="p-8 text-center bg-slate-900/40 rounded-xl border border-slate-800 text-slate-400 text-xs">
+            Nenhum item encontrado para o filtro aplicado.
+          </div>
+        `;
+        return;
+      }
+
+      filtered.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "plan-card bg-slate-900/80 border border-slate-800 rounded-xl p-4 transition-all duration-200 hover:border-slate-700 shadow-md";
+        card.dataset.id = item.id;
+
+        card.innerHTML = `
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div class="flex items-start sm:items-center gap-3">
+              <span class="w-7 h-7 rounded-lg bg-cyan-500/15 text-cyan-400 font-bold text-xs flex items-center justify-center shrink-0">
+                ${String(item.id).padStart(2, '0')}
+              </span>
+              <div>
+                <h4 class="font-bold text-white text-sm leading-snug">${item.title}</h4>
+                <div class="flex flex-wrap items-center gap-2 mt-1">
+                  <span class="text-[10px] font-semibold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-md border border-cyan-500/20">${item.categoryLabel}</span>
+                  <span class="text-[10px] text-slate-400 font-mono">${item.files[0]}</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 self-end sm:self-center shrink-0">
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                ${item.badge}
+              </span>
+              <button class="btn-toggle-details px-2.5 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition border border-slate-700">
+                <span>Ver Detalhes [+]</span>
+              </button>
+            </div>
+          </div>
+
+          <p class="text-xs text-slate-300 mt-2.5 leading-relaxed">${item.summary}</p>
+
+          <!-- Collapsible Content -->
+          <div class="card-details hidden mt-3 pt-3 border-t border-slate-800/80 space-y-2 text-xs">
+            <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Pontos Técnicos Implementados:</span>
+              <ul class="list-disc list-inside space-y-1 text-slate-300">
+                ${item.details.map(d => `<li>${d}</li>`).join("")}
+              </ul>
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5 pt-1">
+              <span class="text-[10px] text-slate-500 uppercase font-semibold">Arquivos:</span>
+              ${item.files.map(f => `<span class="text-[10px] font-mono bg-slate-800 text-cyan-300 px-1.5 py-0.5 rounded">${f}</span>`).join("")}
+            </div>
+          </div>
+        `;
+
+        const btnToggle = card.querySelector(".btn-toggle-details");
+        const detailsDiv = card.querySelector(".card-details");
+        btnToggle.addEventListener("click", () => {
+          const isHidden = detailsDiv.classList.contains("hidden");
+          if (isHidden) {
+            detailsDiv.classList.remove("hidden");
+            btnToggle.innerHTML = "<span>Recolher [-]</span>";
+          } else {
+            detailsDiv.classList.add("hidden");
+            btnToggle.innerHTML = "<span>Ver Detalhes [+]</span>";
+          }
+        });
+
+        container.appendChild(card);
+      });
+    }
+
+    // Inicialização dos cards
+    renderCards();
+
+    // Filtro por categoria
+    let activeCategory = "all";
+    document.querySelectorAll(".filter-pill").forEach(pill => {
+      pill.addEventListener("click", () => {
+        document.querySelectorAll(".filter-pill").forEach(p => {
+          p.classList.remove("active", "bg-cyan-600", "text-white");
+          p.classList.add("bg-slate-800", "text-slate-300");
+        });
+        pill.classList.add("active", "bg-cyan-600", "text-white");
+        pill.classList.remove("bg-slate-800", "text-slate-300");
+        activeCategory = pill.dataset.category;
+        renderCards(activeCategory, document.getElementById("searchPlanInput").value);
+      });
+    });
+
+    // Busca instantânea
+    document.getElementById("searchPlanInput").addEventListener("input", (e) => {
+      renderCards(activeCategory, e.target.value);
+    });
+
+    // Expandir / Recolher todos
+    document.getElementById("btnExpandAll").addEventListener("click", () => {
+      document.querySelectorAll(".card-details").forEach(d => d.classList.remove("hidden"));
+      document.querySelectorAll(".btn-toggle-details").forEach(b => b.innerHTML = "<span>Recolher [-]</span>");
+    });
+    document.getElementById("btnCollapseAll").addEventListener("click", () => {
+      document.querySelectorAll(".card-details").forEach(d => d.classList.add("hidden"));
+      document.querySelectorAll(".btn-toggle-details").forEach(b => b.innerHTML = "<span>Ver Detalhes [+]</span>");
+    });
+
+    // ==========================================
+    // 3. NAVEGAÇÃO POR ABAS DINÂMICAS
+    // ==========================================
+    const tabs = document.querySelectorAll(".tab-btn");
+    const tabPanes = document.querySelectorAll(".tab-pane");
+
+    tabs.forEach(tab => {
+      tab.addEventListener("click", () => {
+        tabs.forEach(t => {
+          t.classList.remove("active", "border-cyan-500", "text-cyan-400", "bg-slate-800/60");
+          t.classList.add("border-transparent", "text-slate-400");
+        });
+        tab.classList.add("active", "border-cyan-500", "text-cyan-400", "bg-slate-800/60");
+        tab.classList.remove("border-transparent", "text-slate-400");
+
+        const targetId = tab.dataset.tab;
+        tabPanes.forEach(pane => {
+          if (pane.id === targetId) {
+            pane.classList.remove("hidden");
+            pane.classList.add("block");
+          } else {
+            pane.classList.add("hidden");
+            pane.classList.remove("block");
+          }
+        });
+      });
+    });
+
+    // ==========================================
+    // 4. ÁUDIO WEB AUDIO API (SOM REAL DE 2 TOQUES)
+    // ==========================================
+    function playTwoBeepAlert() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Primeiro toque (880Hz)
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gain1.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain1.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+        osc1.connect(gain1);
+        gain1.connect(audioCtx.destination);
+        osc1.start(audioCtx.currentTime);
+        osc1.stop(audioCtx.currentTime + 0.12);
+
+        // Segundo toque (1174Hz) após 140ms
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(1174.66, audioCtx.currentTime + 0.14);
+        gain2.gain.setValueAtTime(0.25, audioCtx.currentTime + 0.14);
+        gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.32);
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.start(audioCtx.currentTime + 0.14);
+        osc2.stop(audioCtx.currentTime + 0.32);
+      } catch (e) {
+        console.warn("Áudio não pôde ser executado:", e);
+      }
+    }
+
+    document.getElementById("btnPlaySound").addEventListener("click", () => {
+      playTwoBeepAlert();
+    });
+
+    // ==========================================
+    // 5. SIMULADOR INTERATIVO DE CHAT & FILA
+    // ==========================================
+    let queue = [
+      { id: "1", tutor: "Carlos Eduardo", pet: "Thor", context: "Vacina V10", lastMsg: "Olá! Gostaria de tirar uma dúvida sobre o retorno da vacina V10 do Thor.", time: "há 2 min", unread: true }
+    ];
+
+    function renderSimulatorQueue() {
+      const list = document.getElementById("storeQueueList");
+      list.innerHTML = "";
+      document.getElementById("storeQueueCounter").innerText = `${queue.length} na Fila`;
+
+      queue.forEach((item, index) => {
+        const itemEl = document.createElement("div");
+        itemEl.className = "p-2.5 rounded-xl bg-slate-900 border border-slate-700/80 hover:border-cyan-500 cursor-pointer transition flex items-center justify-between";
+        itemEl.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full ${item.unread ? 'bg-emerald-400 animate-ping' : 'bg-slate-600'}"></span>
+            <div>
+              <div class="font-bold text-slate-100 text-xs">${item.tutor} · <span class="text-slate-400 font-normal">🐾 ${item.pet}</span></div>
+              <div class="text-[10px] text-cyan-300 font-medium">${item.context}</div>
+              <div class="text-[10px] text-slate-400 truncate max-w-[200px]">${item.lastMsg}</div>
+            </div>
+          </div>
+          <div class="text-right shrink-0">
+            <span class="text-[9px] text-slate-400 block">${item.time}</span>
+            <span class="text-[10px] font-bold ${item.unread ? 'text-amber-400' : 'text-emerald-400'}">${item.unread ? 'Aguardando' : 'Respondido'}</span>
+          </div>
+        `;
+        list.appendChild(itemEl);
+      });
+    }
+
+    renderSimulatorQueue();
+
+    // Enviar mensagem como Tutor
+    document.getElementById("btnSendAsTutor").addEventListener("click", () => {
+      const input = document.getElementById("tutorMsgInput");
+      const text = input.value.trim();
+      if (!text) return;
+
+      const context = document.getElementById("simContextSelect").value;
+
+      // Adiciona na caixa do tutor
+      const tutorBox = document.getElementById("tutorChatBox");
+      const msgTutor = document.createElement("div");
+      msgTutor.className = "flex justify-end";
+      msgTutor.innerHTML = `
+        <div class="bg-cyan-600 text-white rounded-2xl rounded-tr-none px-3.5 py-2 max-w-[80%] shadow-md">
+          <p>${text}</p>
+          <span class="text-[9px] text-cyan-200 block text-right mt-1">Agora · Enviado</span>
+        </div>
+      `;
+      tutorBox.appendChild(msgTutor);
+      tutorBox.scrollTop = tutorBox.scrollHeight;
+
+      // Adiciona na caixa da loja
+      const storeBox = document.getElementById("storeChatBox");
+      const msgStore = document.createElement("div");
+      msgStore.className = "flex justify-start";
+      msgStore.innerHTML = `
+        <div class="bg-slate-800 text-slate-100 rounded-2xl rounded-tl-none px-3 py-1.5 max-w-[85%] border border-slate-700">
+          <span class="text-[9px] font-bold text-cyan-400 block mb-0.5">Carlos Eduardo (Tutor):</span>
+          <p>${text}</p>
+          <span class="text-[8px] text-slate-400 block mt-0.5">Agora</span>
+        </div>
+      `;
+      storeBox.appendChild(msgStore);
+      storeBox.scrollTop = storeBox.scrollHeight;
+
+      // Atualiza fila da loja no topo
+      queue.unshift({
+        id: String(Date.now()),
+        tutor: "Carlos Eduardo",
+        pet: "Thor",
+        context: context,
+        lastMsg: text,
+        time: "Agora",
+        unread: true
+      });
+      renderSimulatorQueue();
+
+      // Dispara o som de 2 toques e badge
+      playTwoBeepAlert();
+
+      input.value = "";
+    });
+
+    // Responder como Loja
+    document.getElementById("btnSendAsStore").addEventListener("click", () => {
+      const input = document.getElementById("storeMsgInput");
+      const text = input.value.trim();
+      if (!text) return;
+
+      // Adiciona na caixa da loja
+      const storeBox = document.getElementById("storeChatBox");
+      const msgStore = document.createElement("div");
+      msgStore.className = "flex justify-end";
+      msgStore.innerHTML = `
+        <div class="bg-amber-500 text-slate-950 font-medium rounded-2xl rounded-tr-none px-3 py-1.5 max-w-[85%] shadow-md">
+          <span class="text-[9px] font-bold text-slate-900 block mb-0.5">Equipe Big Dog Pet:</span>
+          <p>${text}</p>
+          <span class="text-[8px] text-slate-800 block mt-0.5 text-right">Agora</span>
+        </div>
+      `;
+      storeBox.appendChild(msgStore);
+      storeBox.scrollTop = storeBox.scrollHeight;
+
+      // Espelha no chat do tutor
+      const tutorBox = document.getElementById("tutorChatBox");
+      const msgTutor = document.createElement("div");
+      msgTutor.className = "flex justify-start";
+      msgTutor.innerHTML = `
+        <div class="bg-slate-800 text-slate-100 rounded-2xl rounded-tl-none px-3.5 py-2 max-w-[80%] border border-slate-700">
+          <span class="text-[9px] font-bold text-amber-400 block mb-0.5">🐾 Big Dog Pet (Loja):</span>
+          <p>${text}</p>
+          <span class="text-[9px] text-slate-400 block mt-1">Agora</span>
+        </div>
+      `;
+      tutorBox.appendChild(msgTutor);
+      tutorBox.scrollTop = tutorBox.scrollHeight;
+
+      // Atualiza item da fila para respondido
+      if (queue.length > 0) {
+        queue[0].unread = false;
+        renderSimulatorQueue();
+      }
+
+      // Tutor ouve os 2 toques da resposta recebida
+      playTwoBeepAlert();
+
+      input.value = "";
+    });
+
+    // Resetar simulador
+    document.getElementById("btnResetSimulator").addEventListener("click", () => {
+      queue = [
+        { id: "1", tutor: "Carlos Eduardo", pet: "Thor", context: "Vacina V10", lastMsg: "Olá! Gostaria de tirar uma dúvida sobre o retorno da vacina V10 do Thor.", time: "há 2 min", unread: true }
+      ];
+      renderSimulatorQueue();
+      document.getElementById("tutorChatBox").innerHTML = `
+        <div class="text-center text-[10px] text-slate-500 my-2">Conversa criptografada com a Loja Big Dog Pet</div>
+        <div class="flex justify-end">
+          <div class="bg-cyan-600 text-white rounded-2xl rounded-tr-none px-3.5 py-2 max-w-[80%] shadow-md">
+            <p>Olá! Gostaria de tirar uma dúvida sobre o retorno da vacina V10 do Thor.</p>
+            <span class="text-[9px] text-cyan-200 block text-right mt-1">16:40 · Entregue</span>
+          </div>
+        </div>
+      `;
+      document.getElementById("storeChatBox").innerHTML = "";
+    });
+
+    // ==========================================
+    // 6. LOG INTERATIVO DE CONSULTAS & FILTROS
+    // ==========================================
+    const logData = [
+      { date: "07/09/2026 16:40", tutor: "Carlos Eduardo", phone: "(11) 98765-4321", pet: "Thor (Golden)", context: "Vacina V10", status: "Aguardando Resposta", period: "today" },
+      { date: "07/09/2026 14:15", tutor: "Mariana Souza", phone: "(11) 97654-3210", pet: "Mel (Shih Tzu)", context: "Retorno Clínico", status: "Respondido", period: "today" },
+      { date: "06/09/2026 11:30", tutor: "Roberto Silva", phone: "(11) 96543-2109", pet: "Bob (Poodle)", context: "Pedido Carrinho / Ração", status: "Concluído", period: "week" },
+      { date: "05/09/2026 09:00", tutor: "Fernanda Lima", phone: "(11) 95432-1098", pet: "Pipoca (Spitz)", context: "Banho & Tosa / Táxi Dog", status: "Concluído", period: "week" },
+      { date: "28/08/2026 17:00", tutor: "Lucas Mendes", phone: "(11) 94321-0987", pet: "Max (Labrador)", context: "Consulta Cirúrgica", status: "Concluído", period: "month" },
+      { date: "15/08/2026 10:20", tutor: "Juliana Castro", phone: "(11) 93210-9876", pet: "Nina (Persa)", context: "Vacina Antirrábica", status: "Concluído", period: "month" }
+    ];
+
+    let currentLogPeriod = "all";
+    let currentLogSearch = "";
+
+    function renderLogTable() {
+      const tbody = document.getElementById("logTableBody");
+      tbody.innerHTML = "";
+
+      const filtered = logData.filter(row => {
+        const matchesPeriod = currentLogPeriod === "all" || row.period === currentLogPeriod || 
+          (currentLogPeriod === "week" && (row.period === "today" || row.period === "week")) ||
+          (currentLogPeriod === "month" && (row.period === "today" || row.period === "week" || row.period === "month"));
+        
+        const q = currentLogSearch.toLowerCase().trim();
+        const matchesSearch = !q || 
+          row.tutor.toLowerCase().includes(q) ||
+          row.pet.toLowerCase().includes(q) ||
+          row.context.toLowerCase().includes(q);
+
+        return matchesPeriod && matchesSearch;
+      });
+
+      document.getElementById("logRowsCount").innerText = `Exibindo ${filtered.length} de ${logData.length} atendimentos registrados`;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-slate-500">Nenhum atendimento encontrado para os filtros selecionados.</td></tr>`;
+        return;
+      }
+
+      filtered.forEach(row => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-800/40 transition";
+        const statusBadge = row.status === "Aguardando Resposta" 
+          ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">Aguardando</span>'
+          : '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Concluído</span>';
+
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-mono text-slate-400">${row.date}</td>
+          <td class="py-3 px-4 font-semibold text-white">${row.tutor}<span class="block text-[10px] text-slate-400 font-normal">${row.phone}</span></td>
+          <td class="py-3 px-4">${row.pet}</td>
+          <td class="py-3 px-4"><span class="bg-cyan-500/10 text-cyan-300 px-2 py-0.5 rounded border border-cyan-500/20">${row.context}</span></td>
+          <td class="py-3 px-4">${statusBadge}</td>
+          <td class="py-3 px-4 text-center">
+            <button class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[10px] font-medium" onclick="alert('Histórico de conversa de ${row.tutor} aberto para consulta.')">
+              Ver Transcrição
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    renderLogTable();
+
+    document.querySelectorAll(".log-filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".log-filter-btn").forEach(b => {
+          b.classList.remove("active", "bg-cyan-600", "text-white");
+          b.classList.add("bg-slate-800", "text-slate-300");
+        });
+        btn.classList.add("active", "bg-cyan-600", "text-white");
+        btn.classList.remove("bg-slate-800", "text-slate-300");
+        currentLogPeriod = btn.dataset.period;
+        renderLogTable();
+      });
+    });
+
+    document.getElementById("logSearchInput").addEventListener("input", (e) => {
+      currentLogSearch = e.target.value;
+      renderLogTable();
+    });
+
+    // Exportação CSV
+    document.getElementById("btnExportTableCsv").addEventListener("click", () => {
+      let csv = "Data e Hora,Tutor,Telefone,Pet,Contexto,Status\n";
+      logData.forEach(r => {
+        csv += `"${r.date}","${r.tutor}","${r.phone}","${r.pet}","${r.context}","${r.status}"\n`;
+      });
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'plano_implementacao_big_dog_pet.md';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `log_atendimentos_big_dog_pet_${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    // ==========================================
+    // 7. DOWNLOAD FORMATOS MD E JSON DO PLANO
+    // ==========================================
+    document.getElementById("btnDownloadMd").addEventListener("click", () => {
+      let md = `# Plano de Implementação & Dashboard Executivo: Big Dog Pet v5\n\n`;
+      md += `Data: ${new Date().toLocaleDateString('pt-BR')}\n`;
+      md += `Status: 12 de 12 Entregas Concluídas (100%)\n\n---\n\n`;
+      planItems.forEach(item => {
+        md += `### ${item.id}. ${item.title}\n`;
+        md += `- **Área:** ${item.categoryLabel}\n`;
+        md += `- **Resumo:** ${item.summary}\n`;
+        md += `- **Arquivos:** ${item.files.join(", ")}\n`;
+        md += `- **Detalhes:**\n`;
+        item.details.forEach(d => md += `  - ${d}\n`);
+        md += `\n---\n\n`;
+      });
+
+      const blob = new Blob([md], { type: "text/markdown;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "plano_dinamico_big_dog_pet.md";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById("btnDownloadJson").addEventListener("click", () => {
+      const payload = {
+        project: "Big Dog Pet - v5",
+        version: "5.0.0",
+        date: new Date().toISOString(),
+        author: "Engenharia de Software Big Dog Pet",
+        totalItems: planItems.length,
+        items: planItems
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "plano_dinamico_big_dog_pet.json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
     });
   </script>
