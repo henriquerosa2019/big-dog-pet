@@ -148,7 +148,7 @@ export function getSupabaseChatChannel() {
   if (!supabaseChatChannel) {
     try {
       supabaseChatChannel = supabase.channel("bigdog_inapp_chat_realtime", {
-        config: { broadcast: { self: false } },
+        config: { broadcast: { self: true } },
       });
 
       supabaseChatChannel
@@ -171,6 +171,31 @@ export function getSupabaseChatChannel() {
 
           // Alerta sonoro de 2 toques nítidos
           playChatNotificationSound();
+        })
+        .on("broadcast", { event: "CONVERSATION_CLOSED" }, ({ payload }) => {
+          if (!payload?.conversationId) return;
+          const current = getAllChatMessages();
+          const convId = payload.conversationId;
+          let changed = false;
+          const updated = current.map((m) => {
+            if (m.conversationId === convId || (m.tutorId && m.tutorId === convId)) {
+              changed = true;
+              return { ...m, status: "fechado" as ChatMessageStatus };
+            }
+            return m;
+          });
+          if (changed) {
+            saveAllChatMessages(updated);
+            window.dispatchEvent(
+              new CustomEvent("bigdog_chat_event", {
+                detail: {
+                  type: "CONVERSATION_CLOSED",
+                  conversationId: convId,
+                  closedBy: payload.closedBy,
+                },
+              })
+            );
+          }
         })
         .on("broadcast", { event: "CONVERSATION_READ" }, ({ payload }) => {
           if (!payload?.conversationId || !payload?.role) return;
@@ -290,6 +315,7 @@ export function sendChatMessage(params: {
   petName?: string | null;
   contextTag?: string | null;
   text: string;
+  status?: ChatMessageStatus;
   playSound?: boolean;
 }): ChatMessage {
   const currentMessages = getAllChatMessages();
@@ -298,7 +324,10 @@ export function sendChatMessage(params: {
 
   const conversationId =
     params.conversationId ||
-    (params.senderRole === "tutor" ? params.senderId : "geral");
+    (params.senderRole === "tutor" ? (params.tutorId || params.senderId) : "geral");
+
+  const defaultStatus: ChatMessageStatus =
+    params.status || (params.senderRole === "loja" ? "respondido" : "aberto");
 
   const newMessage: ChatMessage = {
     id: `chat-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -317,7 +346,7 @@ export function sendChatMessage(params: {
     createdAt: new Date().toISOString(),
     readByTutor: params.senderRole === "tutor",
     readByStore: params.senderRole !== "tutor",
-    status: params.senderRole === "loja" ? "respondido" : "aberto",
+    status: defaultStatus,
   };
 
   const updated = [...currentMessages, newMessage];
@@ -354,6 +383,78 @@ export function sendChatMessage(params: {
   }
 
   return newMessage;
+}
+
+/**
+ * Encerra e finaliza uma conversa (tanto Tutor quanto Loja podem acionar).
+ * Marca as mensagens como 'fechado', envia mensagem de encerramento do sistema
+ * e sincroniza instantaneamente em ambos os lados via Realtime.
+ */
+export function closeConversation(params: {
+  conversationId: string;
+  closedByRole: "tutor" | "loja";
+  closedByName: string;
+}): ChatMessage {
+  const current = getAllChatMessages();
+  const convId = params.conversationId;
+
+  // Atualiza status de todas as mensagens dessa conversa para 'fechado'
+  const updated = current.map((m) => {
+    if (m.conversationId === convId || (m.tutorId && m.tutorId === convId)) {
+      return { ...m, status: "fechado" as ChatMessageStatus };
+    }
+    return m;
+  });
+  saveAllChatMessages(updated);
+
+  // Envia a mensagem de sistema que documenta a finalização
+  const closingMessage = sendChatMessage({
+    conversationId: convId,
+    senderId: params.closedByRole === "loja" ? "loja" : convId,
+    senderName: params.closedByName,
+    senderRole: params.closedByRole,
+    recipientRole: params.closedByRole === "loja" ? "tutor" : "loja",
+    text: `🏁 Atendimento finalizado por ${params.closedByName}. Se precisar de mais suporte ou novo atendimento, basta enviar uma nova mensagem! 🐾`,
+    status: "fechado",
+    playSound: false,
+  });
+
+  // Notifica via Supabase Realtime Broadcast
+  try {
+    getSupabaseChatChannel()?.send({
+      type: "broadcast",
+      event: "CONVERSATION_CLOSED",
+      payload: {
+        conversationId: convId,
+        closedBy: params.closedByName,
+        role: params.closedByRole,
+      },
+    });
+  } catch {}
+
+  // Notifica via BroadcastChannel local
+  try {
+    broadcastChannel?.postMessage({
+      type: "CONVERSATION_CLOSED",
+      conversationId: convId,
+      closedBy: params.closedByName,
+    });
+  } catch {}
+
+  // Dispara evento local para a aba ativa
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("bigdog_chat_event", {
+        detail: {
+          type: "CONVERSATION_CLOSED",
+          conversationId: convId,
+          closedBy: params.closedByName,
+        },
+      })
+    );
+  }
+
+  return closingMessage;
 }
 
 /**
@@ -668,6 +769,7 @@ export function useInAppChat(options?: {
     senderId: string;
     senderName: string;
     senderRole: SenderRole;
+    conversationId?: string;
     tutorId?: string | null;
     tutorName?: string | null;
     tutorPhone?: string | null;
@@ -675,11 +777,33 @@ export function useInAppChat(options?: {
     petName?: string | null;
     contextTag?: string | null;
     recipientRole?: RecipientRole;
+    status?: ChatMessageStatus;
   }) => {
+    const targetConvId =
+      params.conversationId ||
+      options?.conversationId ||
+      (params.senderRole === "tutor" ? (params.tutorId || params.senderId) : "geral");
+
     const msg = sendChatMessage({
       ...params,
-      conversationId: options?.conversationId || (params.senderRole === "tutor" ? params.senderId : "geral"),
+      conversationId: targetConvId,
       recipientRole: params.recipientRole || (params.senderRole === "tutor" ? "loja" : "tutor"),
+    });
+    refresh();
+    return msg;
+  };
+
+  const closeCurrentConversation = (closedByName?: string) => {
+    const targetConvId =
+      options?.conversationId ||
+      (currentRole === "tutor" ? getOrCreateTutorSessionId() : "geral");
+    const name =
+      closedByName || (currentRole === "loja" ? "Equipe Big Dog" : "Tutor");
+
+    const msg = closeConversation({
+      conversationId: targetConvId,
+      closedByRole: currentRole,
+      closedByName: name,
     });
     refresh();
     return msg;
@@ -695,15 +819,47 @@ export function useInAppChat(options?: {
   };
 
   const conversationMessages = messages.filter((m) => {
-    if (!options?.conversationId || options.conversationId === "geral") return true;
-    return m.conversationId === options.conversationId;
+    const targetId = options?.conversationId;
+
+    if (!targetId || targetId === "geral") {
+      if (currentRole === "tutor") {
+        return (
+          m.recipientRole === "tutor" ||
+          m.senderRole === "tutor" ||
+          m.conversationId === "geral"
+        );
+      }
+      return true;
+    }
+
+    // 1. Mensagens com id da conversa exato
+    if (m.conversationId === targetId) return true;
+    // 2. Mensagens onde tutorId é o id da conversa
+    if (m.tutorId && m.tutorId === targetId) return true;
+    // 3. Se for tela do tutor, aceita mensagens destinadas a ele
+    if (currentRole === "tutor") {
+      if (m.senderId === targetId) return true;
+      if (
+        m.recipientRole === "tutor" &&
+        (m.conversationId === targetId || m.tutorId === targetId || m.conversationId === "geral")
+      ) {
+        return true;
+      }
+    }
+    return false;
   });
+
+  const isClosed =
+    conversationMessages.length > 0 &&
+    conversationMessages[conversationMessages.length - 1]?.status === "fechado";
 
   return {
     messages: conversationMessages,
     unreadCount,
     hasNewMessage: unreadCount > 0,
+    isClosed,
     send,
+    closeCurrentConversation,
     markAsRead,
     refresh,
   };

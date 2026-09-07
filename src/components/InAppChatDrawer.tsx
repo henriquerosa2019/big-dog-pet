@@ -13,6 +13,8 @@ import {
   Clock,
   ChevronRight,
   MessageSquare,
+  PowerOff,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +25,16 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth, useIsAdmin } from "@/hooks/useAuth";
 import {
   useInAppChat,
@@ -46,6 +58,7 @@ export function InAppChatDrawer() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [inputText, setInputText] = useState("");
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [activeContextTag, setActiveContextTag] = useState<string | null>(null);
   const [activePetName, setActivePetName] = useState<string | null>(null);
   const [activePetId, setActivePetId] = useState<string | null>(null);
@@ -69,7 +82,15 @@ export function InAppChatDrawer() {
     }
   }, [isAdmin, user?.id]);
 
-  const { messages, unreadCount, hasNewMessage, send, markAsRead } = useInAppChat({
+  const {
+    messages,
+    unreadCount,
+    hasNewMessage,
+    isClosed,
+    send,
+    closeCurrentConversation,
+    markAsRead,
+  } = useInAppChat({
     role: userRole,
     conversationId: activeConversationId,
   });
@@ -136,21 +157,34 @@ export function InAppChatDrawer() {
       ? "Equipe Big Dog"
       : (typeof user?.user_metadata?.["full_name"] === "string" ? user.user_metadata["full_name"] : "Tutor");
     const senderRole = isAdmin ? "loja" : "tutor";
+    const recipientRole = isAdmin ? "tutor" : "loja";
 
     send({
       text,
+      conversationId: activeConversationId,
       senderId: user?.id || (isAdmin ? "loja" : getOrCreateTutorSessionId()),
       senderName,
       senderRole,
+      recipientRole,
       tutorName: activeTutorName || (isAdmin ? "Tutor" : senderName),
       tutorId: isAdmin ? (activeConversationId !== "geral" ? activeConversationId : null) : (user?.id || getOrCreateTutorSessionId()),
       contextTag: activeContextTag,
       petName: activePetName,
       petId: activePetId,
+      status: isAdmin ? "respondido" : "aberto",
     });
 
     setInputText("");
     setActiveContextTag(null);
+    refreshQueue();
+  };
+
+  const handleConfirmClose = () => {
+    const actorName = isAdmin
+      ? "Equipe Big Dog"
+      : (typeof user?.user_metadata?.["full_name"] === "string" ? user.user_metadata["full_name"] : "Tutor");
+    closeCurrentConversation(actorName);
+    setConfirmCloseOpen(false);
     refreshQueue();
   };
 
@@ -206,6 +240,8 @@ export function InAppChatDrawer() {
       <SheetContent
         side="right"
         className="flex w-full flex-col p-0 sm:max-w-md bg-background"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
       >
         {/* Cabeçalho do Chat */}
         <SheetHeader className="border-b border-border/80 bg-card p-3.5">
@@ -276,7 +312,21 @@ export function InAppChatDrawer() {
               </div>
             </div>
 
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Botão Finalizar Conversa - Tanto Tutor quanto Loja podem encerrar */}
+              {!isViewingQueue && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConfirmCloseOpen(true)}
+                  className="h-7 px-2 text-[10px] font-bold text-rose-600 border-rose-300/80 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/60 dark:hover:bg-rose-950/50 gap-1 rounded-lg shadow-2xs transition-all"
+                  title="Finalizar atendimento em ambos os lados"
+                >
+                  <PowerOff className="h-3 w-3" />
+                  Finalizar
+                </Button>
+              )}
+
               <button
                 type="button"
                 onClick={() => playChatNotificationSound()}
@@ -495,6 +545,18 @@ export function InAppChatDrawer() {
               <div ref={messagesEndRef} />
             </div>
 
+            {/* Banner de Conversa Finalizada */}
+            {isClosed && (
+              <div className="mx-3 my-2 flex items-center justify-between gap-2 rounded-xl border border-emerald-500/30 bg-emerald-50/90 dark:bg-emerald-950/40 px-3 py-2 text-xs text-emerald-900 dark:text-emerald-100 shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span className="text-[11px] font-medium">
+                    <strong>Atendimento finalizado.</strong> Para reabrir o chamado, basta digitar uma nova mensagem.
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Chips de Resposta Rápida */}
             <div className="border-t border-border/60 bg-muted/40 px-3 py-2">
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
@@ -537,12 +599,40 @@ export function InAppChatDrawer() {
                 </Button>
               </div>
               <p className="mt-1.5 text-center text-[10px] text-muted-foreground">
-                Bate-papo offline gravado no aparelho · Alerta sonoro de 2 toques ao chegar resposta
+                Bate-papo gravado · Troca de mensagens em tempo real · Clique em Finalizar para encerrar
               </p>
             </div>
           </>
         )}
       </SheetContent>
+
+      {/* Diálogo de Confirmação para Finalizar Conversa (Ambos os lados) */}
+      <AlertDialog open={confirmCloseOpen} onOpenChange={setConfirmCloseOpen}>
+        <AlertDialogContent className="max-w-md rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-rose-600 font-bold">
+              <PowerOff className="h-5 w-5" />
+              Finalizar Conversa?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs leading-relaxed text-muted-foreground">
+              {isAdmin
+                ? `Tem certeza que deseja encerrar o atendimento com ${activeTutorName || "o tutor"}? O chamado será marcado como finalizado em ambos os lados.`
+                : "Tem certeza que deseja finalizar esta conversa com a equipe da Big Dog? O atendimento será marcado como concluído."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel className="rounded-xl text-xs font-semibold">
+              Continuar Conversando
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmClose}
+              className="rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-xs font-bold"
+            >
+              Sim, Finalizar Conversa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   );
 }

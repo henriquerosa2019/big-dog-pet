@@ -57,11 +57,13 @@ export function AdminChatLogs() {
     const all = getChatLogs({ period: "todos" });
     const abertos = all.filter((c) => c.status === "aberto" || c.unreadCountStore > 0).length;
     const respondidos = all.filter((c) => c.status === "respondido").length;
+    const fechados = all.filter((c) => c.status === "fechado").length;
     const totalMsgs = all.reduce((acc, c) => acc + c.messageCount, 0);
     return {
       total: all.length,
       abertos,
       respondidos,
+      fechados,
       totalMsgs,
     };
   }, []);
@@ -269,6 +271,10 @@ export function AdminChatLogs() {
                     {isAberto ? (
                       <Badge className="bg-amber-500 text-amber-950 text-[10px] font-bold">
                         Aguardando Resposta
+                      </Badge>
+                    ) : item.status === "fechado" ? (
+                      <Badge variant="outline" className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700 bg-slate-100/50 dark:bg-slate-900/40">
+                        🏁 Finalizado
                       </Badge>
                     ) : (
                       <Badge variant="outline" className="text-[10px] font-medium text-emerald-600 border-emerald-500/40">

@@ -590,6 +590,19 @@ function Home() {
                                 🏷️ {conv.contextTag}
                               </Badge>
                             )}
+                            {conv.status === "aberto" || conv.unreadCountStore > 0 ? (
+                              <Badge className="bg-amber-500 text-amber-950 text-[9px] py-0 font-bold">
+                                Aguardando Loja
+                              </Badge>
+                            ) : conv.status === "fechado" ? (
+                              <Badge variant="outline" className="text-[9px] py-0 text-slate-500 border-slate-300 dark:border-slate-700">
+                                Finalizado
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[9px] py-0 text-emerald-600 border-emerald-500/30">
+                                Respondido
+                              </Badge>
+                            )}
                           </div>
                           <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
                             "{conv.lastMessageText}"
@@ -602,7 +615,7 @@ function Home() {
                         className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shrink-0 h-8 rounded-xl"
                         onClick={() => openInAppChat({ conversationId: conv.conversationId, tutorName: conv.tutorName, petName: conv.petName ?? undefined })}
                       >
-                        💬 Responder Tutor
+                        {conv.status === "fechado" ? "💬 Abrir Chat" : "💬 Responder Tutor"}
                       </Button>
                     </div>
                   );
