@@ -31,19 +31,14 @@ import { useAuth, useIsAdmin } from "@/hooks/useAuth";
 import {
   useInAppChat,
   type ChatMessage,
-  type SenderRole,
+  openInAppChat,
+  type OpenChatDetail,
 } from "@/lib/inAppChat";
 import { playChatNotificationSound } from "@/lib/soundAlerts";
 import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/lib/format";
 
-export interface OpenChatDetail {
-  contextTag?: string | undefined;
-  defaultText?: string | undefined;
-  petId?: string | undefined;
-  petName?: string | undefined;
-  conversationId?: string | undefined;
-}
+export { openInAppChat, type OpenChatDetail };
 
 export function InAppChatDrawer() {
   const { user } = useAuth();
@@ -330,10 +325,3 @@ export function InAppChatDrawer() {
   );
 }
 
-/**
- * Função global para abrir o chat a partir de qualquer botão de 1 toque
- */
-export function openInAppChat(detail?: OpenChatDetail): void {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent("open_inapp_chat", { detail }));
-}

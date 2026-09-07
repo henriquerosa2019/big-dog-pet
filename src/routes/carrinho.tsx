@@ -1,12 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Gift, Minus, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Gift, MessageCircle, Minus, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/lib/cart";
+import { openInAppChat } from "@/components/InAppChatDrawer";
 import {
   BIRTHDAY_DISCOUNT_PERCENT,
   capitalizeWords,
@@ -28,10 +29,10 @@ export const Route = createFileRoute("/carrinho")({
       {
         name: "description",
         content:
-          "Revise os produtos escolhidos e finalize o pedido pelo WhatsApp do Big Dog Pet.",
+          "Revise os produtos escolhidos e finalize o pedido pelo Chat do App do Big Dog Pet.",
       },
       { property: "og:title", content: "Carrinho | Loja Big Dog Pet" },
-      { property: "og:description", content: "Finalize seu pedido pelo WhatsApp do Big Dog Pet." },
+      { property: "og:description", content: "Finalize seu pedido pelo Chat do App do Big Dog Pet." },
     ],
   }),
   component: Carrinho,
@@ -179,9 +180,12 @@ function Carrinho() {
         .filter(Boolean)
         .join("\n");
 
-      window.open(whatsappLink(message), "_blank", "noopener,noreferrer");
+      openInAppChat({
+        contextTag: `Pedido (${items.length} itens)`,
+        defaultText: message,
+      });
       clear();
-      toast.success("Pedido enviado! Continue a conversa no WhatsApp.");
+      toast.success("Pedido enviado para o Chat da Big Dog Pet!");
       if (user) navigate({ to: "/conta" });
     } catch (error) {
       console.error(error);
@@ -215,7 +219,7 @@ function Carrinho() {
           <p className="text-xs text-muted-foreground">
             Cupom <span className="font-mono font-bold text-gold">{birthdayCoupon}</span> —{" "}
             {BIRTHDAY_DISCOUNT_PERCENT}% de desconto de aniversário. A equipe confirma o valor com
-            desconto pelo WhatsApp.
+            desconto pelo Chat do app.
           </p>
         </div>
       )}
@@ -389,7 +393,7 @@ function Carrinho() {
               className="mt-1 h-11 rounded-xl uppercase"
             />
             <p className="mt-1 text-[11px] text-muted-foreground">
-              A equipe confere e aplica o desconto ao confirmar pelo WhatsApp.
+              A equipe confere e aplica o desconto ao confirmar pelo Chat do App.
             </p>
           </div>
 
@@ -434,9 +438,10 @@ function Carrinho() {
         <Button
           onClick={handleCheckout}
           disabled={sending}
-          className="mt-4 h-12 w-full rounded-2xl"
+          className="mt-4 h-12 w-full rounded-2xl gap-2 font-semibold text-sm"
         >
-          {sending ? "Enviando..." : "Finalizar pelo WhatsApp"}
+          <MessageCircle className="h-4 w-4" />
+          {sending ? "Enviando..." : "Finalizar Pedido pelo Chat do App"}
         </Button>
         {!user && (
           <p className="mt-2 text-center text-xs text-muted-foreground">

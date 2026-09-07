@@ -328,7 +328,7 @@ function Admin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, description, category, price_cents, stock, active")
+        .select("id, name, description, category, price_cents, stock, active, image_url")
         .order("name");
       if (error) throw error;
       return data;
@@ -1564,7 +1564,11 @@ function Admin() {
       const { error } =
         table === "services"
           ? await supabase.from("services").insert({ ...common, duration_min: values.durationMin })
-          : await supabase.from("products").insert({ ...common, stock: values.stock });
+          : await supabase.from("products").insert({
+              ...common,
+              stock: values.stock,
+              image_url: values.imageUrl || null,
+            });
       if (error) throw error;
     },
     onSuccess: (_data, vars) => {
@@ -4868,6 +4872,7 @@ function Admin() {
                 priceCents: product.price_cents,
                 durationMin: 30,
                 stock: product.stock,
+                imageUrl: product.image_url ?? "",
                 active: product.active,
               }}
               onEdit={() => {
@@ -4886,6 +4891,7 @@ function Admin() {
                       category: values.category,
                       price_cents: values.priceCents,
                       stock: values.stock,
+                      image_url: values.imageUrl || null,
                       active: values.active,
                     },
                   },
@@ -4992,14 +4998,26 @@ function CatalogRow({
 
   return (
     <div className="rounded-2xl bg-card p-3 shadow-card">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{name}</p>
+      <div className="flex items-start gap-3">
+        {initial.imageUrl ? (
+          <img
+            src={initial.imageUrl}
+            alt={name}
+            className="h-11 w-11 shrink-0 rounded-xl object-cover border border-border shadow-xs"
+            onError={(e) => {
+              (e.currentTarget as HTMLElement).style.display = "none";
+            }}
+          />
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <p className="truncate text-sm font-semibold">{name}</p>
+            <Badge variant={active ? "default" : "secondary"} className="shrink-0">
+              {active ? "ativo" : "inativo"}
+            </Badge>
+          </div>
           <p className="truncate text-xs capitalize text-muted-foreground">{subtitle}</p>
         </div>
-        <Badge variant={active ? "default" : "secondary"} className="shrink-0">
-          {active ? "ativo" : "inativo"}
-        </Badge>
       </div>
       <div className="mt-2 flex items-center gap-2">
         <Input

@@ -1,13 +1,14 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Gift, Plus, Search } from "lucide-react";
+import { Gift, Package, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { BIRTHDAY_DISCOUNT_PERCENT, formatBRL } from "@/lib/format";
 import { useCart } from "@/lib/cart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/loja")({
@@ -26,7 +27,7 @@ export const Route = createFileRoute("/loja")({
       { property: "og:title", content: "Loja Big Dog Pet | Produtos para cães e gatos" },
       {
         property: "og:description",
-        content: "Monte seu pedido e finalize pelo WhatsApp do Big Dog Pet.",
+        content: "Monte seu pedido e finalize pelo Chat do App do Big Dog Pet.",
       },
     ],
   }),
@@ -60,7 +61,7 @@ function Loja() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, description, category, price_cents, stock")
+        .select("id, name, description, category, price_cents, stock, image_url")
         .eq("active", true)
         .order("name");
       if (error) throw error;
@@ -78,7 +79,7 @@ function Loja() {
     <div className="p-4">
       <h1 className="font-display text-2xl">Loja Big Dog Pet</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Monte seu pedido e finalize pelo WhatsApp com a nossa equipe.
+        Monte seu pedido e finalize pelo Chat do App com a nossa equipe.
       </p>
 
       {birthdayCoupon && (
@@ -129,12 +130,49 @@ function Loja() {
         {filtered.map((product) => (
           <li
             key={product.id}
-            className="flex flex-col rounded-2xl bg-card p-3 shadow-card"
+            className="flex flex-col rounded-2xl bg-card p-3 shadow-card border border-border/40 hover:border-primary/30 transition-all group"
           >
-            <div className="grid h-20 place-items-center rounded-xl surface-paper font-display text-2xl text-primary">
-              {product.name.charAt(0)}
+            <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-muted/30 border border-border/40">
+              {product.image_url ? (
+                <img
+                  src={product.image_url}
+                  alt={product.name}
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src =
+                      "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=600&auto=format&fit=crop&q=80";
+                  }}
+                />
+              ) : (
+                <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 text-primary">
+                  <Package className="h-8 w-8 opacity-60" />
+                  <span className="mt-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    {product.category}
+                  </span>
+                </div>
+              )}
+
+              {/* Badge sutil de categoria */}
+              <div className="absolute left-2 top-2 flex flex-wrap gap-1">
+                <Badge
+                  variant="secondary"
+                  className="text-[9px] font-semibold px-1.5 py-0.5 backdrop-blur-md bg-background/85 shadow-xs capitalize"
+                >
+                  {product.category}
+                </Badge>
+              </div>
+
+              {product.stock <= 0 && (
+                <div className="absolute inset-0 bg-background/70 backdrop-blur-[1px] flex items-center justify-center">
+                  <Badge variant="destructive" className="text-[10px] font-bold shadow-sm">
+                    Esgotado
+                  </Badge>
+                </div>
+              )}
             </div>
-            <h2 className="mt-2 line-clamp-2 min-h-10 text-sm font-semibold leading-tight">
+
+            <h2 className="mt-2 line-clamp-2 min-h-10 text-sm font-semibold leading-tight group-hover:text-primary transition-colors">
               {product.name}
             </h2>
             <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">
@@ -145,7 +183,7 @@ function Loja() {
             </p>
             <Button
               size="sm"
-              className="mt-2 h-9 rounded-xl"
+              className="mt-2 h-9 rounded-xl font-semibold"
               disabled={product.stock <= 0}
               onClick={() => {
                 add({ id: product.id, name: product.name, priceCents: product.price_cents });

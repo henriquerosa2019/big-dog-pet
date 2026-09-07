@@ -7,6 +7,7 @@ import {
   Gift,
   LogOut,
   MapPin,
+  MessageCircle,
   PawPrint,
   Pencil,
   Plus,
@@ -14,6 +15,7 @@ import {
   Truck,
   X,
 } from "lucide-react";
+import { openInAppChat } from "@/components/InAppChatDrawer";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -40,7 +42,6 @@ import {
   statusToneCardClass,
   statusToneClass,
   statusToneIconClass,
-  whatsappLink,
 } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -573,14 +574,19 @@ function Conta() {
                     </>
                   )}
                   {item.whatsappMessage && (
-                    <a
-                      className="mt-1 inline-block font-semibold text-primary underline"
-                      href={whatsappLink(item.whatsappMessage)}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <Button
+                      size="sm"
+                      className="mt-2 h-7 rounded-xl text-xs font-semibold gap-1.5 px-3 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
+                      onClick={() =>
+                        openInAppChat({
+                          contextTag: item.title,
+                          defaultText: item.whatsappMessage,
+                        })
+                      }
                     >
-                      Falar no WhatsApp
-                    </a>
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      Chat
+                    </Button>
                   )}
                 </div>
               </div>
@@ -728,14 +734,18 @@ function Conta() {
                         Reagendar horário
                       </Link>
                     </Button>
-                    <Button asChild size="sm" variant="outline" className="h-7 rounded-lg border-rose-400/60 bg-white/90 hover:bg-white text-rose-900 font-semibold text-xs shadow-xs dark:bg-zinc-900 dark:text-rose-100">
-                      <a
-                        href={whatsappLink(`Olá! Meu agendamento de ${item.services?.name ?? "serviço"}${petNameFormatted ? ` para ${petNameFormatted}` : ""} foi cancelado pela loja e gostaria de tirar uma dúvida.`)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Falar no WhatsApp
-                      </a>
+                    <Button
+                      size="sm"
+                      className="h-7 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs gap-1.5 shadow-xs"
+                      onClick={() =>
+                        openInAppChat({
+                          contextTag: `Cancelamento: ${item.services?.name ?? "Serviço"}`,
+                          defaultText: `Olá! Meu agendamento de ${item.services?.name ?? "serviço"}${petNameFormatted ? ` para ${petNameFormatted}` : ""} foi cancelado pela loja e gostaria de tirar uma dúvida.`,
+                        })
+                      }
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      Chat
                     </Button>
                   </div>
                 )}

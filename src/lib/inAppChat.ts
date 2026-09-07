@@ -29,6 +29,22 @@ export interface ChatMessage {
   readByStore: boolean;
 }
 
+export interface OpenChatDetail {
+  contextTag?: string | undefined;
+  defaultText?: string | undefined;
+  petId?: string | undefined;
+  petName?: string | undefined;
+  conversationId?: string | undefined;
+}
+
+/**
+ * Dispara evento global no navegador para abrir o modal de chat interno em qualquer lugar do app
+ */
+export function openInAppChat(detail?: OpenChatDetail): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("open_inapp_chat", { detail }));
+}
+
 const STORAGE_KEY = "bigdog_inapp_chat_v2";
 const BROADCAST_CHANNEL_NAME = "bigdog_inapp_chat_channel";
 

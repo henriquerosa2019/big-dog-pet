@@ -41,7 +41,6 @@ import {
   statusToneCardClass,
   statusToneClass,
   statusToneIconClass,
-  whatsappLink,
 } from "@/lib/format";
 import {
   formatOpsStatusWithPet,
@@ -56,6 +55,7 @@ import { Badge } from "@/components/ui/badge";
 import { DriverContact } from "@/components/DriverContact";
 import { DriverLiveMap } from "@/components/DriverLiveMap";
 import { TransportHistoryList } from "@/components/TransportHistoryList";
+import { openInAppChat } from "@/components/InAppChatDrawer";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -574,7 +574,7 @@ function Home() {
                             Aviso de Cancelamento pela Loja
                           </p>
                           <p className="mt-0.5 text-xs text-rose-900/90 dark:text-rose-200/90 leading-relaxed">
-                            Este horário foi cancelado pela equipe do petshop. Você pode reagendar um novo horário imediatamente ou falar conosco no WhatsApp.
+                            Este horário foi cancelado pela equipe do petshop. Você pode reagendar um novo horário imediatamente ou falar conosco no Chat.
                           </p>
                         </div>
                       </div>
@@ -585,15 +585,18 @@ function Home() {
                             Reagendar novo horário
                           </Link>
                         </Button>
-                        <Button asChild size="sm" variant="outline" className="h-8 rounded-xl border-rose-400/60 bg-white/90 hover:bg-white text-rose-900 font-semibold text-xs shadow-xs dark:bg-zinc-900 dark:text-rose-100">
-                          <a
-                            href={whatsappLink(`Olá! Meu agendamento de ${item.services?.name ?? "serviço"}${petNameFormatted ? ` para ${petNameFormatted}` : ""} foi cancelado pela loja e gostaria de tirar uma dúvida.`)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <MessageCircle className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
-                            Falar no WhatsApp
-                          </a>
+                        <Button
+                          size="sm"
+                          className="h-8 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs gap-1.5 shadow-sm"
+                          onClick={() =>
+                            openInAppChat({
+                              contextTag: `Cancelamento: ${item.services?.name ?? "Serviço"}`,
+                              defaultText: `Olá! Meu agendamento de ${item.services?.name ?? "serviço"}${petNameFormatted ? ` para ${petNameFormatted}` : ""} foi cancelado pela loja e gostaria de tirar uma dúvida.`,
+                            })
+                          }
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          Chat
                         </Button>
                       </div>
                     </div>
@@ -872,22 +875,17 @@ function Home() {
                       <Link to="/agendar">Agendar</Link>
                     </Button>
                     <Button
-                      asChild
                       size="sm"
-                      variant={isRetornoHoje ? "default" : item.isOverdue ? "destructive" : "secondary"}
-                      className={cn(
-                        "h-7 rounded-xl text-xs font-semibold gap-1",
-                        isRetornoHoje && "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm",
-                      )}
+                      className="h-7 rounded-xl text-xs font-semibold gap-1.5 px-3 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
+                      onClick={() =>
+                        openInAppChat({
+                          contextTag: item.title,
+                          defaultText: item.whatsappMessage,
+                        })
+                      }
                     >
-                      <a
-                        href={whatsappLink(item.whatsappMessage)}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <MessageCircle className="h-3 w-3" />
-                        Falar no WhatsApp
-                      </a>
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      Chat
                     </Button>
                   </div>
                 </div>
@@ -909,9 +907,17 @@ function Home() {
           </li>
           <li className="flex items-center gap-2">
             <MessageCircle className="h-3.5 w-3.5 shrink-0 text-primary" />
-            <a href={whatsappLink("Olá! Vim pelo app da Big Dog Pet.")} className="underline text-foreground font-semibold">
-              {CLINIC.phoneDisplay}
-            </a>
+            <button
+              type="button"
+              onClick={() =>
+                openInAppChat({
+                  defaultText: "Olá! Vim pelo app da Big Dog Pet e gostaria de atendimento.",
+                })
+              }
+              className="underline text-foreground font-semibold hover:text-primary transition-colors text-left"
+            >
+              Falar no Chat do App ({CLINIC.phoneDisplay})
+            </button>
           </li>
         </ul>
       </section>
