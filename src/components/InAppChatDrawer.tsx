@@ -45,7 +45,9 @@ import {
   type OpenChatDetail,
   getOrCreateTutorSessionId,
   markConversationAsRead,
+  getPetEmoji,
 } from "@/lib/inAppChat";
+import { supabase } from "@/integrations/supabase/client";
 import { playChatNotificationSound } from "@/lib/soundAlerts";
 import { cn } from "@/lib/utils";
 
@@ -62,6 +64,7 @@ export function InAppChatDrawer() {
   const [activeContextTag, setActiveContextTag] = useState<string | null>(null);
   const [activePetName, setActivePetName] = useState<string | null>(null);
   const [activePetId, setActivePetId] = useState<string | null>(null);
+  const [activePetSpecies, setActivePetSpecies] = useState<string | null>(null);
   const [activeTutorName, setActiveTutorName] = useState<string | null>(null);
   const [activeConversationId, setActiveConversationId] = useState<string>(() =>
     userRole === "tutor" ? (user?.id || getOrCreateTutorSessionId()) : "geral"
@@ -106,6 +109,7 @@ export function InAppChatDrawer() {
         if (custom.detail.defaultText) setInputText(custom.detail.defaultText);
         if (custom.detail.petName) setActivePetName(custom.detail.petName);
         if (custom.detail.petId) setActivePetId(custom.detail.petId);
+        if (custom.detail.petSpecies) setActivePetSpecies(custom.detail.petSpecies);
         if (custom.detail.tutorName) setActiveTutorName(custom.detail.tutorName);
         if (custom.detail.conversationId) {
           setActiveConversationId(custom.detail.conversationId);
@@ -128,6 +132,38 @@ export function InAppChatDrawer() {
     return () => window.removeEventListener("open_inapp_chat", handleOpenChat);
   }, [isAdmin, user?.id]);
 
+  // Busca espécie do pet no banco de dados se tivermos o petId
+  useEffect(() => {
+    if (!activePetId) return;
+    supabase
+      .from("pets")
+      .select("species, name")
+      .eq("id", activePetId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.species) setActivePetSpecies(data.species);
+        if (data?.name && !activePetName) setActivePetName(data.name);
+      });
+  }, [activePetId, activePetName]);
+
+  // Se o tutor estiver logado e não tiver pet selecionado, busca o primeiro pet cadastrado
+  useEffect(() => {
+    if (isAdmin || !user?.id || activePetSpecies) return;
+    supabase
+      .from("pets")
+      .select("name, species")
+      .eq("owner_id", user.id)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.species) {
+          setActivePetSpecies(data.species);
+          if (!activePetName && data.name) setActivePetName(data.name);
+        }
+      });
+  }, [isAdmin, user?.id, activePetSpecies, activePetName]);
+
   // Ao abrir uma conversa específica, rola pro final e marca como lida
   useEffect(() => {
     if (isOpen && !isViewingQueue) {
@@ -143,6 +179,7 @@ export function InAppChatDrawer() {
     setActiveTutorName(conv.tutorName);
     setActivePetName(conv.petName ?? null);
     setActivePetId(conv.petId ?? null);
+    setActivePetSpecies(conv.petSpecies ?? null);
     setActiveContextTag(conv.contextTag ?? null);
     setIsViewingQueue(false);
     markConversationAsRead(conv.conversationId, "loja");
@@ -171,6 +208,7 @@ export function InAppChatDrawer() {
       contextTag: activeContextTag,
       petName: activePetName,
       petId: activePetId,
+      petSpecies: activePetSpecies,
       status: isAdmin ? "respondido" : "aberto",
     });
 
@@ -207,19 +245,37 @@ export function InAppChatDrawer() {
     );
   }, [conversations, queueSearch]);
 
-  const quickQuestions = userRole === "tutor"
-    ? [
-        "Olá, como está meu pet?",
-        "Qual o horário do banho?",
-        "Tenho uma dúvida sobre a medicação",
-        "Gostaria de reagendar o horário",
-      ]
-    : [
-        "Olá! Em que podemos te ajudar hoje? 🐾",
-        "Seu pet está pronto e cheiroso! ✨",
-        "Atendimento iniciado com carinho no petshop.",
-        "Van a caminho para retirada do pet.",
+  // Emoji elegante dinâmico (🐱 gato, 🐶 cão ou 🐾 patinhas)
+  const petEmoji = useMemo(
+    () => getPetEmoji(activePetSpecies, activePetName),
+    [activePetSpecies, activePetName]
+  );
+
+  // Mensagens padrão elegantes em carreiras de 2 em 2 (fila dupla)
+  const quickQuestions = useMemo(() => {
+    const petRefLoja = activePetName ? `${activePetName} ${petEmoji}` : `seu pet ${petEmoji}`;
+    const petRefTutor = activePetName ? `${activePetName} ${petEmoji}` : `meu pet ${petEmoji}`;
+
+    if (userRole === "tutor") {
+      return [
+        `Olá! Como está ${petRefTutor}? ✨`,
+        "Qual o horário previsto do banho/tosa? 🛁⏰",
+        `O Táxi Pet já saiu para buscar ${petRefTutor}? 🚗💨`,
+        `Gostaria de agendar um horário para ${petRefTutor} ✂️✨`,
+        "Tenho uma dúvida sobre medicação/vacina 🩺💉",
+        "Muito obrigado pelo carinho e atenção! ❤️🐾",
       ];
+    }
+
+    return [
+      "A Big Dog agradece a confiança! 🐾✨",
+      `Olá! Como podemos ajudar hoje com ${petRefLoja}? 😊`,
+      `${petRefLoja} já está pronto, cheiroso e feliz! ✨🛁`,
+      `Táxi Pet a caminho para transportar ${petRefLoja} 🚗💨`,
+      `Atendimento de ${petRefLoja} iniciado com muito carinho! ❤️✨`,
+      "Agendamento confirmado com sucesso na agenda! ✅📅",
+    ];
+  }, [userRole, activePetName, petEmoji]);
 
   const formatRelativeTime = (isoString: string) => {
     try {
@@ -312,21 +368,7 @@ export function InAppChatDrawer() {
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 shrink-0">
-              {/* Botão Finalizar Conversa - Tanto Tutor quanto Loja podem encerrar */}
-              {!isViewingQueue && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setConfirmCloseOpen(true)}
-                  className="h-7 px-2 text-[10px] font-bold text-rose-600 border-rose-300/80 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/60 dark:hover:bg-rose-950/50 gap-1 rounded-lg shadow-2xs transition-all"
-                  title="Finalizar atendimento em ambos os lados"
-                >
-                  <PowerOff className="h-3 w-3" />
-                  Finalizar
-                </Button>
-              )}
-
+            <div className="flex items-center gap-1 shrink-0">
               <button
                 type="button"
                 onClick={() => playChatNotificationSound()}
@@ -557,15 +599,23 @@ export function InAppChatDrawer() {
               </div>
             )}
 
-            {/* Chips de Resposta Rápida */}
-            <div className="border-t border-border/60 bg-muted/40 px-3 py-2">
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+            {/* Mensagens Padrão em Fila Dupla (Carreiras de 2 em 2) */}
+            <div className="border-t border-border/60 bg-muted/25 px-3 py-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <Sparkles className="h-3 w-3 text-primary" />
+                  Mensagens Rápidas {petEmoji}
+                </span>
+                <span className="text-[10px] text-muted-foreground">Toque para preencher</span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
                 {quickQuestions.map((q, idx) => (
                   <button
                     key={idx}
                     type="button"
                     onClick={() => setInputText(q)}
-                    className="shrink-0 rounded-full border border-border/80 bg-background px-2.5 py-1 text-[11px] font-medium text-foreground hover:bg-secondary transition-colors"
+                    className="text-left rounded-xl border border-border/70 bg-card px-2.5 py-1.5 text-[11px] font-medium leading-tight text-foreground hover:bg-secondary hover:border-primary/50 transition-all line-clamp-2 shadow-2xs active:scale-[0.98]"
+                    title={q}
                   >
                     {q}
                   </button>
@@ -573,8 +623,34 @@ export function InAppChatDrawer() {
               </div>
             </div>
 
-            {/* Barra de Entrada de Texto */}
-            <div className="border-t border-border bg-card p-3">
+            {/* Barra de Entrada de Texto com Botão Finalizar em Vermelho */}
+            <div className="border-t border-border bg-card p-3 space-y-2">
+              {/* Linha com Status e Botão Finalizar em Vermelho perto do Prompt */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground truncate">
+                  <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 shrink-0"></span>
+                  <span className="font-medium truncate">
+                    {isAdmin
+                      ? `Atendendo: ${activeTutorName || "Tutor"}${activePetName ? ` (${activePetName} ${petEmoji})` : ""}`
+                      : `Bate-papo ao vivo com a Big Dog ${petEmoji}`}
+                  </span>
+                </div>
+
+                {/* Botão Finalizar em Vermelho perto do Prompt */}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => setConfirmCloseOpen(true)}
+                  className="h-7 px-2.5 text-[11px] font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-xs gap-1.5 shrink-0 transition-transform active:scale-95"
+                  title="Finalizar atendimento em ambos os lados"
+                >
+                  <PowerOff className="h-3.5 w-3.5" />
+                  Finalizar Conversa
+                </Button>
+              </div>
+
+              {/* Campo de Texto e Botão de Envio */}
               <div className="flex items-center gap-2">
                 <Input
                   value={inputText}
@@ -585,7 +661,7 @@ export function InAppChatDrawer() {
                       ? `Responder para ${activeTutorName || "o tutor"}...`
                       : activeContextTag
                         ? `Escreva sua mensagem sobre ${activeContextTag}...`
-                        : "Digite sua mensagem..."
+                        : `Digite sua mensagem ${petEmoji}...`
                   }
                   className="h-10 rounded-xl text-xs flex-1"
                 />
@@ -598,8 +674,8 @@ export function InAppChatDrawer() {
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
-              <p className="mt-1.5 text-center text-[10px] text-muted-foreground">
-                Bate-papo gravado · Troca de mensagens em tempo real · Clique em Finalizar para encerrar
+              <p className="mt-1 text-center text-[10px] text-muted-foreground">
+                Bate-papo gravado · Troca de mensagens em tempo real
               </p>
             </div>
           </>

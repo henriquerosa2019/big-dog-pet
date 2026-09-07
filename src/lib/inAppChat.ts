@@ -28,6 +28,7 @@ export interface ChatMessage {
   tutorPhone?: string | null;
   petId?: string | null;
   petName?: string | null;
+  petSpecies?: string | null;
   contextTag?: string | null; // Ex: "Vacina: V10", "Retorno: Pontos", "Consulta Clínica"
   text: string;
   createdAt: string;
@@ -41,6 +42,7 @@ export interface OpenChatDetail {
   defaultText?: string | undefined;
   petId?: string | undefined;
   petName?: string | undefined;
+  petSpecies?: string | undefined;
   conversationId?: string | undefined;
   tutorId?: string | undefined;
   tutorName?: string | undefined;
@@ -54,6 +56,7 @@ export interface ChatConversationSummary {
   tutorPhone?: string | null;
   petId?: string | null;
   petName?: string | null;
+  petSpecies?: string | null;
   contextTag?: string | null;
   lastMessage: ChatMessage;
   lastMessageText: string;
@@ -62,6 +65,36 @@ export interface ChatConversationSummary {
   unreadCountTutor: number;
   status: ChatMessageStatus;
   messageCount: number;
+}
+
+/**
+ * Retorna o emoji elegante correto com base na espécie ou nome do pet:
+ * - Gatos: 🐱 (carinha de gato)
+ * - Cães: 🐶 (carinha de cão)
+ * - Padrão: 🐾 (patinhas elegantes)
+ */
+export function getPetEmoji(species?: string | null, name?: string | null): string {
+  const text = `${species || ""} ${name || ""}`.toLowerCase();
+  if (
+    text.includes("gato") ||
+    text.includes("gata") ||
+    text.includes("felin") ||
+    text.includes("cat") ||
+    text.includes("miau")
+  ) {
+    return "🐱";
+  }
+  if (
+    text.includes("cao") ||
+    text.includes("cão") ||
+    text.includes("cachorr") ||
+    text.includes("dog") ||
+    text.includes("canin") ||
+    text.includes("auau")
+  ) {
+    return "🐶";
+  }
+  return "🐾";
 }
 
 /**
@@ -313,6 +346,7 @@ export function sendChatMessage(params: {
   tutorPhone?: string | null;
   petId?: string | null;
   petName?: string | null;
+  petSpecies?: string | null;
   contextTag?: string | null;
   text: string;
   status?: ChatMessageStatus;
@@ -341,6 +375,7 @@ export function sendChatMessage(params: {
     tutorPhone: params.tutorPhone ?? null,
     petId: params.petId ?? null,
     petName: params.petName ?? null,
+    petSpecies: params.petSpecies ?? null,
     contextTag: params.contextTag ?? null,
     text: params.text.trim(),
     createdAt: new Date().toISOString(),
@@ -388,7 +423,7 @@ export function sendChatMessage(params: {
 /**
  * Encerra e finaliza uma conversa (tanto Tutor quanto Loja podem acionar).
  * Marca as mensagens como 'fechado', envia mensagem de encerramento do sistema
- * e sincroniza instantaneamente em ambos os lados via Realtime.
+ * com emojis elegantes personalizados para cão ou gato e sincroniza instantaneamente.
  */
 export function closeConversation(params: {
   conversationId: string;
@@ -399,22 +434,32 @@ export function closeConversation(params: {
   const convId = params.conversationId;
 
   // Atualiza status de todas as mensagens dessa conversa para 'fechado'
+  let foundPetSpecies: string | null = null;
+  let foundPetName: string | null = null;
+
   const updated = current.map((m) => {
     if (m.conversationId === convId || (m.tutorId && m.tutorId === convId)) {
+      if (m.petSpecies && !foundPetSpecies) foundPetSpecies = m.petSpecies;
+      if (m.petName && !foundPetName) foundPetName = m.petName;
       return { ...m, status: "fechado" as ChatMessageStatus };
     }
     return m;
   });
   saveAllChatMessages(updated);
 
-  // Envia a mensagem de sistema que documenta a finalização
+  const petEmoji = getPetEmoji(foundPetSpecies, foundPetName);
+  const petMention = foundPetName ? `${foundPetName} ${petEmoji}` : `seu pet ${petEmoji}`;
+
+  // Envia a mensagem de sistema elegante que documenta a finalização
   const closingMessage = sendChatMessage({
     conversationId: convId,
     senderId: params.closedByRole === "loja" ? "loja" : convId,
     senderName: params.closedByName,
     senderRole: params.closedByRole,
     recipientRole: params.closedByRole === "loja" ? "tutor" : "loja",
-    text: `🏁 Atendimento finalizado por ${params.closedByName}. Se precisar de mais suporte ou novo atendimento, basta enviar uma nova mensagem! 🐾`,
+    petName: foundPetName,
+    petSpecies: foundPetSpecies,
+    text: `🏁 Atendimento finalizado por ${params.closedByName}. A Big Dog agradece a confiança e o carinho com ${petMention}! Se precisar de novo atendimento, basta enviar uma mensagem! ✨`,
     status: "fechado",
     playSound: false,
   });
@@ -561,6 +606,7 @@ export function getAllChatConversations(): ChatConversationSummary[] {
     let tutorPhone: string | null = null;
     let petId: string | null = null;
     let petName: string | null = null;
+    let petSpecies: string | null = null;
     let contextTag: string | null = null;
 
     for (let i = msgList.length - 1; i >= 0; i--) {
@@ -572,6 +618,7 @@ export function getAllChatConversations(): ChatConversationSummary[] {
       if (m.tutorPhone && !tutorPhone) tutorPhone = m.tutorPhone;
       if (m.petId && !petId) petId = m.petId;
       if (m.petName && !petName) petName = m.petName;
+      if (m.petSpecies && !petSpecies) petSpecies = m.petSpecies;
       if (m.contextTag && !contextTag) contextTag = m.contextTag;
     }
 
@@ -593,6 +640,7 @@ export function getAllChatConversations(): ChatConversationSummary[] {
       tutorPhone,
       petId,
       petName,
+      petSpecies,
       contextTag,
       lastMessage: lastMsg,
       lastMessageText: lastMsg.text,
@@ -775,6 +823,7 @@ export function useInAppChat(options?: {
     tutorPhone?: string | null;
     petId?: string | null;
     petName?: string | null;
+    petSpecies?: string | null;
     contextTag?: string | null;
     recipientRole?: RecipientRole;
     status?: ChatMessageStatus;
