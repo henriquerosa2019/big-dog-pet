@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>BPMN 2.0 Interativo &middot; Subprocessos Explodíveis &middot; Big Dog Pet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #090d16;
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #f8fafc;
+    -webkit-font-smoothing: antialiased;
+  }
+  #app { max-width: 100%; padding: 14px; }
+  #card {
+    background: #0f172a;
+    border-radius: 16px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+    overflow: hidden;
+    border: 1px solid #1e293b;
+  }
+  #toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 14px;
+    padding: 16px 24px;
+    background: #060911;
+    border-bottom: 1px solid #1e293b;
+  }
+  #toolbar h1 {
+    margin: 0; color: #fff; font-size: 19px; font-weight: 800; letter-spacing: -0.02em;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  #toolbar h1 span.badge {
+    background: #10b981; color: #022c22; font-size: 11px; padding: 3px 10px;
+    border-radius: 999px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  #toolbar h1 span.badge-sub {
+    background: #0284c7; color: #eff6ff; font-size: 11px; padding: 3px 10px;
+    border-radius: 999px; font-weight: 700;
+  }
+  #toolbar p { margin: 4px 0 0; color: #94a3b8; font-size: 12.5px; }
+  #controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .btn-tool {
+    background: #1e293b; color: #e2e8f0; border: 1px solid #334155;
+    padding: 8px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 700;
+    cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;
+    font-family: inherit;
+  }
+  .btn-tool:hover { background: #334155; color: #fff; border-color: #475569; }
+  .btn-tool.primary {
+    background: #10b981; color: #022c22; border-color: #059669; font-weight: 800;
+  }
+  .btn-tool.primary:hover { background: #059669; color: #fff; }
+  .btn-tool.blue {
+    background: #0284c7; color: #fff; border-color: #0369a1;
+  }
+  .btn-tool.blue:hover { background: #0369a1; }
+  #zoomLabel { display: flex; align-items: center; gap: 8px; color: #cbd5e1; font-size: 12.5px; font-weight: 600; }
+  #zoomRange { accent-color: #10b981; cursor: pointer; width: 90px; }
+  #zoomVal { width: 38px; color: #34d399; font-weight: 700; font-family: monospace; }
+  #scrollWrap { overflow: auto; max-height: 82vh; background: #090d16; position: relative; }
+  #diagramWrap { position: relative; display: inline-block; min-width: 100%; }
+  #stickyHeader {
+    position: sticky; top: 0; z-index: 30;
+    background: #060911;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+    border-bottom: 1px solid #1e293b;
+  }
+  #headerSvg, #bpmnSvg { display: block; }
+  .node { cursor: pointer; }
+  .sub-btn { cursor: pointer; transition: transform 0.15s; }
+  .sub-btn:hover { transform: scale(1.05); }
+  
+  /* Tooltip Flutuante */
+  #tooltip {
+    position: fixed; display: none; max-width: 400px;
+    background: #090d16; color: #f8fafc;
+    padding: 14px 18px; border-radius: 12px;
+    font-size: 12px; line-height: 1.55;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.8);
+    z-index: 9999; pointer-events: none; border: 1px solid #10b981;
+  }
+  #tooltip .tt-level {
+    font-size: 10px; background: #064e3b; color: #a7f3d0;
+    padding: 2px 7px; border-radius: 4px; font-weight: 800; text-transform: uppercase;
+    display: inline-block; margin-bottom: 6px;
+  }
+  #tooltip .tt-title { font-weight: 800; color: #34d399; font-size: 13.5px; margin-bottom: 6px; }
+  #tooltip .tt-code {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #93c5fd; background: #1e293b;
+    padding: 5px 8px; border-radius: 6px; margin-top: 8px; border: 1px solid #334155;
+  }
+
+  /* Modal de Inspeção Detalhada */
+  #modalOverlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.78); backdrop-filter: blur(5px);
+    z-index: 10000; align-items: center; justify-content: center; padding: 20px;
+  }
+  #modalCard {
+    background: #0f172a; border: 1px solid #334155; border-radius: 16px;
+    max-width: 860px; width: 100%; max-height: 85vh; overflow: auto;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.8);
+  }
+  #modalHeader {
+    padding: 18px 24px; background: #090d16; border-bottom: 1px solid #1e293b;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  #modalHeader h3 { margin: 0; color: #38bdf8; font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+  #modalClose {
+    background: transparent; border: none; color: #94a3b8; font-size: 24px;
+    cursor: pointer; padding: 0 8px; font-weight: 700; line-height: 1;
+  }
+  #modalClose:hover { color: #fff; }
+  #modalBody { padding: 24px; font-size: 13.5px; line-height: 1.6; color: #e2e8f0; }
+  .modal-step {
+    background: #1e293b; border: 1px solid #334155; border-radius: 10px;
+    padding: 14px 16px; margin-bottom: 12px;
+  }
+  .modal-step-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .modal-step-title { font-weight: 800; color: #f8fafc; font-size: 14px; }
+  .sound-test-btn {
+    background: #065f46; color: #a7f3d0; border: 1px solid #059669;
+    padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px; font-family: inherit;
+  }
+  .sound-test-btn:hover { background: #047857; color: #fff; }
+
+  #hint {
+    padding: 14px 24px; font-size: 12.5px; color: #94a3b8; background: #060911;
+    line-height: 1.6; border-top: 1px solid #1e293b;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="card">
+    <div id="toolbar">
+      <div>
+        <h1>
+          <span>BPMN 2.0 Vertical &middot; Big Dog Pet (Franco da Rocha)</span>
+          <span class="badge">Microvisão 3º Nível</span>
+          <span class="badge-sub">Subprocessos Explodíveis [ + ]</span>
+        </h1>
+        <p>Clique no <strong>[ + ]</strong> das atividades compostas para explodir o fluxo interno com microetapas, regras de código e disparadores sonoros em tempo real.</p>
+      </div>
+      <div id="controls">
+        <button class="btn-tool blue" id="expandAllBtn">➕ Explodir Todos</button>
+        <button class="btn-tool" id="collapseAllBtn">➖ Recolher Todos</button>
+        <button class="btn-tool" id="playTonesBtn">🔊 Testar Alarmes</button>
+        <label id="zoomLabel">Zoom
+          <input id="zoomRange" type="range" min="30" max="130" value="50">
+          <span id="zoomVal">50%</span>
+        </label>
+        <button class="btn-tool primary" id="downloadBtn">&#11015; Baixar PNG Completo</button>
+      </div>
+    </div>
+    <div id="scrollWrap">
+      <div id="diagramWrap">
+        <div id="stickyHeader">
+          <svg id="headerSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+        <svg id="bpmnSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+    </div>
+    <div id="hint">
+      <strong>Guia de Navegação dos Subprocessos (BPMN 2.0 Notation):</strong><br>
+      &bull; <strong>Atividades com Ícone <code>[ + ]</code>:</strong> Representam <em>Subprocessos Colapsados</em>. Ao clicar, abrem-se reposicionados confortavelmente à direita com tipografia <em>Plus Jakarta Sans</em> ultra-limpa e 2 linhas de respiro vertical.<br>
+      &bull; <strong>Confirmação 100% no App:</strong> Abertura manual de WhatsApp foi substituída por confirmação direta em 1 clique na loja com alarme de 3 toques e card verde no tutor.<br>
+      &bull; <strong>Cancelamento da Loja:</strong> Soa alarme de 2 toques de advertência no tutor e card vermelho com opções de reagendar e contato.<br>
+      &bull; <strong>Crítica de Capacidade por Hora:</strong> Grade verde esmeralda (livre) vs vermelho (lotado), auto-sugestão de próximo horário livre e autorização de exceção de encaixe.<br>
+      &bull; <strong>Áudio em Tempo Real:</strong> Você pode clicar nos botões <em>"▶️ Ouvir Alarme"</em> em cada subprocesso para ouvir a frequência exata gerada pela Web Audio API nativa.
+    </div>
+  </div>
+</div>
+
+<div id="tooltip"></div>
+
+<!-- Modal Detalhado -->
+<div id="modalOverlay">
+  <div id="modalCard">
+    <div id="modalHeader">
+      <h3 id="modalTitle">Subprocesso Detalhado</h3>
+      <button id="modalClose">&times;</button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var WIDTH = 1600;
+  var TITLE_H = 140, HEADER_H = 50, GAP = 45;
+
+  function el(tag, attrs, kids) {
+    var e = document.createElementNS(SVGNS, tag);
+    attrs = attrs || {};
+    for (var k in attrs) {
+      if (attrs[k] !== null && attrs[k] !== undefined) e.setAttribute(k, attrs[k]);
+    }
+    (kids || []).forEach(function (kid) {
+      if (kid === null || kid === undefined) return;
+      if (typeof kid === 'string') e.appendChild(document.createTextNode(kid));
+      else e.appendChild(kid);
+    });
+    return e;
+  }
+
+  var measureCanvas = document.createElement('canvas');
+  var mctx = measureCanvas.getContext('2d');
+  function textWidth(text, font) { mctx.font = font; return mctx.measureText(text).width; }
+  function wrapLines(text, font, maxWidth) {
+    var words = text.split(' ');
+    var lines = []; var cur = '';
+    words.forEach(function (w) {
+      var test = cur ? cur + ' ' + w : w;
+      if (textWidth(test, font) > maxWidth && cur) { lines.push(cur); cur = w; }
+      else { cur = test; }
+    });
+    if (cur) lines.push(cur);
+    return lines;
+  }
+
+  // MOTOR WEB AUDIO API NATIVO
+  var audioCtx = null;
+  function getAudioContext() {
+    if (!audioCtx) {
+      var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) audioCtx = new AudioContextClass();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    return audioCtx;
+  }
+
+  function playHarmonicBeeps(freq, count, duration, interval) {
+    var ctx = getAudioContext();
+    if (!ctx) return;
+    var now = ctx.currentTime;
+    for (var i = 0; i < count; i++) {
+      var startTime = now + i * interval;
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0.001, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.25, startTime + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + duration + 0.05);
+    }
+  }
+
+  function playAlertSound(tone) {
+    var ctx = getAudioContext();
+    if (!ctx) return;
+    if (tone === "confirmado") {
+      playHarmonicBeeps(1046.5, 3, 0.2, 0.25);
+    } else if (tone === "cancelado") {
+      var now = ctx.currentTime;
+      for (var i = 0; i < 2; i++) {
+        var t0 = now + i * 0.35;
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(659, t0);
+        osc.frequency.exponentialRampToValueAtTime(440, t0 + 0.22);
+        gain.gain.setValueAtTime(0.001, t0);
+        gain.gain.exponentialRampToValueAtTime(0.22, t0 + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.25);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + 0.28);
+      }
+    } else if (tone === "atendimento") {
+      playHarmonicBeeps(523.25, 3, 0.22, 0.28);
+    } else if (tone === "transporte") {
+      playHarmonicBeeps(783.99, 3, 0.18, 0.22);
+    } else if (tone === "portao") {
+      playHarmonicBeeps(880, 2, 0.15, 0.2);
+    } else if (tone === "concluido") {
+      var now = ctx.currentTime;
+      var notes = [523.25, 659.25, 783.99, 1046.5];
+      notes.forEach(function (f, idx) {
+        var t = now + idx * 0.14;
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(f, t);
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.exponentialRampToValueAtTime(0.28, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.4);
+      });
+    }
+  }
+
+  // 5 Raias de Atores
+  var COLORS = {
+    C: { fill: '#172554', stroke: '#3b82f6', text: '#bfdbfe', band: 'rgba(59,130,246,0.04)', label: 'Tutor (Cliente / App)' },
+    S: { fill: '#2e1065', stroke: '#8b5cf6', text: '#ddd6fe', band: 'rgba(139,92,246,0.04)', label: 'Sistema (Supabase Realtime)' },
+    M: { fill: '#3b2504', stroke: '#f59e0b', text: '#fde68a', band: 'rgba(245,158,11,0.04)', label: 'Motorista (Área Táxi Pet)' },
+    E: { fill: '#431407', stroke: '#f97316', text: '#fed7aa', band: 'rgba(249,115,22,0.04)', label: 'Equipe (Admin / Recepção / Vet)' },
+    W: { fill: '#022c22', stroke: '#10b981', text: '#a7f3d0', band: 'rgba(16,185,129,0.04)', label: 'Comunicação & Alertas Sonoros' }
+  };
+
+  var COLS = [
+    { actor: 'C', x: 180, label: '1. Tutor (Cliente / App)' },
+    { actor: 'S', x: 500, label: '2. Sistema (Supabase Realtime)' },
+    { actor: 'M', x: 820, label: '3. Motorista (Área Táxi Pet)' },
+    { actor: 'E', x: 1140, label: '4. Equipe (Admin / Recepção / Vet)' },
+    { actor: 'W', x: 1440, label: '5. Comunicação & Alertas Sonoros' }
+  ];
+  var COLW = 290;
+
+  // DADOS DOS SUBPROCESSOS EXPLODÍVEIS
+  var SUBPROCESS_DEFS = {
+    subOnboarding: {
+      id: 'subOnboarding',
+      title: 'SUB-1 · Onboarding, Cadastro de Tutor & Pet com Porte/Peso',
+      shortTitle: 'Cadastrar Tutor e Pet com Porte/Peso',
+      actor: 'C',
+      expandedHeight: 350,
+      badge: 'Onboarding & Dados',
+      steps: [
+        { num: '1.1', title: 'Validação de Telefone & Aniversário', actor: 'C', desc: 'Máscara maskPhoneBR e data de aniversário para liberação automática do cupom de 20%.', code: 'maskPhoneBR | profiles' },
+        { num: '1.2', title: 'Busca Automática de CEP (ViaCEP)', actor: 'C', desc: 'Preenchimento em tempo real de rua, bairro e cidade em Franco da Rocha com foco no número.', code: 'fetchAddressByCep() | addresses' },
+        { num: '1.3', title: 'Registro do Pet (Porte & Peso)', actor: 'C', desc: 'Classificação por porte (P <7kg, M 7-15kg, G 15-25kg, GG >25kg) e peso exato em kg.', code: 'pets (size, weight_kg)' },
+        { num: '1.4', title: 'Gravação RLS & Sessão Segura', actor: 'S', desc: 'Supabase Auth gera token JWT com RLS estrito: tutor só visualiza os próprios registros.', code: 'Supabase RLS | user_roles' }
+      ]
+    },
+
+    subAgendamento: {
+      id: 'subAgendamento',
+      title: 'SUB-2 · Agendamento Inteligente, Crítica de Vagas por Hora & Exceção',
+      shortTitle: 'Agendamento & Crítica de Capacidade por Hora',
+      actor: 'C',
+      expandedHeight: 360,
+      badge: 'Grade Verde/Vermelho & Encaixe',
+      sound: 'confirmado',
+      steps: [
+        { num: '2.1', title: 'Serviço & Porte', actor: 'C', desc: 'Banho, Tosa Máquina/Tesoura ou Consulta com recálculo proporcional por peso.', code: 'agendar.tsx' },
+        { num: '2.2', title: 'Modalidade Táxi Pet', actor: 'C', desc: 'Buscar e devolver, só buscar ou balcão com taxa por bairro.', code: 'LogisticsType' },
+        { num: '2.3', title: 'evaluateSlotCapacity()', actor: 'S', desc: 'Compara agendamentos do horário com a capacidade horária configurada no Admin (ex: 3 banhos/h).', code: 'schedulingCapacity.ts' },
+        { num: '2.4', title: 'Grade Visual de Vagas', actor: 'C', desc: 'Slots em VERDE ESMERALDA (com vaga) e em VERMELHO (lotado / capacidade esgotada).', code: 'Slots: verde / vermelho' },
+        { num: '2.5', title: 'Sugestão ou Encaixe', actor: 'C', desc: 'Sugere próximo horário livre e libera checkbox [ ] Abrir exceção e agendar mesmo assim. Anota [ENCAIXE].', code: 'findNextAvailableSlot()' },
+        { num: '2.6', title: 'Gravação 100% In-App', actor: 'S', desc: 'Gravação direta em appointments (status: pendente) sem desvios externos para WhatsApp.', code: 'appointments (pendente)' },
+        { num: '2.7', title: 'Alarme Sonoro (3 Toques)', actor: 'W', desc: 'O app soa 3 bips harmônicos e o card sobe imediatamente no topo em amarelo âmbar (Aguardando Loja).', code: 'playStatusSound("confirmado", 3)', sound: 'confirmado' }
+      ]
+    },
+
+    subConfirmacaoLoja: {
+      id: 'subConfirmacaoLoja',
+      title: 'SUB-3 · Validação da Loja & Sinalização em Tempo Real (In-App)',
+      shortTitle: 'Validação na Loja & Sinalização no Tutor (100% In-App)',
+      actor: 'E',
+      expandedHeight: 350,
+      badge: '100% In-App & Realtime',
+      sound: 'confirmado',
+      steps: [
+        { num: '3.1', title: 'Recepção Vê na Aba Agenda', actor: 'E', desc: 'O agendamento chega instantaneamente no /admin com dados do pet, porte, notas de encaixe e perfil VIP.', code: 'admin.tsx | Realtime' },
+        { num: '3.2', title: 'Botão "Confirmar Agendamento"', actor: 'E', desc: 'Recepção clica em confirmar com 1 clique. O status muda para "confirmado" sem abrir abas de WhatsApp.', code: 'confirmAppointment' },
+        { num: '3.3', title: 'Alarme Sonoro no Tutor (3 Toques)', actor: 'W', desc: 'O tutor ouve 3 toques cristalinos e o card sobe para o topo em VERDE ESMERALDA (Confirmado ✓).', code: 'playStatusSound("confirmado", 3)', sound: 'confirmado' },
+        { num: '3.4', title: 'Fluxo Cancelamento (2 Toques)', actor: 'E', desc: 'Se cancelar, status vira cancelado. Tutor ouve 2 toques de alarme de advertência e card fica VERMELHO.', code: 'playStatusSound("cancelado", 2)', sound: 'cancelado' }
+      ]
+    },
+
+    subTaxiPetIda: {
+      id: 'subTaxiPetIda',
+      title: 'SUB-4 · Logística Táxi Pet, 10 Etapas & Telemetria Waze/Maps',
+      shortTitle: 'Operação Táxi Pet, 10 Etapas & Telemetria Waze/Maps',
+      actor: 'M',
+      expandedHeight: 350,
+      badge: '10 Etapas Operacionais & GPS',
+      sound: 'transporte',
+      steps: [
+        { num: '4.1', title: 'Despacho da Corrida', actor: 'E', desc: 'Despachante escala o motorista da van no /admin para a ordem de transporte.', code: 'assignDriver' },
+        { num: '4.2', title: 'GPS Waze / Maps em 1 Toque', actor: 'M', desc: 'Motorista visualiza rota e abre trajeto direto no Waze ou Google Maps com endereço e número.', code: 'motorista.tsx | Waze/Maps' },
+        { num: '4.3', title: 'Viagem & Som de Transporte', actor: 'W', desc: 'Ao mudar para em_deslocamento_retirada, tutor ouve som de viagem e GPS transmite telemetria.', code: 'playStatusSound("transporte")', sound: 'transporte' },
+        { num: '4.4', title: 'Alerta Duplo no Portão', actor: 'W', desc: 'Ao estacionar no endereço (chegou_local_retirada), toca o sino duplo para entrega do animal.', code: 'playStatusSound("portao")', sound: 'portao' },
+        { num: '4.5', title: 'Coleta Segura & Check-in Loja', actor: 'E', desc: 'Carimbo auditável em pet_status_history ao retirar e confirmação de chegada no petshop.', code: 'pet_status_history' }
+      ]
+    },
+
+    subAtendimento: {
+      id: 'subAtendimento',
+      title: 'SUB-5 · Procedimento Técnico, Regra de Ouro no Topo & Prontuário',
+      shortTitle: 'Procedimento Técnico, Regra de Ouro no Topo & Prontuário',
+      actor: 'E',
+      expandedHeight: 350,
+      badge: 'Regra de Ouro & Topo Verde',
+      sound: 'atendimento',
+      steps: [
+        { num: '5.1', title: 'Status "Em Atendimento"', actor: 'E', desc: 'Início do banho/tosa. Dispara acorde sonoro harmônico suave de banho no tutor.', code: 'ops_status: em_atendimento', sound: 'atendimento' },
+        { num: '5.2', title: 'REGRA DE OURO: Topo em Verde', actor: 'S', desc: 'Item sobe imediatamente para o 1º lugar absoluto de todas as filas com borda verde e badge pulsante.', code: 'sortInServiceFirst() | #10b981' },
+        { num: '5.3', title: 'Execução Técnica & Estética', actor: 'E', desc: 'Banho hipoalergênico, secagem acústica cuidadosa, hidratação e tosa especializada (máquina/tesoura).', code: 'Procedimento Estético' },
+        { num: '5.4', title: 'Prontuário & Lembrete Automático', actor: 'E', desc: 'Evolução de peso e prescrição em medical_records. Se indicar retorno, agenda em care_reminders.', code: 'medical_records' }
+      ]
+    },
+
+    subDevolucao: {
+      id: 'subDevolucao',
+      title: 'SUB-6 · Viagem de Retorno, Alerta Triunfal & Retenção Curva ABC',
+      shortTitle: 'Viagem de Retorno, Alerta Triunfal & Retenção Curva ABC',
+      actor: 'M',
+      expandedHeight: 350,
+      badge: 'Alerta Triunfal & Fidelização',
+      sound: 'concluido',
+      steps: [
+        { num: '6.1', title: 'Deslocamento de Volta', actor: 'M', desc: 'Motorista inicia retorno com o pet cheiroso (em_rota_devolucao) com alerta sonoro de transporte.', code: 'em_rota_devolucao', sound: 'transporte' },
+        { num: '6.2', title: 'Aviso de Chegada no Portão', actor: 'W', desc: 'Ao estacionar na casa do tutor, soa o sino duplo anunciando que o pet chegou.', code: 'chegou_local_entrega', sound: 'portao' },
+        { num: '6.3', title: 'Entrega & Alarme Triunfal', actor: 'W', desc: 'Pet entregue em mãos! O app toca o acorde triunfal de 4 notas ascendentes celebrando a conclusão.', code: 'playStatusSound("concluido", 3)', sound: 'concluido' },
+        { num: '6.4', title: 'Minha Conta: Filtro Em Aberto', actor: 'C', desc: 'conta.tsx oculta os concluídos por padrão, mantendo visão limpa. Botão fechar permite ver histórico.', code: 'conta.tsx | Filtros' },
+        { num: '6.5', title: 'Atualização Curva ABC', actor: 'E', desc: 'Recálculo automático do LTV e classificação VIP (Classe A 80% do faturamento, B 15%, C 5%).', code: 'CurvaAbcClientes.tsx' }
+      ]
+    }
+  };
+
+  // ESTADO DE EXPANSÃO DOS NÓS
+  var expandedNodes = {
+    subOnboarding: false,
+    subAgendamento: false,
+    subConfirmacaoLoja: false,
+    subTaxiPetIda: false,
+    subAtendimento: false,
+    subDevolucao: false
+  };
+
+  // ESTRUTURA DAS ETAPAS
+  var sectionRows = {
+    s1: [
+      { id: 'start', type: 'start', actor: 'C', label: 'Tutor Acessa o App Big Dog' },
+      { id: 'gwAcesso', type: 'gateway', actor: 'C', label: 'Possui conta ativa no App?' },
+      { id: 'subOnboarding', type: 'sub', actor: 'C', label: 'Cadastrar Tutor e Pet com Porte/Peso', subId: 'subOnboarding' },
+      { id: 'authSession', type: 'task', actor: 'S', label: 'Sessão Segura JWT & Papéis RLS (user_roles)' },
+      { id: 'homePersonalizada', type: 'task', actor: 'C', label: 'Home Contextual: Endereço & Serviços em Destaque' },
+      { id: 'gwIntencao', type: 'gateway', actor: 'C', label: 'Qual o objetivo do tutor?' },
+      { id: 'throwLoja', type: 'link', dir: 'throw', letter: 'L', actor: 'C', label: 'Ir para a Loja Virtual (Produtos)' }
+    ],
+    s2: [
+      { id: 'catchAgendamento', type: 'link', dir: 'catch', letter: 'A', actor: 'C', label: 'Início do Agendamento' },
+      { id: 'subAgendamento', type: 'sub', actor: 'C', label: 'Agendamento Inteligente & Crítica de Capacidade por Hora', subId: 'subAgendamento' },
+      { id: 'subConfirmacaoLoja', type: 'sub', actor: 'E', label: 'Validação na Loja & Sinalização em Tempo Real (100% In-App)', subId: 'subConfirmacaoLoja' },
+      { id: 'gwPrecisaVan', type: 'gateway', actor: 'S', label: 'Exige Táxi Pet (Transporte)?' }
+    ],
+    s3: [
+      { id: 'subTaxiPetIda', type: 'sub', actor: 'M', label: 'Operação Táxi Pet, 10 Etapas & Telemetria Waze/Maps', subId: 'subTaxiPetIda' },
+      { id: 'mapaAoVivoTutor', type: 'task', actor: 'C', label: 'Tutor Vê Van no Mapa ao Vivo (DriverLiveMap.tsx)' },
+      { id: 'petChegaLoja', type: 'task', actor: 'E', label: 'Recepção Confirma Chegada do Pet no Petshop' }
+    ],
+    s4: [
+      { id: 'subAtendimento', type: 'sub', actor: 'E', label: 'Procedimento Técnico, Regra de Ouro no Topo & Prontuário', subId: 'subAtendimento' },
+      { id: 'tutorAcompanhaStatus', type: 'task', actor: 'C', label: 'Tutor Vê Card Verde com Pulso em Tempo Real na Home' },
+      { id: 'gwPrecisaDevolucao', type: 'gateway', actor: 'E', label: 'Requer Táxi Pet Devolução (Volta)?' }
+    ],
+    s5: [
+      { id: 'subDevolucao', type: 'sub', actor: 'M', label: 'Viagem de Retorno, Alerta Triunfal & Retenção Curva ABC', subId: 'subDevolucao' },
+      { id: 'catchLoja', type: 'link', dir: 'catch', letter: 'L', actor: 'C', label: 'Entrada Loja Virtual / Carrinho' },
+      { id: 'comprasLoja', type: 'task', actor: 'C', label: 'Compra de Ração & Medicamentos Conectada ao Pet' },
+      { id: 'centralRetornosHoje', type: 'task', actor: 'C', label: 'Central de Retornos: Vacinas & Retornos no Topo em Verde' },
+      { id: 'throwAgendamento', type: 'link', dir: 'throw', letter: 'A', actor: 'C', label: 'Reagendar (Ciclo Fechado de Retenção)' },
+      { id: 'endProcess', type: 'end', actor: 'E', label: 'Ciclo Concluído com Sucesso e Tutor Fidelizado' }
+    ]
+  };
+
+  var sectionMeta = [
+    { key: 's1', title: 'Macroetapa 1 · Acesso, Identificação de Pet (Porte/Peso) & Endereço Táxi Pet', sub: 'Nível 1-3 · Do onboarding e ViaCEP até a validação de perfil e pet' },
+    { key: 's2', title: 'Macroetapa 2 · Agendamento 100% In-App, Crítica de Capacidade por Hora & Confirmação Sonora', sub: 'Nível 1-3 · Grade visual de vagas por hora (verde/vermelho), encaixe de exceção e confirmação sem WhatsApp' },
+    { key: 's3', title: 'Macroetapa 3 · Despacho, Rota Waze/Maps & Alertas Sonoros de Viagem e Portão (Ida)', sub: 'Nível 1-3 · Início do deslocamento, telemetria GPS contínua e aviso de sino duplo no portão' },
+    { key: 's4', title: 'Macroetapa 4 · Atendimento Clínico/Estética, Som de Banho & Regra de Ouro "Em Atendimento no Topo"', sub: 'Nível 1-3 · Topo absoluto da fila em verde esmeralda, tom sonoro de banho e prontuário médico' },
+    { key: 's5', title: 'Macroetapa 5 · Devolução (Volta), Alerta Triunfal de Conclusão, Minha Conta & Curva ABC', sub: 'Nível 1-3 · Viagem de retorno, acorde triunfal de entrega final, filtro inteligente e clientes VIP' }
+  ];
+
+  // Recalcular posições Y e renderizar tudo
+  function calculateLayout() {
+    var y = TITLE_H;
+    var nodePositions = {};
+    var computedSections = [];
+
+    sectionMeta.forEach(function (sm) {
+      var headerY = y;
+      var contentTop = headerY + HEADER_H;
+      var currentY = contentTop + 24;
+      var rows = sectionRows[sm.key];
+
+      rows.forEach(function (item) {
+        var isExp = item.type === 'sub' && expandedNodes[item.subId];
+        var itemH = isExp ? (SUBPROCESS_DEFS[item.subId].expandedHeight || 350) : 84;
+        var centerY = currentY + itemH / 2;
+
+        var col = COLS.find(function (c) { return c.actor === item.actor; }) || COLS[0];
+        nodePositions[item.id] = {
+          id: item.id,
+          type: item.type,
+          actor: item.actor,
+          label: item.label,
+          subId: item.subId,
+          x: col.x,
+          y: centerY,
+          height: itemH,
+          isExpanded: isExp
+        };
+
+        // Espaçamento vertical generoso ("descer 2 linhas" de respiro)
+        currentY += itemH + (isExp ? 52 : 36);
+      });
+
+      var contentBottom = currentY + 16;
+      computedSections.push({
+        key: sm.key,
+        title: sm.title,
+        sub: sm.sub,
+        headerY: headerY,
+        contentTop: contentTop,
+        contentBottom: contentBottom
+      });
+
+      y = contentBottom + GAP;
+    });
+
+    return {
+      nodes: nodePositions,
+      sections: computedSections,
+      totalHeight: y - GAP + 60
+    };
+  }
+
+  // CONEXÕES (FLUXO COMPLETO)
+  var EDGES_DEF = [
+    // Etapa 1
+    { from: 'start', to: 'gwAcesso' },
+    { from: 'gwAcesso', to: 'subOnboarding', label: 'Novo no App ou Balcão' },
+    { from: 'gwAcesso', to: 'authSession', label: 'Já possui login' },
+    { from: 'subOnboarding', to: 'authSession' },
+    { from: 'authSession', to: 'homePersonalizada' },
+    { from: 'homePersonalizada', to: 'gwIntencao' },
+    { from: 'gwIntencao', to: 'throwLoja', label: 'Comprar Produtos' },
+    { from: 'gwIntencao', to: 'subAgendamento', label: 'Agendar Banho / Tosa' },
+
+    // Etapa 2
+    { from: 'catchAgendamento', to: 'subAgendamento' },
+    { from: 'subAgendamento', to: 'subConfirmacaoLoja', label: 'Gravado (Pendente no App)' },
+    { from: 'subConfirmacaoLoja', to: 'gwPrecisaVan', label: 'Confirmado pela Loja ✓' },
+    { from: 'gwPrecisaVan', to: 'subTaxiPetIda', label: 'Sim (Táxi Pet)' },
+    { from: 'gwPrecisaVan', to: 'subAtendimento', label: 'Não (No Balcão)' },
+
+    // Etapa 3
+    { from: 'subTaxiPetIda', to: 'mapaAoVivoTutor' },
+    { from: 'mapaAoVivoTutor', to: 'petChegaLoja' },
+    { from: 'petChegaLoja', to: 'subAtendimento' },
+
+    // Etapa 4
+    { from: 'subAtendimento', to: 'tutorAcompanhaStatus' },
+    { from: 'tutorAcompanhaStatus', to: 'gwPrecisaDevolucao' },
+    { from: 'gwPrecisaDevolucao', to: 'subDevolucao', label: 'Sim (Devolver em Casa)' },
+    { from: 'gwPrecisaDevolucao', to: 'centralRetornosHoje', label: 'Não (Tutor Retirou)' },
+
+    // Etapa 5
+    { from: 'subDevolucao', to: 'centralRetornosHoje' },
+    { from: 'catchLoja', to: 'comprasLoja' },
+    { from: 'comprasLoja', to: 'centralRetornosHoje' },
+    { from: 'centralRetornosHoje', to: 'throwAgendamento', label: 'Agendar Retorno / Vacina' },
+    { from: 'centralRetornosHoje', to: 'endProcess' }
+  ];
+
+  // RENDERIZAÇÃO COMPLETA
+  function renderDiagram() {
+    var layout = calculateLayout();
+    var nodes = layout.nodes;
+    var sections = layout.sections;
+    var TOTAL_H = layout.totalHeight;
+
+    // Header SVG
+    var headerSvg = document.getElementById('headerSvg');
+    headerSvg.innerHTML = '';
+    headerSvg.setAttribute('viewBox', '0 0 ' + WIDTH + ' ' + TITLE_H);
+    headerSvg.setAttribute('width', WIDTH);
+    headerSvg.setAttribute('height', TITLE_H);
+
+    headerSvg.appendChild(el('rect', { x: 0, y: 0, width: WIDTH, height: TITLE_H, fill: '#060911' }));
+    headerSvg.appendChild(el('text', { x: WIDTH / 2, y: 32, 'text-anchor': 'middle', 'font-size': 20, 'font-weight': 900, fill: '#ffffff' },
+      ['ARQUITETURA DE PROCESSOS (BPMN 2.0) · BIG DOG PET FRANCO DA ROCHA']));
+    headerSvg.appendChild(el('text', { x: WIDTH / 2, y: 53, 'text-anchor': 'middle', 'font-size': 12.5, fill: '#94a3b8' },
+      ['Microvisão de 3º Nível: Subprocessos Explodíveis [ + ], Crítica de Horários por Hora, Alertas Sonoros em Tempo Real e Confirmação 100% In-App']));
+
+    // Legenda no topo
+    var legendItems = [
+      { shape: 'circle-thin', label: 'Início', color: '#10b981' },
+      { shape: 'rect-sub', label: 'Subprocesso Explodível [ + ]', color: '#38bdf8' },
+      { shape: 'rect', label: 'Microtarefa Simples', color: '#818cf8' },
+      { shape: 'diamond', label: 'Gateway Decisão', color: '#f59e0b' },
+      { shape: 'circle-thick', label: 'Fim do Ciclo', color: '#ef4444' }
+    ];
+    var lfont = '11.5px Plus Jakarta Sans, sans-serif';
+    var legendTotal = 0;
+    legendItems.forEach(function (it, i) { legendTotal += 20 + textWidth(it.label, lfont) + (i < legendItems.length - 1 ? 22 : 0); });
+    var lx = (WIDTH - legendTotal) / 2, gy = 76;
+    legendItems.forEach(function (it) {
+      if (it.shape === 'circle-thin') {
+        headerSvg.appendChild(el('circle', { cx: lx + 7, cy: gy, r: 7, fill: '#090d16', stroke: it.color, 'stroke-width': 2.2 }));
+      } else if (it.shape === 'circle-thick') {
+        headerSvg.appendChild(el('circle', { cx: lx + 7, cy: gy, r: 7, fill: '#090d16', stroke: it.color, 'stroke-width': 3.5 }));
+      } else if (it.shape === 'rect-sub') {
+        headerSvg.appendChild(el('rect', { x: lx, y: gy - 7, width: 15, height: 15, rx: 3, fill: '#0284c7', stroke: it.color, 'stroke-width': 2 }));
+        headerSvg.appendChild(el('text', { x: lx + 7.5, y: gy + 4.5, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 900, fill: '#fff' }, ['+']));
+      } else if (it.shape === 'rect') {
+        headerSvg.appendChild(el('rect', { x: lx, y: gy - 7, width: 15, height: 15, rx: 3, fill: '#1e293b', stroke: it.color, 'stroke-width': 2 }));
+      } else if (it.shape === 'diamond') {
+        headerSvg.appendChild(el('rect', { x: lx, y: gy - 7, width: 14, height: 14, fill: '#1e293b', stroke: it.color, 'stroke-width': 2, transform: 'rotate(45 ' + (lx + 7) + ' ' + gy + ')' }));
+      }
+      headerSvg.appendChild(el('text', { x: lx + 22, y: gy + 4.5, 'font-size': 11.5, fill: '#cbd5e1' }, [it.label]));
+      lx += 22 + textWidth(it.label, lfont) + 22;
+    });
+
+    // Cabeçalho das 5 Colunas
+    COLS.forEach(function (col) {
+      var c = COLORS[col.actor];
+      headerSvg.appendChild(el('rect', { x: col.x - 130, y: 98, width: 260, height: 32, rx: 8, fill: c.stroke }));
+      headerSvg.appendChild(el('text', { x: col.x, y: 119, 'text-anchor': 'middle', 'font-size': 12.5, 'font-weight': 800, fill: '#ffffff' }, [col.label]));
+    });
+
+    // BPMN SVG principal
+    var svg = document.getElementById('bpmnSvg');
+    svg.innerHTML = '';
+    svg.setAttribute('viewBox', '0 ' + TITLE_H + ' ' + WIDTH + ' ' + (TOTAL_H - TITLE_H));
+    svg.setAttribute('width', WIDTH);
+    svg.setAttribute('height', TOTAL_H - TITLE_H);
+
+    svg.appendChild(el('defs', {}, [
+      el('marker', { id: 'arrow', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' }, [
+        el('path', { d: 'M0,0 L10,5 L0,10 z', fill: '#64748b' })
+      ]),
+      el('marker', { id: 'arrow-sub', viewBox: '0 0 10 10', refX: 8, refY: 4, markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse' }, [
+        el('path', { d: 'M0,0 L8,4 L0,8 z', fill: '#38bdf8' })
+      ])
+    ]));
+
+    // Fundo geral
+    svg.appendChild(el('rect', { x: 0, y: TITLE_H, width: WIDTH, height: TOTAL_H - TITLE_H, fill: '#090d16' }));
+
+    // Faixas verticais das Raias
+    var bandTop = TITLE_H, bandBottom = TOTAL_H - 20;
+    COLS.forEach(function (col) {
+      var c = COLORS[col.actor];
+      svg.appendChild(el('rect', { x: col.x - COLW / 2, y: bandTop, width: COLW, height: bandBottom - bandTop, fill: c.band }));
+      svg.appendChild(el('line', { x1: col.x - COLW / 2, y1: bandTop, x2: col.x - COLW / 2, y2: bandBottom, stroke: '#1e293b', 'stroke-width': 1 }));
+    });
+
+    // Barras horizontais das Macroetapas
+    sections.forEach(function (sec) {
+      svg.appendChild(el('rect', { x: 0, y: sec.headerY, width: WIDTH, height: HEADER_H, fill: '#060911' }));
+      svg.appendChild(el('line', { x1: 0, y1: sec.headerY + HEADER_H, x2: WIDTH, y2: sec.headerY + HEADER_H, stroke: '#1e293b', 'stroke-width': 1 }));
+      var ty = sec.headerY + HEADER_H / 2 + 5;
+      svg.appendChild(el('text', { x: 24, y: ty, 'font-size': 14, 'font-weight': 800, fill: '#34d399' }, [sec.title]));
+      var tw = textWidth(sec.title, '800 14px Plus Jakarta Sans, sans-serif');
+      svg.appendChild(el('text', { x: 24 + tw + 18, y: ty, 'font-size': 12, fill: '#94a3b8' }, [sec.sub]));
+    });
+
+    // LINHAS DE CONEXÃO (EDGES)
+    EDGES_DEF.forEach(function (edge) {
+      var a = nodes[edge.from], b = nodes[edge.to];
+      if (!a || !b) return;
+
+      var startX = a.x, startY = a.y + (a.height ? a.height / 2 : 20);
+      var endX = b.x, endY = b.y - (b.height ? b.height / 2 : 20);
+
+      var midY = startY + (endY - startY) / 2;
+      var pathD;
+
+      if (Math.abs(startX - endX) < 10) {
+        pathD = 'M ' + startX + ' ' + startY + ' L ' + endX + ' ' + endY;
+      } else {
+        pathD = 'M ' + startX + ' ' + startY + ' L ' + startX + ' ' + midY + ' L ' + endX + ' ' + midY + ' L ' + endX + ' ' + endY;
+      }
+
+      svg.appendChild(el('path', {
+        d: pathD, fill: 'none', stroke: '#64748b', 'stroke-width': 2,
+        'marker-end': 'url(#arrow)'
+      }));
+
+      if (edge.label) {
+        var labelX = (startX + endX) / 2;
+        var labelY = midY;
+        var font = '800 11px Plus Jakarta Sans, sans-serif';
+        var tw = textWidth(edge.label, font);
+        svg.appendChild(el('rect', { x: labelX - tw / 2 - 8, y: labelY - 11, width: tw + 16, height: 22, rx: 6, fill: '#0f172a', stroke: '#334155' }));
+        svg.appendChild(el('text', { x: labelX, y: labelY + 4.5, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 800, fill: '#38bdf8' }, [edge.label]));
+      }
+    });
+
+    // RENDERIZAR CADA NÓ
+    Object.keys(nodes).forEach(function (id) {
+      var n = nodes[id];
+      var c = COLORS[n.actor];
+      var g = el('g', { class: 'node', id: 'node-' + n.id }, []);
+
+      if (n.type === 'sub') {
+        var subDef = SUBPROCESS_DEFS[n.subId];
+        if (n.isExpanded) {
+          // SUBPROCESSO EXPLODIDO REPOSICIONADO À DIREITA COM ESPAÇAMENTO GENEROSO
+          renderExpandedSubprocess(g, n, subDef, c);
+        } else {
+          // SUBPROCESSO COLAPSADO (COM BOTÃO + OFICIAL DO BPMN)
+          renderCollapsedSubprocess(g, n, subDef, c);
+        }
+      } else if (n.type === 'task') {
+        var w = 240, h = 68;
+        g.appendChild(el('rect', { class: 'shape', x: n.x - w / 2, y: n.y - h / 2, width: w, height: h, rx: 12, fill: c.fill, stroke: c.stroke, 'stroke-width': 2 }));
+        var lines = wrapLines(n.label, '800 12px Plus Jakarta Sans, sans-serif', w - 24);
+        var lh = 16;
+        var startY = n.y - ((lines.length - 1) * lh) / 2 + 4;
+        lines.forEach(function (line, i) {
+          g.appendChild(el('text', { x: n.x, y: startY + i * lh, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 800, fill: '#f8fafc' }, [line]));
+        });
+      } else if (n.type === 'gateway') {
+        var s = 54;
+        g.appendChild(el('rect', { class: 'shape', x: n.x - s / 2, y: n.y - s / 2, width: s, height: s, fill: '#451a03', stroke: '#f59e0b', 'stroke-width': 2.2, transform: 'rotate(45 ' + n.x + ' ' + n.y + ')' }));
+        g.appendChild(el('text', { x: n.x, y: n.y + 7, 'text-anchor': 'middle', 'font-size': 20, 'font-weight': 900, fill: '#fbbf24' }, ['X']));
+        sideLabel(g, n, s / 2 + 16, '800 12px Plus Jakarta Sans, sans-serif', 12);
+      } else if (n.type === 'start' || n.type === 'end') {
+        var r = 24;
+        var col = n.type === 'end' ? '#ef4444' : '#10b981';
+        g.appendChild(el('circle', { class: 'shape', cx: n.x, cy: n.y, r: r, fill: '#090d16', stroke: col, 'stroke-width': n.type === 'end' ? 3.5 : 2.5 }));
+        if (n.type === 'start') {
+          g.appendChild(el('polygon', { points: (n.x - 5) + ',' + (n.y - 7) + ' ' + (n.x - 5) + ',' + (n.y + 7) + ' ' + (n.x + 7) + ',' + n.y, fill: '#10b981' }));
+        } else {
+          g.appendChild(el('rect', { x: n.x - 6, y: n.y - 6, width: 12, height: 12, rx: 2, fill: '#ef4444' }));
+        }
+        sideLabel(g, n, r + 14, '800 12.5px Plus Jakarta Sans, sans-serif', 12.5);
+      } else if (n.type === 'link') {
+        var ro = 22;
+        g.appendChild(el('circle', { class: 'shape', cx: n.x, cy: n.y, r: ro, fill: '#090d16', stroke: '#64748b', 'stroke-width': 2 }));
+        g.appendChild(el('circle', { cx: n.x, cy: n.y, r: ro - 5, fill: n.dir === 'throw' ? '#64748b' : '#090d16', stroke: '#64748b', 'stroke-width': 1.6 }));
+        g.appendChild(el('text', { x: n.x, y: n.y + 6, 'text-anchor': 'middle', 'font-size': 16, 'font-weight': 900, fill: n.dir === 'throw' ? '#ffffff' : '#94a3b8' }, [n.letter]));
+        sideLabel(g, n, ro + 14, '800 12px Plus Jakarta Sans, sans-serif', 12);
+      }
+
+      attachTip(g, n);
+      svg.appendChild(g);
+    });
+
+    applyZoom();
+  }
+
+  // Renderiza subprocesso colapsado com o botão [+] do BPMN
+  function renderCollapsedSubprocess(g, n, subDef, c) {
+    var w = 260, h = 84;
+    var x = n.x - w / 2, y = n.y - h / 2;
+
+    g.appendChild(el('rect', {
+      class: 'shape', x: x, y: y, width: w, height: h, rx: 12,
+      fill: c.fill, stroke: c.stroke, 'stroke-width': 2.5
+    }));
+
+    // Badge "Microetapas"
+    var badgeW = 104, badgeH = 18;
+    g.appendChild(el('rect', { x: x + w - badgeW - 10, y: y + 6, width: badgeW, height: badgeH, rx: 4, fill: '#0284c7' }));
+    g.appendChild(el('text', { x: x + w - badgeW / 2 - 10, y: y + 19, 'text-anchor': 'middle', 'font-size': 10, 'font-weight': 800, fill: '#fff' }, [subDef.steps.length + ' Microetapas']));
+
+    // Texto do título
+    var lines = wrapLines(subDef.shortTitle, '800 12px Plus Jakarta Sans, sans-serif', w - 24);
+    var lh = 16;
+    var startY = y + 28;
+    lines.forEach(function (line, i) {
+      g.appendChild(el('text', { x: n.x, y: startY + i * lh, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 800, fill: '#f8fafc' }, [line]));
+    });
+
+    // Marcador de Subprocesso BPMN 2.0 [+]
+    var btnSize = 22;
+    var btnX = n.x - btnSize / 2;
+    var btnY = y + h - btnSize - 6;
+
+    var btnGroup = el('g', { class: 'sub-btn', 'data-action': 'toggle', 'data-id': n.subId });
+    btnGroup.appendChild(el('rect', { x: btnX, y: btnY, width: btnSize, height: btnSize, rx: 4, fill: '#0284c7', stroke: '#38bdf8', 'stroke-width': 1.8 }));
+    btnGroup.appendChild(el('text', { x: n.x, y: btnY + 16, 'text-anchor': 'middle', 'font-size': 16, 'font-weight': 900, fill: '#ffffff' }, ['+']));
+    g.appendChild(btnGroup);
+
+    g.appendChild(el('text', { x: n.x, y: y + h - 1, 'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 700, fill: '#38bdf8' }, ['(clique para explodir fluxo interno)']));
+
+    g.addEventListener('click', function () {
+      expandedNodes[n.subId] = true;
+      renderDiagram();
+    });
+  }
+
+  // Renderiza subprocesso explodido REPOSICIONADO À DIREITA (x=110, w=1380) E DESCENDO 2 LINHAS
+  function renderExpandedSubprocess(g, n, subDef, c) {
+    // Reposicionado com margem segura: começa em x = 110 (nunca negativo, nada escondido à esquerda)
+    var x = 110;
+    var w = WIDTH - 220; // 1380px de largura confortável
+    var h = subDef.expandedHeight || 350;
+    var y = n.y - h / 2;
+
+    // Container expandido com fundo escuro e borda ciano vibrante
+    g.appendChild(el('rect', {
+      x: x, y: y, width: w, height: h, rx: 14,
+      fill: '#090d16', stroke: '#0284c7', 'stroke-width': 2.5,
+      'stroke-dasharray': '6,4'
+    }));
+
+    // Barra de Cabeçalho Superior
+    var barH = 42;
+    g.appendChild(el('rect', { x: x, y: y, width: w, height: barH, rx: 14, fill: '#0f172a' }));
+    g.appendChild(el('rect', { x: x, y: y + barH - 8, width: w, height: 8, fill: '#0f172a' }));
+    g.appendChild(el('line', { x1: x, y1: y + barH, x2: x + w, y2: y + barH, stroke: '#334155', 'stroke-width': 1 }));
+
+    // Título do Subprocesso (fonte limpa Plus Jakarta Sans 14px)
+    g.appendChild(el('text', { x: x + 18, y: y + 26, 'font-size': 14, 'font-weight': 800, fill: '#38bdf8' }, [subDef.title]));
+
+    // Botões de ação no canto direito
+    var collapseGroup = el('g', { class: 'sub-btn', 'data-action': 'collapse' });
+    collapseGroup.appendChild(el('rect', { x: x + w - 110, y: y + 8, width: 96, height: 26, rx: 6, fill: '#dc2626' }));
+    collapseGroup.appendChild(el('text', { x: x + w - 62, y: y + 25, 'text-anchor': 'middle', 'font-size': 11.5, 'font-weight': 800, fill: '#ffffff' }, ['[-] Recolher']));
+    collapseGroup.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      expandedNodes[n.subId] = false;
+      renderDiagram();
+    });
+    g.appendChild(collapseGroup);
+
+    var inspectGroup = el('g', { class: 'sub-btn', 'data-action': 'inspect' });
+    inspectGroup.appendChild(el('rect', { x: x + w - 220, y: y + 8, width: 98, height: 26, rx: 6, fill: '#1e293b', stroke: '#475569', 'stroke-width': 1 }));
+    inspectGroup.appendChild(el('text', { x: x + w - 171, y: y + 25, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 700, fill: '#cbd5e1' }, ['🔍 Inspecionar']));
+    inspectGroup.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      openModal(subDef);
+    });
+    g.appendChild(inspectGroup);
+
+    // SUBTÍTULO DESCRITIVO (DESCE 2 LINHAS COM RESPIRO)
+    var subTitleY = y + barH + 26;
+    g.appendChild(el('text', { x: x + 20, y: subTitleY, 'font-size': 12, 'font-weight': 600, fill: '#38bdf8' },
+      ['📍 Microvisão Detalhada de Execução · Etapas Sequenciais com Código & Tabelas:']));
+
+    // FLUXO INTERNO EXPLODIDO
+    // flowY desce 2 linhas completas abaixo do subtítulo (respiro total)
+    var flowY = subTitleY + 76;
+    var steps = subDef.steps;
+    var stepCount = steps.length;
+
+    // Cálculo dinâmico do tamanho e espaçamento dos cards
+    var availableFlowW = w - 140;
+    var stepW = Math.min(230, Math.floor((availableFlowW - (stepCount - 1) * 20) / stepCount));
+    var totalPipelineW = stepCount * stepW + (stepCount - 1) * 22;
+    var firstStepX = x + Math.floor((w - totalPipelineW) / 2);
+    var stepGap = 22;
+
+    // Ponto de Início Interno (Start Event)
+    var startX = firstStepX - 44, startR = 14;
+    g.appendChild(el('circle', { cx: startX, cy: flowY, r: startR, fill: '#064e3b', stroke: '#10b981', 'stroke-width': 2.5 }));
+    g.appendChild(el('polygon', { points: (startX - 4) + ',' + (flowY - 5) + ' ' + (startX - 4) + ',' + (flowY + 5) + ' ' + (startX + 5) + ',' + flowY, fill: '#10b981' }));
+    g.appendChild(el('text', { x: startX, y: flowY + 28, 'text-anchor': 'middle', 'font-size': 10.5, 'font-weight': 700, fill: '#34d399' }, ['Início']));
+
+    // Seta Início -> 1º Passo
+    g.appendChild(el('path', { d: 'M ' + (startX + startR) + ' ' + flowY + ' L ' + (firstStepX - 4) + ' ' + flowY, stroke: '#38bdf8', 'stroke-width': 1.8, 'marker-end': 'url(#arrow-sub)' }));
+
+    // Microtarefas Internas com Tipografia Limpa
+    steps.forEach(function (step, i) {
+      var cardX = firstStepX + i * (stepW + stepGap);
+      var cardH = 126;
+      var cardY = flowY - cardH / 2;
+
+      // Card do passo
+      g.appendChild(el('rect', {
+        x: cardX, y: cardY, width: stepW, height: cardH, rx: 10,
+        fill: '#131d31', stroke: step.sound ? '#10b981' : '#334155', 'stroke-width': step.sound ? 2 : 1.4
+      }));
+
+      // Número da Etapa
+      g.appendChild(el('rect', { x: cardX + 8, y: cardY + 8, width: 30, height: 18, rx: 4, fill: '#0284c7' }));
+      g.appendChild(el('text', { x: cardX + 23, y: cardY + 21, 'text-anchor': 'middle', 'font-size': 10.5, 'font-weight': 900, fill: '#ffffff' }, [step.num]));
+
+      if (step.sound) {
+        var soundBtn = el('g', { class: 'sub-btn', 'data-sound': step.sound });
+        soundBtn.appendChild(el('rect', { x: cardX + stepW - 54, y: cardY + 8, width: 46, height: 18, rx: 4, fill: '#065f46', stroke: '#10b981', 'stroke-width': 1 }));
+        soundBtn.appendChild(el('text', { x: cardX + stepW - 31, y: cardY + 21, 'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 800, fill: '#a7f3d0' }, ['🔊 Som']));
+        soundBtn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          playAlertSound(step.sound);
+        });
+        g.appendChild(soundBtn);
+      }
+
+      // Título do passo em fonte limpa
+      var plines = wrapLines(step.title, '800 11.5px Plus Jakarta Sans, sans-serif', stepW - 16);
+      plines.slice(0, 2).forEach(function (pl, pi) {
+        g.appendChild(el('text', { x: cardX + 8, y: cardY + 42 + pi * 15, 'font-size': 11.5, 'font-weight': 800, fill: '#f8fafc' }, [pl]));
+      });
+
+      // Descrição do passo
+      var dlines = wrapLines(step.desc, '500 10px Plus Jakarta Sans, sans-serif', stepW - 16);
+      dlines.slice(0, 2).forEach(function (dl, di) {
+        g.appendChild(el('text', { x: cardX + 8, y: cardY + 76 + di * 13, 'font-size': 10, 'font-weight': 500, fill: '#94a3b8' }, [dl]));
+      });
+
+      // Código tag
+      if (step.code) {
+        var codStr = step.code.split('|')[0].trim();
+        g.appendChild(el('rect', { x: cardX + 8, y: cardY + cardH - 22, width: Math.min(stepW - 16, textWidth(codStr, '700 9.5px JetBrains Mono') + 12), height: 16, rx: 4, fill: '#0b1220' }));
+        g.appendChild(el('text', { x: cardX + 14, y: cardY + cardH - 10, 'font-size': 9.5, 'font-family': 'JetBrains Mono, monospace', 'font-weight': 700, fill: '#38bdf8' }, [codStr.slice(0, 20)]));
+      }
+
+      // Seta de conexão
+      var arrowStartX = cardX + stepW;
+      var arrowEndX = arrowStartX + stepGap - 4;
+      g.appendChild(el('path', { d: 'M ' + arrowStartX + ' ' + flowY + ' L ' + arrowEndX + ' ' + flowY, stroke: '#38bdf8', 'stroke-width': 1.8, 'marker-end': 'url(#arrow-sub)' }));
+    });
+
+    // Ponto de Fim Interno (End Event)
+    var endX = firstStepX + totalPipelineW + 44;
+    var endR = 14;
+    g.appendChild(el('circle', { cx: endX, cy: flowY, r: endR, fill: '#090d16', stroke: '#ef4444', 'stroke-width': 3.5 }));
+    g.appendChild(el('rect', { x: endX - 5, y: flowY - 5, width: 10, height: 10, rx: 2, fill: '#ef4444' }));
+    g.appendChild(el('text', { x: endX, y: flowY + 28, 'text-anchor': 'middle', 'font-size': 10.5, 'font-weight': 700, fill: '#f87171' }, ['Fim']));
+
+    // Rodapé de regras integradas
+    var footerY = y + h - 48;
+    g.appendChild(el('rect', { x: x + 16, y: footerY, width: w - 32, height: 34, rx: 6, fill: '#022c22', stroke: '#059669', 'stroke-width': 1 }));
+    g.appendChild(el('text', { x: x + 26, y: footerY + 21, 'font-size': 11.5, 'font-weight': 700, fill: '#a7f3d0' },
+      ['⚡ Regra Integrada: ' + (subDef.steps[0].desc.slice(0, 115)) + '...']));
+
+    if (subDef.sound) {
+      var testAudBtn = el('g', { class: 'sub-btn' });
+      testAudBtn.appendChild(el('rect', { x: x + w - 165, y: footerY + 5, width: 145, height: 24, rx: 5, fill: '#059669' }));
+      testAudBtn.appendChild(el('text', { x: x + w - 92, y: footerY + 21, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 800, fill: '#ffffff' }, ['▶️ Ouvir Alarme']));
+      testAudBtn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        playAlertSound(subDef.sound);
+      });
+      g.appendChild(testAudBtn);
+    }
+  }
+
+  function sideLabel(g, n, offsetX, font, fontSize) {
+    var lines = wrapLines(n.label, font, 200);
+    var w = Math.max.apply(null, lines.map(function (l) { return textWidth(l, font); })) + 16;
+    var x0 = n.x + offsetX;
+    var y0 = n.y - (lines.length * 16) / 2 + 8;
+    g.appendChild(el('rect', { x: x0 - 5, y: y0 - 13, width: w, height: lines.length * 16 + 6, rx: 6, fill: '#090d16', stroke: '#334155' }));
+    lines.forEach(function (line, i) {
+      g.appendChild(el('text', { x: x0, y: y0 + i * 16, 'font-size': fontSize, 'font-weight': 800, fill: '#f8fafc' }, [line]));
+    });
+  }
+
+  // Tooltips
+  var tooltip = document.getElementById('tooltip');
+  function attachTip(group, n) {
+    group.addEventListener('mouseenter', function (e) {
+      var sub = n.subId ? SUBPROCESS_DEFS[n.subId] : null;
+      var title = sub ? sub.title : n.label;
+      var level = sub ? ('Subprocesso (' + sub.steps.length + ' microetapas)') : 'Microvisão 3º Nível';
+      var desc = sub ? (sub.steps.map(function (s) { return '• <strong>' + s.num + ':</strong> ' + s.title; }).join('<br>')) : n.label;
+
+      tooltip.innerHTML = '<div class="tt-level">' + level + '</div>' +
+                          '<div class="tt-title">' + title + '</div>' +
+                          '<div>' + desc + '</div>' +
+                          (sub ? '<div class="tt-code">Clique no [ + ] para explodir o fluxo diretamente na tela.</div>' : '');
+      tooltip.style.display = 'block';
+      positionTip(e);
+    });
+    group.addEventListener('mousemove', positionTip);
+    group.addEventListener('mouseleave', function () {
+      tooltip.style.display = 'none';
+    });
+  }
+
+  function positionTip(e) {
+    var pad = 18;
+    var x = e.clientX + pad, y = e.clientY + pad;
+    var rect = tooltip.getBoundingClientRect();
+    if (x + rect.width > window.innerWidth - 10) x = e.clientX - rect.width - pad;
+    if (y + rect.height > window.innerHeight - 10) y = e.clientY - rect.height - pad;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+  }
+
+  // Modal de Detalhes
+  var modalOverlay = document.getElementById('modalOverlay');
+  var modalTitle = document.getElementById('modalTitle');
+  var modalBody = document.getElementById('modalBody');
+  document.getElementById('modalClose').addEventListener('click', function () {
+    modalOverlay.style.display = 'none';
+  });
+  modalOverlay.addEventListener('click', function (e) {
+    if (e.target === modalOverlay) modalOverlay.style.display = 'none';
+  });
+
+  function openModal(subDef) {
+    modalTitle.textContent = subDef.title;
+    var html = '<p style="color:#94a3b8;margin-bottom:16px;">Microetapas executadas ponta a ponta com regras de negócio, tabelas do Supabase e disparadores sonoros:</p>';
+    subDef.steps.forEach(function (s) {
+      html += '<div class="modal-step">' +
+                '<div class="modal-step-head">' +
+                  '<span class="modal-step-title">' + s.num + ' · ' + s.title + '</span>' +
+                  (s.sound ? '<button class="sound-test-btn" data-sound="' + s.sound + '">▶️ Ouvir Alarme (' + s.sound + ')</button>' : '') +
+                '</div>' +
+                '<p style="margin:0 0 8px 0;color:#cbd5e1;">' + s.desc + '</p>' +
+                '<div style="font-family:JetBrains Mono, monospace;font-size:11px;color:#93c5fd;background:#090d16;padding:6px 8px;border-radius:6px;border:1px solid #334155;">⚙️ ' + s.code + '</div>' +
+              '</div>';
+    });
+    modalBody.innerHTML = html;
+    modalOverlay.style.display = 'flex';
+
+    modalBody.querySelectorAll('.sound-test-btn').forEach(function (b) {
+      b.addEventListener('click', function () {
+        playAlertSound(this.getAttribute('data-sound'));
+      });
+    });
+  }
+
+  // CONTROLES DA TOOLBAR
+  document.getElementById('expandAllBtn').addEventListener('click', function () {
+    Object.keys(expandedNodes).forEach(function (k) { expandedNodes[k] = true; });
+    renderDiagram();
+  });
+
+  document.getElementById('collapseAllBtn').addEventListener('click', function () {
+    Object.keys(expandedNodes).forEach(function (k) { expandedNodes[k] = false; });
+    renderDiagram();
+  });
+
+  document.getElementById('playTonesBtn').addEventListener('click', function () {
+    playAlertSound('confirmado');
+    setTimeout(function () { playAlertSound('transporte'); }, 1200);
+    setTimeout(function () { playAlertSound('portao'); }, 2400);
+    setTimeout(function () { playAlertSound('atendimento'); }, 3500);
+    setTimeout(function () { playAlertSound('concluido'); }, 4800);
+  });
+
+  // ZOOM
+  var zoomRange = document.getElementById('zoomRange');
+  var zoomVal = document.getElementById('zoomVal');
+  function applyZoom() {
+    var pct = parseInt(zoomRange.value, 10);
+    zoomVal.textContent = pct + '%';
+    var headerSvg = document.getElementById('headerSvg');
+    var svg = document.getElementById('bpmnSvg');
+    var svgH = svg.getAttribute('height') || 3000;
+    headerSvg.style.width = (WIDTH * pct / 100) + 'px';
+    headerSvg.style.height = (TITLE_H * pct / 100) + 'px';
+    svg.style.width = (WIDTH * pct / 100) + 'px';
+    svg.style.height = (svgH * pct / 100) + 'px';
+  }
+  zoomRange.addEventListener('input', applyZoom);
+
+  // EXPORTAR PNG
+  document.getElementById('downloadBtn').addEventListener('click', function () {
+    var headerSvg = document.getElementById('headerSvg');
+    var bpmnSvg = document.getElementById('bpmnSvg');
+    var totalH = parseInt(bpmnSvg.getAttribute('height'), 10) + TITLE_H;
+
+    var exportSvg = document.createElementNS(SVGNS, 'svg');
+    exportSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    exportSvg.setAttribute('viewBox', '0 0 ' + WIDTH + ' ' + totalH);
+    exportSvg.setAttribute('width', WIDTH);
+    exportSvg.setAttribute('height', totalH);
+
+    Array.prototype.forEach.call(headerSvg.childNodes, function (n) { exportSvg.appendChild(n.cloneNode(true)); });
+    Array.prototype.forEach.call(bpmnSvg.childNodes, function (n) { exportSvg.appendChild(n.cloneNode(true)); });
+
+    var svgStr = new XMLSerializer().serializeToString(exportSvg);
+    var svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    var url = URL.createObjectURL(svgBlob);
+    var img = new Image();
+    img.onload = function () {
+      var scale = 2;
+      var canvas = document.createElement('canvas');
+      canvas.width = WIDTH * scale;
+      canvas.height = totalH * scale;
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#090d16';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(function (blob) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'bpmn-subprocessos-big-dog-pet.png';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      });
+    };
+    img.src = url;
+  });
+
+  // Renderização inicial
+  renderDiagram();
+})();
+</script>
+</body>
+</html>
