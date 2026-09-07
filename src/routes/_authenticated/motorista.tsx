@@ -141,6 +141,8 @@ function Motorista() {
     },
     onSuccess: (vars) => {
       queryClient.invalidateQueries({ queryKey: ["driver-routes"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
       toast.success("Status atualizado");
 
       // Alerta sonoro correspondente à etapa da viagem

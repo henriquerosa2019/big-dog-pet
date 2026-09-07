@@ -240,6 +240,162 @@ export function isAppointmentInService(item: {
   return item.ops_status === "em_atendimento" || item.status === "em_atendimento";
 }
 
+export interface AppointmentStatusDisplay {
+  label: string;
+  bannerText: string;
+  bannerTag: string;
+  badgeClass: string;
+  cardClass: string;
+  bannerClass: string;
+  dotPingClass: string;
+  dotClass: string;
+  titleColorClass: string;
+  timeColorClass: string;
+  iconColorClass: string;
+  isCancelled: boolean;
+  isPending: boolean;
+  isConfirmed: boolean;
+  isInService: boolean;
+  isConcluded: boolean;
+}
+
+export function getAppointmentStatusDisplay(item: {
+  status?: string | null;
+  ops_status?: string | null;
+} | null | undefined): AppointmentStatusDisplay {
+  const status = item?.status ?? "pendente";
+  const ops = item?.ops_status ?? "";
+  const isCancelled = status === "cancelado" || ops === "cancelado";
+  const isInService = isAppointmentInService(item);
+  const isConcluded = status === "concluido" || ops === "finalizado" || ops === "pet_entregue";
+  const isConfirmed = status === "confirmado" && !isInService && !isConcluded && !isCancelled;
+  const isPending = status === "pendente" && !isCancelled && !isConfirmed && !isInService && !isConcluded;
+
+  if (isCancelled) {
+    return {
+      label: "Cancelado",
+      bannerText: "🔴 Agendamento cancelado pela loja",
+      bannerTag: "Cancelado",
+      badgeClass: "bg-rose-600 hover:bg-rose-700 text-white font-bold border-0",
+      cardClass: "border-2 border-rose-500 bg-rose-50/95 dark:border-rose-500/80 dark:bg-rose-950/60 ring-2 ring-rose-400/50 shadow-md",
+      bannerClass: "border border-rose-500/40 bg-rose-500/20 text-rose-950 dark:text-rose-100 font-bold",
+      dotPingClass: "bg-rose-500",
+      dotClass: "bg-rose-600",
+      titleColorClass: "text-rose-950 dark:text-rose-50 font-bold",
+      timeColorClass: "text-rose-800 dark:text-rose-300 font-medium",
+      iconColorClass: "text-rose-600 dark:text-rose-400",
+      isCancelled: true,
+      isPending: false,
+      isConfirmed: false,
+      isInService: false,
+      isConcluded: false,
+    };
+  }
+
+  if (isInService) {
+    return {
+      label: "Em Atendimento",
+      bannerText: "🛁 Pet em atendimento agora (Banho & Tosa)",
+      bannerTag: "Na loja",
+      badgeClass: "bg-cyan-600 hover:bg-cyan-700 text-white font-bold border-0",
+      cardClass: "border-2 border-cyan-500/90 bg-cyan-50/90 dark:border-cyan-500/80 dark:bg-cyan-950/50 ring-2 ring-cyan-400/40 shadow-md",
+      bannerClass: "border border-cyan-500/30 bg-cyan-500/20 text-cyan-950 dark:text-cyan-100 font-bold",
+      dotPingClass: "bg-cyan-500",
+      dotClass: "bg-cyan-600",
+      titleColorClass: "text-cyan-950 dark:text-cyan-50 font-bold",
+      timeColorClass: "text-cyan-800 dark:text-cyan-300 font-medium",
+      iconColorClass: "text-cyan-600 dark:text-cyan-400",
+      isCancelled: false,
+      isPending: false,
+      isConfirmed: false,
+      isInService: true,
+      isConcluded: false,
+    };
+  }
+
+  if (isConfirmed) {
+    return {
+      label: "Confirmado ✓",
+      bannerText: "🟢 Agendamento confirmado pela loja!",
+      bannerTag: "Garantido",
+      badgeClass: "bg-emerald-600 hover:bg-emerald-700 text-white font-bold border-0",
+      cardClass: "border-2 border-emerald-500/90 bg-emerald-50/90 dark:border-emerald-500/80 dark:bg-emerald-950/50 ring-2 ring-emerald-400/40 shadow-md",
+      bannerClass: "border border-emerald-500/30 bg-emerald-500/20 text-emerald-950 dark:text-emerald-100 font-bold",
+      dotPingClass: "bg-emerald-500",
+      dotClass: "bg-emerald-600",
+      titleColorClass: "text-emerald-950 dark:text-emerald-50 font-bold",
+      timeColorClass: "text-emerald-800 dark:text-emerald-300 font-medium",
+      iconColorClass: "text-emerald-600 dark:text-emerald-400",
+      isCancelled: false,
+      isPending: false,
+      isConfirmed: true,
+      isInService: false,
+      isConcluded: false,
+    };
+  }
+
+  if (isPending) {
+    return {
+      label: "Aguardando Loja",
+      bannerText: "🟡 Agendamento enviado · Aguardando confirmação da loja",
+      bannerTag: "Pendente",
+      badgeClass: "bg-amber-500 hover:bg-amber-600 text-white font-bold border-0",
+      cardClass: "border-2 border-amber-500/80 bg-amber-50/90 dark:border-amber-500/60 dark:bg-amber-950/40 ring-2 ring-amber-400/30 shadow-md",
+      bannerClass: "border border-amber-500/40 bg-amber-500/20 text-amber-950 dark:text-amber-100 font-bold",
+      dotPingClass: "bg-amber-500",
+      dotClass: "bg-amber-600",
+      titleColorClass: "text-amber-950 dark:text-amber-50 font-bold",
+      timeColorClass: "text-amber-800 dark:text-amber-300 font-medium",
+      iconColorClass: "text-amber-600 dark:text-amber-400",
+      isCancelled: false,
+      isPending: true,
+      isConfirmed: false,
+      isInService: false,
+      isConcluded: false,
+    };
+  }
+
+  if (isConcluded) {
+    return {
+      label: "Concluído",
+      bannerText: "🎉 Atendimento concluído com sucesso!",
+      bannerTag: "Finalizado",
+      badgeClass: "bg-emerald-700 hover:bg-emerald-800 text-white font-bold border-0",
+      cardClass: "border-2 border-emerald-600/80 bg-emerald-50/80 dark:border-emerald-600/60 dark:bg-emerald-950/40 ring-1 ring-emerald-500/30 shadow-md",
+      bannerClass: "border border-emerald-600/30 bg-emerald-600/20 text-emerald-950 dark:text-emerald-100 font-bold",
+      dotPingClass: "bg-emerald-600",
+      dotClass: "bg-emerald-700",
+      titleColorClass: "text-emerald-950 dark:text-emerald-50 font-bold",
+      timeColorClass: "text-emerald-800 dark:text-emerald-300 font-medium",
+      iconColorClass: "text-emerald-600 dark:text-emerald-400",
+      isCancelled: false,
+      isPending: false,
+      isConfirmed: false,
+      isInService: false,
+      isConcluded: true,
+    };
+  }
+
+  return {
+    label: status,
+    bannerText: "🔵 Agendamento ativo",
+    bannerTag: "Ativo",
+    badgeClass: "bg-primary text-primary-foreground font-bold border-0",
+    cardClass: "border-2 border-primary/50 bg-secondary/50 shadow-md",
+    bannerClass: "border border-primary/20 bg-primary/10 text-primary font-bold",
+    dotPingClass: "bg-primary",
+    dotClass: "bg-primary",
+    titleColorClass: "text-foreground font-bold",
+    timeColorClass: "text-muted-foreground font-medium",
+    iconColorClass: "text-primary",
+    isCancelled: false,
+    isPending: false,
+    isConfirmed: false,
+    isInService: false,
+    isConcluded: false,
+  };
+}
+
 /**
  * Retorna true se o pedido estiver em atendimento / em preparo.
  */

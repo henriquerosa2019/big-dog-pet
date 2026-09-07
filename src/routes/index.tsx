@@ -34,6 +34,7 @@ import {
   formatBRL,
   formatDate,
   formatDateTime,
+  getAppointmentStatusDisplay,
   isAppointmentInService,
   isBirthdayToday,
   sortInServiceFirst,
@@ -123,31 +124,83 @@ function Home() {
     },
   });
 
-  // 3. Agendamentos em andamento / Status de Delivery
+  // 3. Agendamentos em andamento / Status de Delivery / Cancelados recentes
   const { data: appointments } = useQuery({
     queryKey: ["home-active-appointments", user?.id],
     enabled: Boolean(user?.id),
+    refetchInterval: 3000,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("appointments")
         .select(
-          "id, scheduled_at, status, ops_status, logistics_type, transport_price_cents, notes, services(name), pets(name), addresses(street, number, district)",
+          "id, scheduled_at, status, ops_status, logistics_type, transport_price_cents, notes, created_at, updated_at, services(name), pets(name), addresses(street, number, district)",
         )
         .eq("user_id", user!.id)
-        .neq("status", "cancelado")
         .order("scheduled_at", { ascending: true });
       if (error) throw error;
-      // Filtra apenas em andamento (não finalizados por completo)
-      return (data ?? []).filter(
-        (a) => a.ops_status !== "finalizado" && (a.status !== "concluido" || a.ops_status === "em_rota_devolucao"),
-      );
+      // Filtra apenas em andamento (não finalizados por completo) e cancelados recentes (últimas 48 horas)
+      const recentThreshold = Date.now() - 48 * 3600 * 1000;
+      return (data ?? []).filter((a) => {
+        const isCancelled = a.status === "cancelado" || a.ops_status === "cancelado";
+        if (isCancelled) {
+          const schedTime = new Date(a.scheduled_at).getTime();
+          const updTime = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+          const crtTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+          return schedTime >= recentThreshold || updTime >= recentThreshold || crtTime >= recentThreshold;
+        }
+        return a.ops_status !== "finalizado" && (a.status !== "concluido" || a.ops_status === "em_rota_devolucao");
+      });
     },
   });
 
-  const sortedAppointments = useMemo(
-    () => sortInServiceFirst(appointments ?? [], isAppointmentInService),
-    [appointments],
-  );
+  const [dismissedCancelledIds, setDismissedCancelledIds] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = localStorage.getItem("bigdog_dismissed_cancelled");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  function dismissCancelled(id: string) {
+    setDismissedCancelledIds((prev) => {
+      const next = [...prev, id];
+      try {
+        localStorage.setItem("bigdog_dismissed_cancelled", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }
+
+  const visibleAppointments = useMemo(() => {
+    return (appointments ?? []).filter((a) => {
+      const isCancelled = a.status === "cancelado" || a.ops_status === "cancelado";
+      if (isCancelled && dismissedCancelledIds.includes(a.id)) {
+        return false;
+      }
+      return true;
+    });
+  }, [appointments, dismissedCancelledIds]);
+
+  const sortedAppointments = useMemo(() => {
+    if (!visibleAppointments || visibleAppointments.length <= 1) return visibleAppointments ?? [];
+    return [...visibleAppointments].sort((a, b) => {
+      const aCancelled = a.status === "cancelado" || a.ops_status === "cancelado" ? 1 : 0;
+      const bCancelled = b.status === "cancelado" || b.ops_status === "cancelado" ? 1 : 0;
+      const aInService = isAppointmentInService(a) ? 1 : 0;
+      const bInService = isAppointmentInService(b) ? 1 : 0;
+
+      // Cancelados ou em atendimento sempre no topo da tela do tutor
+      const aPriority = aCancelled ? 3 : aInService ? 2 : 1;
+      const bPriority = bCancelled ? 3 : bInService ? 2 : 1;
+      if (bPriority !== aPriority) {
+        return bPriority - aPriority;
+      }
+      return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime();
+    });
+  }, [visibleAppointments]);
 
   // 4. Avisos de Vacina
   const { data: vaccineAlerts } = useQuery({
@@ -208,12 +261,9 @@ function Home() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "appointments" },
-        (payload) => {
-          const rec = (payload.new || payload.old) as { user_id?: string } | undefined;
-          if (!rec?.user_id || rec.user_id === user.id) {
-            queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
-            queryClient.invalidateQueries({ queryKey: ["appointments"] });
-          }
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
+          queryClient.invalidateQueries({ queryKey: ["appointments"] });
         },
       )
       .on(
@@ -422,20 +472,32 @@ function Home() {
         </div>
       </section>
 
-      {/* 2. AGENDAMENTOS ATIVOS DO TUTOR - TOPO DA TELA DO TUTOR (SEMPRE EM VERDE!) */}
+      {/* 2. AGENDAMENTOS DO TUTOR - TOPO DA TELA COM STATUS REFLETIDO EM TEMPO REAL */}
       {user?.id && sortedAppointments.length > 0 && (
         <section className="px-4 pt-4 pb-1 animate-in fade-in slide-in-from-top-3 duration-300">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="relative flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-80"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-600"></span>
+                <span className={cn(
+                  "animate-ping absolute inline-flex h-full w-full rounded-full opacity-80",
+                  sortedAppointments[0]?.status === "cancelado" ? "bg-rose-500" :
+                  sortedAppointments[0]?.status === "pendente" ? "bg-amber-500" :
+                  "bg-emerald-500"
+                )}></span>
+                <span className={cn(
+                  "relative inline-flex rounded-full h-3 w-3",
+                  sortedAppointments[0]?.status === "cancelado" ? "bg-rose-600" :
+                  sortedAppointments[0]?.status === "pendente" ? "bg-amber-600" :
+                  "bg-emerald-600"
+                )}></span>
               </span>
-              <h2 className="font-display text-lg font-bold text-emerald-950 dark:text-emerald-50">
-                Seu agendamento ativo
+              <h2 className="font-display text-lg font-bold text-foreground">
+                {sortedAppointments.every(a => a.status === "cancelado")
+                  ? "Aviso de cancelamento"
+                  : "Seu agendamento ativo"}
               </h2>
             </div>
-            <Link to="/conta" className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 underline hover:opacity-80">
+            <Link to="/conta" className="text-xs font-semibold text-primary underline hover:opacity-80">
               Ver todos ({sortedAppointments.length})
             </Link>
           </div>
@@ -444,38 +506,56 @@ function Home() {
             {sortedAppointments.map((item) => {
               const hasTransport = item.logistics_type && item.logistics_type !== "levar";
               const petNameFormatted = item.pets?.name ? capitalizeWords(item.pets.name) : null;
-              const inService = isAppointmentInService(item);
+              const display = getAppointmentStatusDisplay(item);
+
               return (
                 <div
                   key={item.id}
-                  className="rounded-3xl border-2 border-emerald-500/90 bg-emerald-50/90 p-4 shadow-md ring-2 ring-emerald-400/40 transition-all dark:border-emerald-500/80 dark:bg-emerald-950/50"
+                  className={cn(
+                    "rounded-3xl p-4 transition-all",
+                    display.cardClass
+                  )}
                 >
-                  <div className="mb-2.5 flex items-center justify-between gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/20 px-3 py-1.5 text-xs font-bold text-emerald-900 dark:text-emerald-100">
+                  <div className={cn(
+                    "mb-2.5 flex items-center justify-between gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold",
+                    display.bannerClass
+                  )}>
                     <span className="flex items-center gap-2">
                       <span className="relative flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600"></span>
+                        <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", display.dotPingClass)}></span>
+                        <span className={cn("relative inline-flex rounded-full h-2.5 w-2.5", display.dotClass)}></span>
                       </span>
-                      {inService ? "🟢 Pet em atendimento agora" : "🟢 Agendamento confirmado e ativo"}
+                      {display.bannerText}
                     </span>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-200">
-                      {inService ? "Na loja" : "Garantido"}
-                    </span>
+                    {display.isCancelled ? (
+                      <button
+                        type="button"
+                        onClick={() => dismissCancelled(item.id)}
+                        className="text-[11px] font-bold uppercase tracking-wider text-rose-800 hover:text-rose-950 underline dark:text-rose-200 dark:hover:text-white"
+                        title="Dispensar este aviso da tela inicial"
+                      >
+                        Dispensar
+                      </button>
+                    ) : (
+                      <span className="text-[10px] font-bold uppercase tracking-wider opacity-90">
+                        {display.bannerTag}
+                      </span>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                     <div className="min-w-0">
-                      <p className="truncate text-base font-bold text-emerald-950 dark:text-emerald-50">
+                      <p className={cn("truncate text-base font-bold", display.titleColorClass)}>
                         {item.services?.name ?? "Serviço"}
                         {petNameFormatted ? ` · 🐾 ${petNameFormatted}` : ""}
                       </p>
-                      <p className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-emerald-800 dark:text-emerald-300">
-                        <Clock className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <p className={cn("mt-0.5 flex items-center gap-1.5 text-xs font-medium", display.timeColorClass)}>
+                        <Clock className={cn("h-3.5 w-3.5", display.iconColorClass)} />
                         {formatDateTime(item.scheduled_at)}
                       </p>
                     </div>
-                    <Badge className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white font-bold capitalize shadow-xs border-0">
-                      {item.status}
+                    <Badge className={cn("shrink-0 font-bold capitalize shadow-xs border-0", display.badgeClass)}>
+                      {display.label}
                     </Badge>
                   </div>
 
@@ -485,22 +565,62 @@ function Home() {
                     </div>
                   )}
 
-                  {hasTransport && (
-                    <div className="mt-3 border-t border-emerald-500/25 pt-2.5">
+                  {display.isCancelled ? (
+                    <div className="mt-3 rounded-2xl border border-rose-500/30 bg-rose-100/80 p-3 dark:bg-rose-900/40 text-xs text-rose-950 dark:text-rose-100">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-rose-950 dark:text-rose-100">
+                            Aviso de Cancelamento pela Loja
+                          </p>
+                          <p className="mt-0.5 text-xs text-rose-900/90 dark:text-rose-200/90 leading-relaxed">
+                            Este horário foi cancelado pela equipe do petshop. Você pode reagendar um novo horário imediatamente ou falar conosco no WhatsApp.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2 pt-2 border-t border-rose-500/20">
+                        <Button asChild size="sm" className="h-8 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm">
+                          <Link to="/agendar">
+                            <CalendarPlus className="mr-1.5 h-3.5 w-3.5" />
+                            Reagendar novo horário
+                          </Link>
+                        </Button>
+                        <Button asChild size="sm" variant="outline" className="h-8 rounded-xl border-rose-400/60 bg-white/90 hover:bg-white text-rose-900 font-semibold text-xs shadow-xs dark:bg-zinc-900 dark:text-rose-100">
+                          <a
+                            href={whatsappLink(`Olá! Meu agendamento de ${item.services?.name ?? "serviço"}${petNameFormatted ? ` para ${petNameFormatted}` : ""} foi cancelado pela loja e gostaria de tirar uma dúvida.`)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <MessageCircle className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
+                            Falar no WhatsApp
+                          </a>
+                        </Button>
+                      </div>
+                    </div>
+                  ) : display.isPending ? (
+                    <div className="mt-2.5 rounded-xl border border-amber-500/30 bg-amber-100/70 p-2 text-xs text-amber-950 dark:bg-amber-900/30 dark:text-amber-100">
+                      <p className="font-medium text-[11px] leading-relaxed">
+                        ⏳ <strong>Aguardando confirmação da loja:</strong> Nossa equipe está revisando a agenda e logo você receberá a confirmação aqui na tela!
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {hasTransport && !display.isCancelled && (
+                    <div className="mt-3 border-t border-current/15 pt-2.5">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-900 dark:text-emerald-200">
-                          <Truck className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
+                        <p className="flex items-center gap-1.5 text-xs font-semibold">
+                          <Truck className="h-4 w-4" />
                           {logisticsTypeLabels[item.logistics_type as LogisticsType]}
                           {item.transport_price_cents > 0 &&
                             ` · ${formatBRL(item.transport_price_cents)}`}
                         </p>
-                        <Badge className="shrink-0 font-bold bg-emerald-700 text-white border-0 text-[11px]">
+                        <Badge className="shrink-0 font-bold bg-primary text-primary-foreground border-0 text-[11px]">
                           {formatOpsStatusWithPet(item.ops_status as OpsStatus, item.pets?.name)}
                         </Badge>
                       </div>
 
                       {item.ops_status && (
-                        <p className="mt-1.5 text-xs italic text-emerald-800 dark:text-emerald-300">
+                        <p className="mt-1.5 text-xs italic opacity-90">
                           "{getOpsStatusTutorMessage(item.ops_status, item.pets?.name)}"
                         </p>
                       )}

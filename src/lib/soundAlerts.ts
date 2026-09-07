@@ -12,6 +12,7 @@ export type SoundAlertTone =
   | "atendimento"    // Pet entrou em atendimento / banho / tosa / consulta agora
   | "portao"         // Van chegou no portão / endereço
   | "concluido"      // Atendimento finalizado e pet entregue com sucesso
+  | "cancelado"      // Agendamento cancelado pela loja
   | "alerta";        // Notificação geral de aviso
 
 let audioCtx: AudioContext | null = null;
@@ -152,6 +153,13 @@ export function playStatusSound(tone: SoundAlertTone, repeats = 3): void {
           playTone(ctx, 783.99, now + 0.18, 0.35, 0.25, "sine");
           playTone(ctx, 1046.50, now + 0.28, 0.65, 0.35, "sine");
           playTone(ctx, 2093.00, now + 0.28, 0.45, 0.08, "sine");
+          break;
+        }
+
+        case "cancelado": {
+          // 2 notas descendentes para alerta de cancelamento (E5 -> A4)
+          playTone(ctx, 659.25, now, 0.22, 0.28, "triangle");
+          playTone(ctx, 440.00, now + 0.12, 0.40, 0.32, "sine");
           break;
         }
 

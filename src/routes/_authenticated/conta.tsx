@@ -30,6 +30,7 @@ import {
   formatBRL,
   formatDate,
   formatDateTime,
+  getAppointmentStatusDisplay,
   isAppointmentInService,
   isBirthdayToday,
   isBirthdayTomorrow,
@@ -95,6 +96,8 @@ function Conta() {
   const { data: appointments } = useQuery({
     queryKey: ["appointments", user?.id],
     enabled: Boolean(user?.id),
+    refetchInterval: 3000,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("appointments")
@@ -341,14 +344,23 @@ function Conta() {
       .channel(`tutor-appointments-${user.id}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "appointments", filter: `user_id=eq.${user.id}` },
+        { event: "*", schema: "public", table: "appointments" },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["appointments", user.id] });
+          queryClient.invalidateQueries({ queryKey: ["appointments"] });
+          queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
         },
       )
       .subscribe();
+
+    function handleStatusAlert() {
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
+    }
+    window.addEventListener("bigdog_status_alert", handleStatusAlert);
+
     return () => {
       void supabase.removeChannel(channel);
+      window.removeEventListener("bigdog_status_alert", handleStatusAlert);
     };
   }, [user?.id, queryClient]);
 
@@ -665,53 +677,71 @@ function Conta() {
         <ul className="mt-3 space-y-2">
           {filteredAppointments.map((item) => {
             const hasTransport = item.logistics_type && item.logistics_type !== "levar";
-            const inService = isAppointmentInService(item);
+            const petNameFormatted = item.pets?.name ? capitalizeWords(item.pets.name) : null;
+            const display = getAppointmentStatusDisplay(item);
             return (
               <li
                 key={item.id}
                 className={cn(
-                  "rounded-2xl p-3 shadow-card transition-all",
-                  inService
-                    ? "border-2 border-emerald-500/80 bg-emerald-50/60 dark:border-emerald-500/60 dark:bg-emerald-950/30 ring-1 ring-emerald-400/40 shadow-md"
-                    : apptFilter === "abertos"
-                      ? "border-2 border-emerald-500/70 bg-emerald-50/70 dark:border-emerald-500/60 dark:bg-emerald-950/30 shadow-md"
-                      : "bg-card",
+                  "rounded-2xl p-3.5 shadow-card transition-all",
+                  display.cardClass,
                 )}
               >
-                {inService && (
-                  <div className="mb-2 flex items-center justify-between gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:text-emerald-200">
-                    <span className="flex items-center gap-1.5">
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
-                      </span>
-                      🟢 Em atendimento agora
+                <div className={cn(
+                  "mb-2.5 flex items-center justify-between gap-1.5 rounded-xl px-2.5 py-1 text-xs font-bold",
+                  display.bannerClass
+                )}>
+                  <span className="flex items-center gap-1.5">
+                    <span className="relative flex h-2 w-2">
+                      <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", display.dotPingClass)}></span>
+                      <span className={cn("relative inline-flex rounded-full h-2 w-2", display.dotClass)}></span>
                     </span>
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-                      Início da fila
-                    </span>
-                  </div>
-                )}
+                    {display.bannerText}
+                  </span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider opacity-90">
+                    {display.bannerTag}
+                  </span>
+                </div>
+
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">
+                    <p className={cn("truncate text-sm font-bold", display.titleColorClass)}>
                       {item.services?.name ?? "Serviço"}
-                      {item.pets?.name ? ` ${capitalizeWords(item.pets.name)}` : ""}
+                      {petNameFormatted ? ` · 🐾 ${petNameFormatted}` : ""}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className={cn("text-xs font-medium", display.timeColorClass)}>
                       {formatDateTime(item.scheduled_at)}
-                      {item.pets?.name ? ` · ${capitalizeWords(item.pets.name)}` : ""}
+                      {petNameFormatted ? ` · ${petNameFormatted}` : ""}
                     </p>
                   </div>
                   <Badge
-                    variant="secondary"
-                    className={cn("shrink-0 capitalize", statusToneClass(appointmentStatusTone(item.status)))}
+                    className={cn("shrink-0 font-bold capitalize shadow-xs border-0", display.badgeClass)}
                   >
-                    {item.status}
+                    {display.label}
                   </Badge>
                 </div>
-                {hasTransport && (
-                  <div className="mt-2 border-t border-border pt-2">
+
+                {display.isCancelled && (
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2 pt-2 border-t border-rose-500/20">
+                    <Button asChild size="sm" className="h-7 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs">
+                      <Link to="/agendar">
+                        Reagendar horário
+                      </Link>
+                    </Button>
+                    <Button asChild size="sm" variant="outline" className="h-7 rounded-lg border-rose-400/60 bg-white/90 hover:bg-white text-rose-900 font-semibold text-xs shadow-xs dark:bg-zinc-900 dark:text-rose-100">
+                      <a
+                        href={whatsappLink(`Olá! Meu agendamento de ${item.services?.name ?? "serviço"}${petNameFormatted ? ` para ${petNameFormatted}` : ""} foi cancelado pela loja e gostaria de tirar uma dúvida.`)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Falar no WhatsApp
+                      </a>
+                    </Button>
+                  </div>
+                )}
+
+                {hasTransport && !display.isCancelled && (
+                  <div className="mt-2.5 border-t border-current/15 pt-2">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs text-muted-foreground">
                         {logisticsTypeLabels[item.logistics_type as LogisticsType]}
@@ -720,7 +750,7 @@ function Conta() {
                       </p>
                       <Badge
                         variant="secondary"
-                        className={cn("shrink-0", statusToneClass(opsStatusTone(item.ops_status ?? "agendado")))}
+                        className={cn("shrink-0 font-bold", statusToneClass(opsStatusTone(item.ops_status ?? "agendado")))}
                       >
                         {formatOpsStatusWithPet(item.ops_status as OpsStatus, item.pets?.name)}
                       </Badge>
@@ -731,20 +761,26 @@ function Conta() {
                       </p>
                     )}
                     {item.ops_status && item.ops_status !== "agendado" && (
-                      <DriverContact appointmentId={item.id} />
+                      <div className="mt-1.5">
+                        <DriverContact appointmentId={item.id} />
+                      </div>
                     )}
-                    <DriverLiveMap
-                      appointmentId={item.id}
-                      active={
-                        item.ops_status === "em_deslocamento_retirada" ||
-                        item.ops_status === "em_rota_devolucao"
-                      }
-                    />
-                    <TransportHistoryList
-                      appointmentId={item.id}
-                      currentStatus={item.ops_status ?? undefined}
-                      petName={item.pets?.name}
-                    />
+                    <div className="mt-1.5">
+                      <DriverLiveMap
+                        appointmentId={item.id}
+                        active={
+                          item.ops_status === "em_deslocamento_retirada" ||
+                          item.ops_status === "em_rota_devolucao"
+                        }
+                      />
+                    </div>
+                    <div className="mt-1.5">
+                      <TransportHistoryList
+                        appointmentId={item.id}
+                        currentStatus={item.ops_status ?? undefined}
+                        petName={item.pets?.name}
+                      />
+                    </div>
                   </div>
                 )}
               </li>

@@ -972,11 +972,17 @@ function Admin() {
 
   const updateAppointment = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase.from("appointments").update({ status }).eq("id", id);
+      const payload: { status: string; ops_status?: string } = { status };
+      if (status === "cancelado") {
+        payload.ops_status = "cancelado";
+      }
+      const { error } = await supabase.from("appointments").update(payload).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
       toast.success("Agendamento atualizado");
     },
     onError: () => toast.error("Não foi possível atualizar"),
@@ -1013,9 +1019,11 @@ function Admin() {
     },
     onSuccess: (item) => {
       queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
       playStatusSound("confirmado");
       const client = profileById.get(item.user_id);
-      const message = `Ol\u00e1${client?.full_name ? `, ${client.full_name}` : ""}! Seu agendamento de ${item.services?.name ?? "servi\u00e7o"}${item.pets?.name ? ` para ${item.pets.name}` : ""} em ${formatDateTime(item.scheduled_at)} foi CONFIRMADO pelo ${CLINIC.name}. Qualquer d\u00favida, estamos \u00e0 disposi\u00e7\u00e3o!`;
+      const message = `Olá${client?.full_name ? `, ${client.full_name}` : ""}! Seu agendamento de ${item.services?.name ?? "serviço"}${item.pets?.name ? ` para ${item.pets.name}` : ""} em ${formatDateTime(item.scheduled_at)} foi CONFIRMADO pelo ${CLINIC.name}. Qualquer dúvida, estamos à disposição!`;
       const link = AVISO_AUTOMATICO_WHATSAPP ? whatsappLinkTo(client?.phone, message) : null;
       if (!AVISO_AUTOMATICO_WHATSAPP) {
         toast.success("Agendamento confirmado.");
@@ -1023,10 +1031,10 @@ function Admin() {
         window.open(link, "_blank", "noopener,noreferrer");
         toast.success("Agendamento confirmado! Envie a mensagem no WhatsApp que abriu.");
       } else {
-        toast.error("Agendamento confirmado, mas o cliente n\u00e3o tem telefone cadastrado.");
+        toast.error("Agendamento confirmado, mas o cliente não tem telefone cadastrado.");
       }
     },
-    onError: () => toast.error("N\u00e3o foi poss\u00edvel confirmar"),
+    onError: () => toast.error("Não foi possível confirmar"),
   });
 
   // Advances an appointment's ops_status by one step (or to an explicitly picked
@@ -1074,6 +1082,8 @@ function Admin() {
     onSuccess: (vars) => {
       queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
       queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
       toast.success("Status atualizado");
 
       // Dispara o alerta sonoro correspondente à transição
@@ -1136,6 +1146,9 @@ function Admin() {
     },
     onSuccess: (vars) => {
       queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
       toast.success("Motorista designado");
       if (!AVISO_AUTOMATICO_WHATSAPP) return;
       const client = profileById.get(vars.userId);
