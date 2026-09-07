@@ -38,7 +38,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { fetchAddressByCep, maskCep } from "@/lib/navigation";
-import { AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, Clock, CheckCircle2, Check } from "lucide-react";
 import {
   evaluateSlotCapacity,
   findNextAvailableSlot,
@@ -655,9 +655,13 @@ function Agendar() {
         }}
         className="mt-4"
       >
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-3 h-11 p-1 bg-muted/80 rounded-2xl">
           {categories.map((c) => (
-            <TabsTrigger key={c.value} value={c.value}>
+            <TabsTrigger
+              key={c.value}
+              value={c.value}
+              className="rounded-xl py-2 text-xs font-semibold transition-all data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:font-bold data-[state=active]:shadow-sm"
+            >
               {c.label}
             </TabsTrigger>
           ))}
@@ -667,29 +671,57 @@ function Agendar() {
             <ul className="space-y-2">
               {(services ?? [])
                 .filter((s) => s.category === c.value)
-                .map((service) => (
-                  <li key={service.id}>
-                    <button
-                      onClick={() => setServiceId(service.id)}
-                      className={cn(
-                        "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border-2 bg-card p-3 text-left shadow-card transition-colors",
-                        serviceId === service.id ? "border-primary" : "border-transparent",
-                      )}
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold">
-                          {service.name}
+                .map((service) => {
+                  const isSelected = serviceId === service.id;
+                  return (
+                    <li key={service.id}>
+                      <button
+                        type="button"
+                        onClick={() => setServiceId(service.id)}
+                        className={cn(
+                          "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border-2 p-3.5 text-left transition-all",
+                          isSelected
+                            ? "border-primary bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30"
+                            : "border-border/60 bg-card text-card-foreground shadow-card hover:border-primary/40",
+                        )}
+                      >
+                        <span className="min-w-0">
+                          <span
+                            className={cn(
+                              "block truncate text-sm",
+                              isSelected ? "font-bold text-white" : "font-semibold text-foreground",
+                            )}
+                          >
+                            {service.name}
+                          </span>
+                          <span
+                            className={cn(
+                              "block text-[11px] mt-0.5",
+                              isSelected ? "text-white/85 font-medium" : "text-muted-foreground",
+                            )}
+                          >
+                            {service.duration_min} minutos
+                          </span>
                         </span>
-                        <span className="block text-[11px] text-muted-foreground">
-                          {service.duration_min} minutos
-                        </span>
-                      </span>
-                      <span className="shrink-0 font-display text-sm text-primary">
-                        {formatBRL(service.price_cents)}
-                      </span>
-                    </button>
-                  </li>
-                ))}
+                        <div className="shrink-0 flex items-center gap-2">
+                          <span
+                            className={cn(
+                              "font-display text-sm",
+                              isSelected ? "font-bold text-white" : "font-bold text-primary",
+                            )}
+                          >
+                            {formatBRL(service.price_cents)}
+                          </span>
+                          {isSelected && (
+                            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-primary shadow-xs">
+                              <Check className="h-3.5 w-3.5 stroke-[3]" />
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
               {(services ?? []).filter((s) => s.category === c.value).length === 0 && (
                 <li className="text-xs text-muted-foreground">
                   Nenhum serviço nessa categoria no momento.
@@ -704,20 +736,24 @@ function Agendar() {
         <h2 className="font-display text-lg">Pet</h2>
         {(pets ?? []).length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
-            {(pets ?? []).map((pet) => (
-              <button
-                key={pet.id}
-                onClick={() => setPetId(pet.id)}
-                className={cn(
-                  "rounded-full px-4 py-2 text-xs font-semibold",
-                  petId === pet.id
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-secondary-foreground",
-                )}
-              >
-                {capitalizeWords(pet.name)}
-              </button>
-            ))}
+            {(pets ?? []).map((pet) => {
+              const isSelected = petId === pet.id;
+              return (
+                <button
+                  key={pet.id}
+                  type="button"
+                  onClick={() => setPetId(pet.id)}
+                  className={cn(
+                    "rounded-full px-4 py-2 text-xs font-semibold transition-all",
+                    isSelected
+                      ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30 font-bold"
+                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+                  )}
+                >
+                  {capitalizeWords(pet.name)}
+                </button>
+              );
+            })}
           </div>
         )}
         <Sheet open={petSheetOpen} onOpenChange={setPetSheetOpen}>
@@ -751,21 +787,24 @@ function Agendar() {
               <div className="col-span-2">
                 <p className="mb-1 text-[11px] font-medium text-muted-foreground">Porte</p>
                 <div className="flex gap-2">
-                  {petSizeOptions.map((size) => (
-                    <button
-                      key={size}
-                      type="button"
-                      onClick={() => setNewPet({ ...newPet, size })}
-                      className={cn(
-                        "flex-1 rounded-xl px-3 py-2 text-xs font-semibold",
-                        newPet.size === size
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-secondary text-secondary-foreground",
-                      )}
-                    >
-                      {petSizeLabels[size]}
-                    </button>
-                  ))}
+                  {petSizeOptions.map((size) => {
+                    const isSelected = newPet.size === size;
+                    return (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => setNewPet({ ...newPet, size })}
+                        className={cn(
+                          "flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-all",
+                          isSelected
+                            ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30 font-bold"
+                            : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+                        )}
+                      >
+                        {petSizeLabels[size]}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               <Input
@@ -971,9 +1010,11 @@ function Agendar() {
         <div className="grid grid-cols-2 gap-2">
           {logisticsOptions.map((option) => {
             const requiresAddress = needsAddress(option.value);
+            const isSelected = logisticsType === option.value;
             return (
               <button
                 key={option.value}
+                type="button"
                 onClick={() => {
                   setLogisticsType(option.value);
                   if (!requiresAddress) {
@@ -986,15 +1027,20 @@ function Agendar() {
                   }
                 }}
                 className={cn(
-                  "rounded-xl px-3 py-2 text-left text-xs font-semibold",
-                  logisticsType === option.value
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-secondary-foreground",
+                  "rounded-xl px-3.5 py-2.5 text-left text-xs font-semibold transition-all",
+                  isSelected
+                    ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30 font-bold"
+                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
                 )}
               >
                 <span className="mr-1">{option.icon}</span>
                 {logisticsTypeLabels[option.value]}
-                <span className="mt-0.5 block text-[10px] font-normal opacity-80">
+                <span
+                  className={cn(
+                    "mt-0.5 block text-[10px] font-normal",
+                    isSelected ? "text-white/85 font-medium" : "opacity-80",
+                  )}
+                >
                   {!requiresAddress
                     ? "Sem taxa"
                     : transportFeePreview
@@ -1010,21 +1056,25 @@ function Agendar() {
           <div className="space-y-3">
             {(addresses ?? []).length > 0 && (
               <div className="flex flex-wrap gap-2">
-                {(addresses ?? []).map((address) => (
-                  <button
-                    key={address.id}
-                    onClick={() => setAddressId(address.id)}
-                    className={cn(
-                      "rounded-xl px-3 py-2 text-left text-xs font-semibold",
-                      addressId === address.id
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-secondary text-secondary-foreground",
-                    )}
-                  >
-                    {address.label}: {address.street}
-                    {address.number ? `, ${address.number}` : ""} — {address.district}
-                  </button>
-                ))}
+                {(addresses ?? []).map((address) => {
+                  const isSelected = addressId === address.id;
+                  return (
+                    <button
+                      key={address.id}
+                      type="button"
+                      onClick={() => setAddressId(address.id)}
+                      className={cn(
+                        "rounded-xl px-3 py-2 text-left text-xs font-semibold transition-all",
+                        isSelected
+                          ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30 font-bold"
+                          : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+                      )}
+                    >
+                      {address.label}: {address.street}
+                      {address.number ? `, ${address.number}` : ""} — {address.district}
+                    </button>
+                  );
+                })}
               </div>
             )}
 

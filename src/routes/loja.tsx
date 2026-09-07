@@ -103,20 +103,24 @@ function Loja() {
       </div>
 
       <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1">
-        {categories.map((c) => (
-          <button
-            key={c.value}
-            onClick={() => setCategory(c.value)}
-            className={cn(
-              "shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors",
-              category === c.value
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-secondary-foreground",
-            )}
-          >
-            {c.label}
-          </button>
-        ))}
+        {categories.map((c) => {
+          const isSelected = category === c.value;
+          return (
+            <button
+              key={c.value}
+              type="button"
+              onClick={() => setCategory(c.value)}
+              className={cn(
+                "shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-all",
+                isSelected
+                  ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30 font-bold"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+              )}
+            >
+              {c.label}
+            </button>
+          );
+        })}
       </div>
 
       {isLoading && <p className="mt-6 text-sm text-muted-foreground">Carregando produtos...</p>}

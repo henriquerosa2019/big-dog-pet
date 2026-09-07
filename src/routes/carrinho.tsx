@@ -311,21 +311,24 @@ function Carrinho() {
               Entrega
             </p>
             <div className="mt-2 grid grid-cols-2 gap-2">
-              {(Object.keys(deliveryMethodLabels) as DeliveryMethod[]).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setDeliveryMethod(value)}
-                  className={cn(
-                    "rounded-xl px-3 py-2 text-xs font-semibold",
-                    deliveryMethod === value
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-secondary-foreground",
-                  )}
-                >
-                  {deliveryMethodLabels[value]}
-                </button>
-              ))}
+              {(Object.keys(deliveryMethodLabels) as DeliveryMethod[]).map((value) => {
+                const isSelected = deliveryMethod === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setDeliveryMethod(value)}
+                    className={cn(
+                      "rounded-xl px-3 py-2 text-xs font-semibold transition-all",
+                      isSelected
+                        ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30 font-bold"
+                        : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+                    )}
+                  >
+                    {deliveryMethodLabels[value]}
+                  </button>
+                );
+              })}
             </div>
 
             {deliveryMethod === "receber_em_casa" && (
@@ -333,22 +336,25 @@ function Carrinho() {
                 {user ? (
                   (addresses ?? []).length > 0 ? (
                     <div className="flex flex-wrap gap-2">
-                      {(addresses ?? []).map((address) => (
-                        <button
-                          key={address.id}
-                          type="button"
-                          onClick={() => setAddressId(address.id)}
-                          className={cn(
-                            "rounded-xl px-3 py-2 text-left text-xs font-semibold",
-                            addressId === address.id
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-secondary text-secondary-foreground",
-                          )}
-                        >
-                          {address.label}: {address.street}
-                          {address.number ? `, ${address.number}` : ""} — {address.district}
-                        </button>
-                      ))}
+                      {(addresses ?? []).map((address) => {
+                        const isSelected = addressId === address.id;
+                        return (
+                          <button
+                            key={address.id}
+                            type="button"
+                            onClick={() => setAddressId(address.id)}
+                            className={cn(
+                              "rounded-xl px-3 py-2 text-left text-xs font-semibold transition-all",
+                              isSelected
+                                ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30 font-bold"
+                                : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+                            )}
+                          >
+                            {address.label}: {address.street}
+                            {address.number ? `, ${address.number}` : ""} — {address.district}
+                          </button>
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="text-xs text-muted-foreground">
