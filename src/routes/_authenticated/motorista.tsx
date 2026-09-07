@@ -36,6 +36,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TransportHistoryList } from "@/components/TransportHistoryList";
 import { useDriverLocationBroadcast } from "@/lib/driverLocation";
+import { playStatusSound } from "@/lib/soundAlerts";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/motorista")({
@@ -141,6 +142,21 @@ function Motorista() {
     onSuccess: (vars) => {
       queryClient.invalidateQueries({ queryKey: ["driver-routes"] });
       toast.success("Status atualizado");
+
+      // Alerta sonoro correspondente à etapa da viagem
+      const st = vars.status as string;
+      if (st === "em_deslocamento_retirada" || st === "em_rota_devolucao") {
+        playStatusSound("transporte");
+      } else if (st === "chegou_local_retirada" || st === "chegou_local_entrega") {
+        playStatusSound("portao");
+      } else if (st === "pet_retirado") {
+        playStatusSound("transporte");
+      } else if (st === "pet_chegou_petshop") {
+        playStatusSound("confirmado");
+      } else if (st === "pet_entregue" || st === "finalizado") {
+        playStatusSound("concluido");
+      }
+
       // Pedido do Henrique 2026-08-29: o tutor só recebe WhatsApp na entrega final,
       // pra não receber mensagem a cada etapa do transporte.
       const notifyOn: OpsStatus[] = ["pet_entregue"];

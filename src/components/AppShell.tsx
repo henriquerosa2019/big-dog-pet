@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   CalendarPlus,
@@ -8,12 +9,16 @@ import {
   ShoppingCart,
   Truck,
   User,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import logo from "@/assets/bigdog-logo.png";
 import { useCart } from "@/lib/cart";
 import { useAuth, useIsAdmin, useIsDriver } from "@/hooks/useAuth";
 import { CLINIC, whatsappLink } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { StatusAlertNotifier } from "@/components/StatusAlertNotifier";
+import { testSoundAlert } from "@/lib/soundAlerts";
 
 const baseTabs = [
   { to: "/", label: "Início", icon: Home },
@@ -42,11 +47,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isDriver = useIsDriver(user?.id);
   const tabs = [...baseTabs, ...(isAdmin ? [adminTab] : []), ...(isDriver ? [driverTab] : [])];
 
+  const [isMuted, setIsMuted] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("bigdog_sound_muted") === "true";
+  });
+
+  const toggleSound = () => {
+    const next = !isMuted;
+    setIsMuted(next);
+    localStorage.setItem("bigdog_sound_muted", String(next));
+    if (!next) {
+      testSoundAlert("confirmado");
+    }
+  };
+
   return (
     // O app nasceu como PWA de celular (coluna de 448px). Em tablet e desktop a
     // coluna passa a acompanhar a tela, senao telas densas como Relatorios e
     // Dashboard ficam espremidas num quarto do monitor.
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background shadow-soft md:max-w-3xl lg:max-w-5xl">
+      <StatusAlertNotifier />
       <header className="sticky top-0 z-20 border-b border-border/60 bg-background/90 backdrop-blur">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
           <Link to="/" className="flex min-w-0 items-center gap-2">
@@ -66,15 +86,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </span>
             </span>
           </Link>
-          <a
-            href={whatsappLink("Olá! Vim pelo app da Big Dog Pet.")}
-            target="_blank"
-            rel="noreferrer"
-            className="flex shrink-0 items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground"
-          >
-            <MessageCircle className="h-3.5 w-3.5" />
-            WhatsApp
-          </a>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleSound}
+              title={
+                isMuted
+                  ? "Alertas sonoros desativados (clique para ativar)"
+                  : "Alertas sonoros ativos (clique para silenciar)"
+              }
+              className={cn(
+                "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
+                isMuted
+                  ? "bg-muted text-muted-foreground/60 hover:bg-muted/80"
+                  : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300",
+              )}
+            >
+              {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            </button>
+            <a
+              href={whatsappLink("Olá! Vim pelo app da Big Dog Pet.")}
+              target="_blank"
+              rel="noreferrer"
+              className="flex shrink-0 items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground"
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              WhatsApp
+            </a>
+          </div>
         </div>
       </header>
 

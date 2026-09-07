@@ -32,6 +32,7 @@ import {
 import type { OpsStatus } from "@/lib/transport";
 import { opsStatusLabels, opsStatusTone, opsStatusTutorMessage } from "@/lib/transport";
 import { statusToneClass } from "@/lib/format";
+import { playStatusSound } from "@/lib/soundAlerts";
 
 export function DeliverySimulator({
   currentUserId,
@@ -141,6 +142,24 @@ export function DeliverySimulator({
         queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
         queryClient.invalidateQueries({ queryKey: ["simulator-transport-appointments"] });
         toast.success(`Etapa: ${step.label}`);
+
+        // Toca alerta sonoro da etapa simulada
+        const st = step.status as string;
+        if (st === "em_deslocamento_retirada" || st === "em_rota_devolucao") {
+          playStatusSound("transporte");
+        } else if (st === "chegou_local_retirada" || st === "chegou_local_entrega") {
+          playStatusSound("portao");
+        } else if (st === "pet_retirado") {
+          playStatusSound("transporte");
+        } else if (st === "pet_chegou_petshop") {
+          playStatusSound("confirmado");
+        } else if (st === "em_atendimento") {
+          playStatusSound("atendimento");
+        } else if (st === "servico_concluido") {
+          playStatusSound("confirmado");
+        } else if (st === "pet_entregue" || st === "finalizado") {
+          playStatusSound("concluido");
+        }
       } catch (err) {
         console.error("Erro ao avançar etapa da simulação:", err);
         toast.error("Não foi possível atualizar o status");

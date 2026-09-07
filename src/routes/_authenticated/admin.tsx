@@ -16,10 +16,14 @@ import {
   Navigation,
   Pencil,
   Search,
+  Sliders,
   Syringe,
   Truck,
+  Volume2,
   X,
 } from "lucide-react";
+import { getCapacitySettings, saveCapacitySettings, type CapacitySettings } from "@/lib/schedulingCapacity";
+import { playStatusSound, testSoundAlert } from "@/lib/soundAlerts";
 import { startOfDay, startOfMonth, startOfWeek } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useIsAdminStatus } from "@/hooks/useAuth";
@@ -209,6 +213,12 @@ function Admin() {
   const { isAdmin, loading: adminLoading } = useIsAdminStatus(user?.id);
   const queryClient = useQueryClient();
   const { getClientAbcInfo } = useClientAbcMap();
+  const [capacitySettings, setCapacitySettings] = useState<CapacitySettings>(getCapacitySettings);
+
+  function handleSaveCapacity() {
+    saveCapacitySettings(capacitySettings);
+    toast.success("Limites de capacidade da agenda salvos com sucesso!");
+  }
 
   const { data: appointments } = useQuery({
     queryKey: ["admin-appointments"],
@@ -1003,6 +1013,7 @@ function Admin() {
     },
     onSuccess: (item) => {
       queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
+      playStatusSound("confirmado");
       const client = profileById.get(item.user_id);
       const message = `Ol\u00e1${client?.full_name ? `, ${client.full_name}` : ""}! Seu agendamento de ${item.services?.name ?? "servi\u00e7o"}${item.pets?.name ? ` para ${item.pets.name}` : ""} em ${formatDateTime(item.scheduled_at)} foi CONFIRMADO pelo ${CLINIC.name}. Qualquer d\u00favida, estamos \u00e0 disposi\u00e7\u00e3o!`;
       const link = AVISO_AUTOMATICO_WHATSAPP ? whatsappLinkTo(client?.phone, message) : null;
@@ -1064,6 +1075,25 @@ function Admin() {
       queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
       queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
       toast.success("Status atualizado");
+
+      // Dispara o alerta sonoro correspondente à transição
+      const st = vars.status as string;
+      if (st === "em_deslocamento_retirada" || st === "em_rota_devolucao") {
+        playStatusSound("transporte");
+      } else if (st === "chegou_local_retirada" || st === "chegou_local_entrega") {
+        playStatusSound("portao");
+      } else if (st === "pet_retirado") {
+        playStatusSound("transporte");
+      } else if (st === "pet_chegou_petshop") {
+        playStatusSound("confirmado");
+      } else if (st === "em_atendimento") {
+        playStatusSound("atendimento");
+      } else if (st === "servico_concluido") {
+        playStatusSound("confirmado");
+      } else if (st === "pet_entregue" || st === "finalizado") {
+        playStatusSound("concluido");
+      }
+
       const notifyOn: OpsStatus[] = ["em_deslocamento_retirada", "pet_retirado", "pet_entregue"];
       if (AVISO_AUTOMATICO_WHATSAPP && notifyOn.includes(vars.status)) {
         const client = profileById.get(vars.userId);
@@ -3666,6 +3696,97 @@ function Admin() {
         </TabsContent>
 
         <TabsContent value="agenda" className="mt-4 space-y-2">
+          {/* Card de Configuração de Capacidade e Alertas Sonoros */}
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-card mb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2.5 mb-3">
+              <div className="flex items-center gap-2">
+                <Sliders className="h-4 w-4 text-primary" />
+                <h3 className="font-display text-sm font-bold">Capacidade de Atendimentos por Hora</h3>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 rounded-xl text-xs gap-1.5"
+                onClick={() => {
+                  testSoundAlert("confirmado");
+                  toast.success("Alerta sonoro testado com sucesso!");
+                }}
+              >
+                <Volume2 className="h-3.5 w-3.5 text-primary" />
+                Testar Alerta Sonoro
+              </Button>
+            </div>
+
+            <p className="text-xs text-muted-foreground mb-3">
+              Define o número máximo de agendamentos simultâneos na mesma hora. Quando a capacidade for atingida, o horário ficará vermelho no agendamento do cliente e sugerirá o próximo horário livre.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Banhos por hora:</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  className="h-8 rounded-xl text-xs font-bold"
+                  value={capacitySettings.maxBanhosPerHour}
+                  onChange={(e) =>
+                    setCapacitySettings((prev) => ({
+                      ...prev,
+                      maxBanhosPerHour: Math.max(1, parseInt(e.target.value) || 1),
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Tosas por hora:</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  className="h-8 rounded-xl text-xs font-bold"
+                  value={capacitySettings.maxTosasPerHour}
+                  onChange={(e) =>
+                    setCapacitySettings((prev) => ({
+                      ...prev,
+                      maxTosasPerHour: Math.max(1, parseInt(e.target.value) || 1),
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Consultas/Geral por hora:</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  className="h-8 rounded-xl text-xs font-bold"
+                  value={capacitySettings.maxGeralPerHour}
+                  onChange={(e) =>
+                    setCapacitySettings((prev) => ({
+                      ...prev,
+                      maxGeralPerHour: Math.max(1, parseInt(e.target.value) || 1),
+                    }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="mt-3 flex justify-end">
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 rounded-xl text-xs font-semibold"
+                onClick={handleSaveCapacity}
+              >
+                Salvar Limites de Capacidade
+              </Button>
+            </div>
+          </div>
+
           <p className="text-xs text-muted-foreground">
             Confirme os agendamentos pendentes para avisar o cliente automaticamente pelo WhatsApp.
           </p>

@@ -38,6 +38,16 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { fetchAddressByCep, maskCep } from "@/lib/navigation";
+import { AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
+import {
+  evaluateSlotCapacity,
+  findNextAvailableSlot,
+  getCapacitySettings,
+  isPastSlot,
+  type AppointmentSlotItem,
+  type CapacitySettings,
+  type SlotCapacityInfo,
+} from "@/lib/schedulingCapacity";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/agendar")({
@@ -112,10 +122,6 @@ function todayISO() {
   return `${year}-${month}-${day}`;
 }
 
-function isPastSlot(date: string, hour: string) {
-  return new Date(`${date}T${hour}:00`).getTime() < Date.now();
-}
-
 function Agendar() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -133,6 +139,58 @@ function Agendar() {
       ? `Cliente veio pela oferta de aniversário (20% de desconto)${cupom ? ` — cupom ${cupom}` : ""}.`
       : "",
   );
+
+  // Consulta agendamentos do dia para calcular capacidade por horário
+  const { data: dayAppointments } = useQuery({
+    queryKey: ["appointments-capacity", date],
+    queryFn: async () => {
+      const startOfDay = `${date}T00:00:00`;
+      const endOfDay = `${date}T23:59:59`;
+      const { data, error } = await supabase
+        .from("appointments")
+        .select("id, scheduled_at, status, service_id, services(category)")
+        .gte("scheduled_at", startOfDay)
+        .lte("scheduled_at", endOfDay)
+        .neq("status", "cancelado");
+      if (error) throw error;
+      return (data ?? []) as AppointmentSlotItem[];
+    },
+  });
+
+  const [capacitySettings, setCapacitySettings] = useState<CapacitySettings>(getCapacitySettings);
+  const [allowCapacityException, setAllowCapacityException] = useState(false);
+
+  // Sincroniza configurações de capacidade se forem salvas no Admin
+  useEffect(() => {
+    const handleUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<CapacitySettings>;
+      if (customEvent.detail) setCapacitySettings(customEvent.detail);
+    };
+    window.addEventListener("bigdog_capacity_updated", handleUpdate);
+    return () => window.removeEventListener("bigdog_capacity_updated", handleUpdate);
+  }, []);
+
+  // Reseta exceção ao trocar data, horário ou categoria
+  useEffect(() => {
+    setAllowCapacityException(false);
+  }, [date, time, category]);
+
+  // Mapa de capacidade para cada horário (verde, vermelho ou passado)
+  const slotsCapacityMap = useMemo(() => {
+    const map = new Map<string, SlotCapacityInfo>();
+    for (const h of hours) {
+      map.set(h, evaluateSlotCapacity(h, date, category, dayAppointments, capacitySettings));
+    }
+    return map;
+  }, [date, category, dayAppointments, capacitySettings]);
+
+  const currentSlotInfo = slotsCapacityMap.get(time);
+  const isCurrentSlotExhausted = currentSlotInfo?.status === "exhausted";
+
+  const nextAvailableHour = useMemo(() => {
+    if (!isCurrentSlotExhausted) return null;
+    return findNextAvailableSlot(time, date, category, hours, dayAppointments, capacitySettings);
+  }, [isCurrentSlotExhausted, time, date, category, dayAppointments, capacitySettings]);
 
   const availableHours = useMemo(() => hours.filter((h) => !isPastSlot(date, h)), [date]);
 
@@ -459,6 +517,12 @@ function Agendar() {
       if (scheduled.getTime() < Date.now())
         throw new Error("Esse horário já passou. Escolha outro horário ou outra data.");
 
+      if (isCurrentSlotExhausted && !allowCapacityException) {
+        throw new Error(
+          `Capacidade máxima de atendimentos para às ${time} atingida. Escolha um horário com vagas livres em verde ou marque a opção de exceção/encaixe.`
+        );
+      }
+
       const wantsTransport = needsAddress(logisticsType);
       if (wantsTransport && !addressId) {
         throw new Error("Escolha ou cadastre um endereço para retirada/devolução");
@@ -474,6 +538,10 @@ function Agendar() {
       // "Retirada/Entrega" do admin) em vez de travar o tutor no agendamento.
       const zoneNotCovered = wantsTransport && !feeResult.zoneMatched;
 
+      const notesContent = allowCapacityException
+        ? `${notes.trim() ? `${notes.trim()}\n` : ""}• [ENCAIXE / EXCEÇÃO DE CAPACIDADE AUTORIZADA]`.slice(0, 500)
+        : notes.trim().slice(0, 500) || null;
+
       const { data: appt, error } = await supabase
         .from("appointments")
         .insert({
@@ -481,7 +549,7 @@ function Agendar() {
           service_id: serviceId,
           pet_id: petId,
           scheduled_at: scheduled.toISOString(),
-          notes: notes.trim().slice(0, 500) || null,
+          notes: notesContent,
           // Marca automaticamente como Campanha Niver quando o agendamento
           // veio da oferta de aniversário (link com ?campanha=niver), em vez
           // de depender do admin marcar manualmente depois na aba Agendamentos.
@@ -747,33 +815,134 @@ function Agendar() {
             className="mt-1 h-11 rounded-xl"
           />
         </div>
-        <div className="flex flex-wrap gap-2">
-          {hours.map((h) => {
-            const disabled = isPastSlot(date, h);
-            return (
-              <button
-                key={h}
-                disabled={disabled}
-                onClick={() => setTime(h)}
-                className={cn(
-                  "rounded-xl px-3 py-2 text-xs font-semibold",
-                  disabled
-                    ? "cursor-not-allowed bg-muted text-muted-foreground/50 line-through"
-                    : time === h
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-secondary-foreground",
-                )}
-              >
-                {h}
-              </button>
-            );
-          })}
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Horários de atendimento</span>
+            <div className="flex items-center gap-3 text-[11px]">
+              <span className="inline-flex items-center gap-1 font-medium text-emerald-700 dark:text-emerald-400">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" /> Vagas livres
+              </span>
+              <span className="inline-flex items-center gap-1 font-medium text-rose-600 dark:text-rose-400">
+                <span className="h-2 w-2 rounded-full bg-rose-500" /> Lotado
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+            {hours.map((h) => {
+              const slot = slotsCapacityMap.get(h);
+              const disabled = slot?.isPast ?? isPastSlot(date, h);
+              const isExhausted = !disabled && slot?.status === "exhausted";
+              const isSelected = time === h;
+
+              return (
+                <button
+                  key={h}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => setTime(h)}
+                  className={cn(
+                    "flex flex-col items-center justify-center rounded-xl p-2.5 transition-all border text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    disabled &&
+                      "cursor-not-allowed border-border/40 bg-muted/30 text-muted-foreground/40 line-through opacity-60",
+                    !disabled &&
+                      !isExhausted &&
+                      (isSelected
+                        ? "border-emerald-600 bg-emerald-600 text-white shadow-md ring-2 ring-emerald-400/50"
+                        : "border-emerald-500/40 bg-emerald-50/70 text-emerald-900 hover:bg-emerald-100 hover:border-emerald-500 dark:bg-emerald-950/40 dark:border-emerald-700/60 dark:text-emerald-200"),
+                    !disabled &&
+                      isExhausted &&
+                      (isSelected
+                        ? "border-rose-600 bg-rose-600 text-white shadow-md ring-2 ring-rose-400/50"
+                        : "border-rose-400/50 bg-rose-50/70 text-rose-800 hover:bg-rose-100 hover:border-rose-500 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-300"),
+                  )}
+                >
+                  <span className="text-sm font-bold tracking-tight">{h}</span>
+                  <span
+                    className={cn(
+                      "text-[10px] font-medium mt-0.5",
+                      disabled && "text-muted-foreground/40",
+                      !disabled &&
+                        isExhausted &&
+                        (isSelected ? "text-rose-100" : "text-rose-700 dark:text-rose-300"),
+                      !disabled &&
+                        !isExhausted &&
+                        (isSelected
+                          ? "text-emerald-100"
+                          : "text-emerald-700 dark:text-emerald-400"),
+                    )}
+                  >
+                    {disabled
+                      ? "Passado"
+                      : isExhausted
+                        ? "Lotado"
+                        : `${slot?.remainingSlots ?? 1} vaga${(slot?.remainingSlots ?? 1) > 1 ? "s" : ""}`}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
           {availableHours.length === 0 && (
-            <p className="w-full text-xs text-muted-foreground">
+            <p className="w-full text-xs text-muted-foreground pt-1">
               Não há mais horários hoje. Escolha outra data acima.
             </p>
           )}
         </div>
+
+        {/* Alerta de Capacidade Atingida + Sugestão + Abertura de Exceção */}
+        {isCurrentSlotExhausted && (
+          <div className="rounded-2xl border-2 border-amber-500/40 bg-amber-50/90 p-4 text-amber-950 dark:bg-amber-950/40 dark:border-amber-700/60 dark:text-amber-200 space-y-3 shadow-sm animate-in fade-in duration-200">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+              <div className="space-y-1 text-xs">
+                <p className="font-semibold text-sm text-amber-950 dark:text-amber-100">
+                  Capacidade máxima atingida às {time}h ({currentSlotInfo?.currentCount}/{currentSlotInfo?.maxAllowed} vagas de {category || "atendimento"} ocupadas)
+                </p>
+                <p className="text-amber-800/90 dark:text-amber-300/90">
+                  Para garantir o bem-estar e o atendimento sem espera do seu pet, sugerimos escolher um horário com vagas livres.
+                </p>
+              </div>
+            </div>
+
+            {nextAvailableHour && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-background/90 p-3 border border-amber-300/60 dark:border-amber-800/70">
+                <div className="text-xs">
+                  <span className="font-medium text-foreground">Próximo horário com vaga:</span>{" "}
+                  <strong className="text-emerald-700 dark:text-emerald-400 text-sm font-bold">{nextAvailableHour}h</strong>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setTime(nextAvailableHour)}
+                  className="h-8 rounded-lg border-emerald-500/50 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 text-xs font-semibold shadow-xs"
+                >
+                  <Clock className="mr-1 h-3.5 w-3.5" /> Mudar para {nextAvailableHour}
+                </Button>
+              </div>
+            )}
+
+            <div className="pt-2 border-t border-amber-300/50 dark:border-amber-800/60">
+              <label className="flex items-start gap-2.5 cursor-pointer select-none text-xs">
+                <input
+                  type="checkbox"
+                  checked={allowCapacityException}
+                  onChange={(e) => setAllowCapacityException(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500"
+                />
+                <span className="leading-snug">
+                  <strong className="text-amber-950 dark:text-amber-100 font-semibold">
+                    Abrir exceção e agendar neste horário mesmo assim
+                  </strong>
+                  <span className="block text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-0.5">
+                    (O atendimento será registrado como Encaixe prioritário / Sujeito a espera para não deixar seu pet sem atendimento)
+                  </span>
+                </span>
+              </label>
+            </div>
+          </div>
+        )}
         <div>
           <Label htmlFor="notes">Observações (opcional)</Label>
           <Textarea
@@ -1040,12 +1209,13 @@ function Agendar() {
           </div>
         )}
         <Button
-          className="h-12 w-full rounded-2xl"
+          className="h-12 w-full rounded-2xl font-semibold"
           disabled={
             createAppointment.isPending ||
             !serviceId ||
             availableHours.length === 0 ||
-            (needsAddress(logisticsType) && !addressId)
+            (needsAddress(logisticsType) && !addressId) ||
+            (isCurrentSlotExhausted && !allowCapacityException)
           }
           onClick={() => {
             // Abre a aba do WhatsApp já aqui, de forma síncrona no clique —
@@ -1056,7 +1226,13 @@ function Agendar() {
             createAppointment.mutate();
           }}
         >
-          {createAppointment.isPending ? "Enviando..." : "Confirmar agendamento"}
+          {createAppointment.isPending
+            ? "Enviando..."
+            : isCurrentSlotExhausted && allowCapacityException
+              ? "Confirmar com Encaixe / Exceção"
+              : isCurrentSlotExhausted
+                ? "Horário Lotado (Abra exceção acima)"
+                : "Confirmar agendamento"}
         </Button>
       </div>
     </div>

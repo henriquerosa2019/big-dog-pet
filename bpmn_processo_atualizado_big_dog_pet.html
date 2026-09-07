@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>BPMN 2.0 As-Is Detalhado (Microvisão 3º Nível) - Big Dog Pet</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #0f172a;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+    color: #f8fafc;
+  }
+  #app { max-width: 100%; padding: 14px; }
+  #card {
+    background: #1e293b;
+    border-radius: 16px;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.45);
+    overflow: hidden;
+    border: 1px solid #334155;
+  }
+  #toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 14px;
+    padding: 16px 24px;
+    background: #090d16;
+    border-bottom: 1px solid #334155;
+  }
+  #toolbar h1 { margin: 0; color: #fff; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; }
+  #toolbar h1 span.badge { background: #10b981; color: #022c22; font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 800; }
+  #toolbar p { margin: 4px 0 0; color: #94a3b8; font-size: 12.5px; }
+  #controls { display: flex; align-items: center; gap: 16px; }
+  #controls label { display: flex; align-items: center; gap: 8px; color: #e2e8f0; font-size: 13px; font-weight: 600; }
+  #zoomRange { accent-color: #10b981; cursor: pointer; }
+  #zoomVal { width: 42px; display: inline-block; color: #34d399; font-weight: 700; font-family: monospace; }
+  #downloadBtn {
+    background: #10b981; color: #022c22; border: none; padding: 10px 18px;
+    border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer;
+    box-shadow: 0 2px 8px rgba(16,185,129,0.3); transition: all 0.2s;
+  }
+  #downloadBtn:hover { background: #059669; color: #fff; }
+  #scrollWrap { overflow: auto; max-height: 80vh; background: #0f172a; position: relative; }
+  #diagramWrap { position: relative; display: inline-block; }
+  #stickyHeader {
+    position: sticky; top: 0; z-index: 30;
+    background: #090d16;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+    border-bottom: 1px solid #334155;
+  }
+  #headerSvg, #bpmnSvg { display: block; }
+  .node { cursor: pointer; }
+  #tooltip {
+    position: fixed; display: none; max-width: 380px;
+    background: #090d16; color: #f8fafc;
+    padding: 14px 16px; border-radius: 12px;
+    font-size: 12.5px; line-height: 1.5;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.7);
+    z-index: 9999; pointer-events: none; border: 1px solid #10b981;
+  }
+  #tooltip .tt-title { font-weight: 800; margin-bottom: 6px; color: #34d399; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+  #tooltip .tt-level { font-size: 10px; background: #064e3b; color: #a7f3d0; padding: 2px 6px; border-radius: 4px; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; display: inline-block; }
+  #tooltip .tt-code { font-family: monospace; font-size: 11px; color: #93c5fd; background: #1e293b; padding: 4px 6px; border-radius: 6px; margin-top: 6px; }
+  #hint { padding: 12px 24px 16px; font-size: 12px; color: #94a3b8; background: #090d16; line-height: 1.6; border-top: 1px solid #334155; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="card">
+    <div id="toolbar">
+      <div>
+        <h1>
+          <span>BPMN 2.0 Vertical &middot; Big Dog Pet (Franco da Rocha)</span>
+          <span class="badge">Microvisão 3º Nível</span>
+        </h1>
+        <p>Mapeamento de processos ponta a ponta com regras de negócio, tabelas do Supabase e componentes reais do app &middot; passe o mouse para explorar os 3 níveis</p>
+      </div>
+      <div id="controls">
+        <label>Zoom
+          <input id="zoomRange" type="range" min="30" max="130" value="52">
+          <span id="zoomVal">52%</span>
+        </label>
+        <button id="downloadBtn">&#11015; Baixar PNG Completo</button>
+      </div>
+    </div>
+    <div id="scrollWrap">
+      <div id="diagramWrap">
+        <div id="stickyHeader">
+          <svg id="headerSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+        <svg id="bpmnSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+    </div>
+    <div id="hint">
+      <strong>Guia de Leitura da Microvisão (3º Nível):</strong><br>
+      &bull; <strong>5 Raias Operacionais:</strong> 1. Tutor (Cliente) &middot; 2. Sistema (App & Supabase Realtime) &middot; 3. Motorista (Táxi Pet) &middot; 4. Equipe (Admin / Recepção / Vet) &middot; 5. Mensageria & Alertas Sonoros.<br>
+      &bull; <strong>Regras Centrais Destacadas:</strong> Crítica de capacidade por hora (grade visual verde/vermelho, sugestão de vaga livre e exceção de encaixe) &middot; Alertas sonoros em tempo real (Web Audio API nativa) nos 5 marcos operacionais (confirmação da loja, deslocamento da van, aviso de portão, início do banho/atendimento e entrega concluída) &middot; Logística em 10 etapas operacionais com Waze/Maps &middot; Regra de ouro "Em Atendimento no Topo em Verde Esmeralda" &middot; Filtros inteligentes na Conta &middot; Curva ABC de Clientes com sinalização VIP.
+    </div>
+  </div>
+</div>
+<div id="tooltip"></div>
+
+<script>
+(function () {
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var WIDTH = 1420;
+  var TITLE_H = 140, HEADER_H = 50, ROWH = 120, GAP = 40;
+
+  function el(tag, attrs, kids) {
+    var e = document.createElementNS(SVGNS, tag);
+    attrs = attrs || {};
+    for (var k in attrs) { if (attrs[k] !== null && attrs[k] !== undefined) e.setAttribute(k, attrs[k]); }
+    (kids || []).forEach(function (kid) {
+      if (kid === null || kid === undefined) return;
+      if (typeof kid === 'string') e.appendChild(document.createTextNode(kid));
+      else e.appendChild(kid);
+    });
+    return e;
+  }
+
+  var measureCanvas = document.createElement('canvas');
+  var mctx = measureCanvas.getContext('2d');
+  function textWidth(text, font) { mctx.font = font; return mctx.measureText(text).width; }
+  function wrapLines(text, font, maxWidth) {
+    var words = text.split(' ');
+    var lines = []; var cur = '';
+    words.forEach(function (w) {
+      var test = cur ? cur + ' ' + w : w;
+      if (textWidth(test, font) > maxWidth && cur) { lines.push(cur); cur = w; }
+      else { cur = test; }
+    });
+    if (cur) lines.push(cur);
+    return lines;
+  }
+
+  // 5 Raias de Atores
+  var COLORS = {
+    C: { fill: '#172554', stroke: '#3b82f6', text: '#bfdbfe', band: 'rgba(59,130,246,0.05)', label: 'Tutor (Cliente / Pet)' },
+    S: { fill: '#2e1065', stroke: '#8b5cf6', text: '#ddd6fe', band: 'rgba(139,92,246,0.05)', label: 'Sistema (App & Realtime)' },
+    M: { fill: '#3b2504', stroke: '#f59e0b', text: '#fde68a', band: 'rgba(245,158,11,0.05)', label: 'Motorista (Táxi Pet)' },
+    E: { fill: '#431407', stroke: '#f97316', text: '#fed7aa', band: 'rgba(249,115,22,0.05)', label: 'Equipe (Admin / Vet)' },
+    W: { fill: '#022c22', stroke: '#10b981', text: '#a7f3d0', band: 'rgba(16,185,129,0.05)', label: 'Comunicação & Avisos' }
+  };
+
+  var COLS = [
+    { actor: 'C', x: 155, label: 'Tutor (Cliente / App)' },
+    { actor: 'S', x: 440, label: 'Sistema (Supabase Realtime)' },
+    { actor: 'M', x: 725, label: 'Motorista (Área Táxi Pet)' },
+    { actor: 'E', x: 1010, label: 'Equipe (Admin / Recepção / Vet)' },
+    { actor: 'W', x: 1285, label: 'Comunicação & Alertas' }
+  ];
+  var COLW = 270;
+
+  // 5 Macroetapas (Nível 1 & 2)
+  function buildSections() {
+    var defs = [
+      { key: 's1', title: 'Macroetapa 1 · Acesso, Identificação de Pet (Porte/Peso) & Endereço Táxi Pet', sub: 'Nível 1-3 · Do onboarding até a validação de CEP e cadastro de endereço', rows: 8 },
+      { key: 's2', title: 'Macroetapa 2 · Agendamento Inteligente, Crítica de Capacidade (Verde/Vermelho) & Confirmação Sonora', sub: 'Nível 1-3 · Grade de vagas por hora, sugestão de próximo horário, exceção de encaixe e alerta sonoro na confirmação', rows: 10 },
+      { key: 's3', title: 'Macroetapa 3 · Despacho, Rota Waze/Maps & Alertas Sonoros de Viagem e Portão (Ida)', sub: 'Nível 1-3 · Início do deslocamento, telemetria GPS em tempo real e sino duplo no portão', rows: 8 },
+      { key: 's4', title: 'Macroetapa 4 · Atendimento, Alerta Sonoro de Início & "Em Atendimento no Topo"', sub: 'Nível 1-3 · Destaque verde esmeralda, tom sonoro de banho/tosa e prontuário médico', rows: 8 },
+      { key: 's5', title: 'Macroetapa 5 · Devolução (Volta), Alerta Sonoro Triunfal de Conclusão & Curva ABC', sub: 'Nível 1-3 · Viagem de devolução, acorde triunfal de entrega final e retenção', rows: 9 }
+    ];
+    var y = TITLE_H, out = {};
+    defs.forEach(function (d) {
+      var headerY = y, contentTop = headerY + HEADER_H;
+      var rowCenters = [];
+      for (var i = 0; i < d.rows; i++) rowCenters.push(contentTop + i * ROWH + ROWH / 2);
+      var contentBottom = contentTop + d.rows * ROWH;
+      out[d.key] = { title: d.title, sub: d.sub, headerY: headerY, contentTop: contentTop, contentBottom: contentBottom, rowCenters: rowCenters };
+      y = contentBottom + GAP;
+    });
+    out.__totalHeight = y - GAP + 50;
+    return out;
+  }
+  var S = buildSections();
+  var HEIGHT = S.__totalHeight;
+  var R1 = S.s1.rowCenters, R2 = S.s2.rowCenters, R3 = S.s3.rowCenters, R4 = S.s4.rowCenters, R5 = S.s5.rowCenters;
+
+  // NÓS DETALHADOS (MICROVISÃO NÍVEL 3)
+  var nodes = {
+    // ===== ETAPA 1 =====
+    start: { x: 155, y: R1[0], type: 'start', actor: 'C', label: 'Tutor acessa o App',
+      level: 'Nível 1 · Entrada',
+      code: 'Rotas: / | /auth | useAuth()',
+      tip: 'O tutor entra no aplicativo Big Dog Pet pelo celular ou navegador para agendar serviço, comprar ração/medicamentos ou acompanhar seu pet.' },
+    gwAcesso: { x: 155, y: R1[1], type: 'gateway', actor: 'C', label: 'Possui conta ativa?',
+      level: 'Nível 2 · Gateway Decisão',
+      code: 'profiles | addresses',
+      tip: 'Se já possui conta, faz login direto com e-mail/senha ou Google. Se for novo, cadastra no app ou é registrado pela recepção no balcão.' },
+    cadTutor: { x: 155, y: R1[2], type: 'task', actor: 'C', label: 'Cadastrar Tutor e Endereço com CEP',
+      level: 'Nível 3 · Microregra',
+      code: 'maskPhoneBR | ViaCEP API | tabela addresses',
+      tip: 'Preenche nome, WhatsApp, data de aniversário (usada para o cupom de 20%) e digita o CEP: o app busca automaticamente rua, bairro e cidade (Franco da Rocha/SP).' },
+    cadBalcao: { x: 1010, y: R1[2], type: 'task', actor: 'E', label: 'Cadastrar no Balcão (Admin)',
+      level: 'Nível 3 · Microregra',
+      code: 'admin.tsx (Aba Novo Cliente) | tabela profiles',
+      tip: 'Recepção registra clientes no balcão com telefone, endereço completo geolocalizado e cria o perfil automaticamente.' },
+    cadPet: { x: 155, y: R1[3], type: 'task', actor: 'C', label: 'Cadastrar Pet com Porte e Peso',
+      level: 'Nível 3 · Microregra',
+      code: 'tabela pets (size: P/M/G/GG, weight_kg, birth_date)',
+      tip: 'O tutor registra o pet indicando porte (Pequeno, Médio, Grande, Gigante), peso em kg, raça e data de aniversário para cálculo de preços e ofertas.' },
+    authSession: { x: 440, y: R1[4], type: 'task', actor: 'S', label: 'Sessão Segura & Papéis RLS',
+      level: 'Nível 3 · Banco de Dados',
+      code: 'Supabase Auth | user_roles (tutor, driver, admin)',
+      tip: 'O Supabase valida o token JWT, aplica as políticas Row Level Security (RLS) e libera a barra de navegação com as abas autorizadas para o papel.' },
+    homePersonalizada: { x: 155, y: R1[5], type: 'task', actor: 'C', label: 'Tela Inicial Inteligente e Despoluída',
+      level: 'Nível 3 · Interface',
+      code: 'src/routes/index.tsx | transportMessage contextual',
+      tip: 'Home limpa: detecta o endereço do tutor ("Buscamos seu pet em Rua X, Bairro Y") e exibe cartões diretos de Agendar Serviço, Loja e Alertas Ativos.' },
+    gwIntencao: { x: 155, y: R1[6], type: 'gateway', actor: 'C', label: 'Qual o objetivo do tutor?',
+      level: 'Nível 2 · Gateway Decisão',
+      code: 'Navegação TanStack Router (/agendar vs /loja)',
+      tip: 'O tutor escolhe se deseja agendar um procedimento com ou sem Táxi Pet, ou se vai direto para a Loja Virtual.' },
+    throwLoja: { x: 70, y: R1[7], type: 'link', dir: 'throw', letter: 'L', actor: 'C', label: 'Ir para a Loja (Etapa 5)',
+      level: 'Nível 2 · Conector',
+      code: 'Link para /loja',
+      tip: 'Conector de fluxo: desvia para a compra de produtos e medicamentos na Loja.' },
+
+    // ===== ETAPA 2 =====
+    catchAgendamento: { x: 70, y: R2[0], type: 'link', dir: 'catch', letter: 'A', actor: 'C', label: 'Início do Agendamento',
+      level: 'Nível 2 · Conector',
+      code: 'Entrada via Home, Conta ou Retenção',
+      tip: 'Chega aqui o tutor iniciando novo agendamento ou retornando por um aviso de vacina/retorno.' },
+    selServico: { x: 155, y: R2[1], type: 'task', actor: 'C', label: 'Selecionar Serviço & Pet com Porte',
+      level: 'Nível 3 · Microregra',
+      code: 'agendar.tsx | cálculo proporcional por peso/porte',
+      tip: 'Escolhe Banho, Tosa ou Consulta. O app recalcula o preço dinamicamente com base no porte e peso cadastrado do pet selecionado.' },
+    selTransporte: { x: 155, y: R2[2], type: 'task', actor: 'C', label: 'Escolher Modalidade de Transporte',
+      level: 'Nível 3 · Microregra',
+      code: 'LogisticsType: buscar_e_devolver | buscar | devolver | nenhum',
+      tip: 'Se optar por Táxi Pet, o app seleciona o endereço cadastrado, calcula a taxa de transporte por bairro e inclui a opção de busca e devolução.' },
+    criticaCapacidade: { x: 440, y: R2[3], type: 'task', actor: 'S', label: 'Crítica de Capacidade por Hora (Grade Verde/Vermelho)',
+      level: 'Nível 3 · Crítica de Agenda',
+      code: 'schedulingCapacity.ts | evaluateSlotCapacity()',
+      tip: 'Analisa o limite simultâneo configurado no Admin (ex: 3 banhos/hora). Exibe botões em verde esmeralda para vagas livres e em vermelho para capacidade máxima atingida.' },
+    excecaoEncaixe: { x: 155, y: R2[4], type: 'task', actor: 'C', label: 'Sugestão de Próximo Horário ou Encaixe de Exceção',
+      level: 'Nível 3 · Flexibilidade Operacional',
+      code: 'findNextAvailableSlot() | [ENCAIXE / EXCEÇÃO AUTORIZADA]',
+      tip: 'Se o horário estiver vermelho/lotado, o app sugere o próximo horário disponível e oferece checkbox para abrir exceção de Encaixe prioritário para não perder o cliente.' },
+    aplicaCupom: { x: 155, y: R2[5], type: 'task', actor: 'C', label: 'Aplicar Desconto de Aniversário (20%)',
+      level: 'Nível 3 · Microregra',
+      code: 'isBirthdayToday | BIRTHDAY_DISCOUNT_PERCENT (20%)',
+      tip: 'Se for aniversário do pet ou do tutor hoje, o app auto-aplica 20% de desconto e exibe no resumo da cobrança de forma transparente.' },
+    gravaAgendamento: { x: 440, y: R2[6], type: 'task', actor: 'S', label: 'Gravar Agendamento & Ordem de Transporte',
+      level: 'Nível 3 · Banco de Dados',
+      code: 'appointments (status: pendente) | transport_orders',
+      tip: 'O sistema grava o agendamento em appointments e cria a ordem logística em transport_orders com endereço de coleta, devolução e taxas.' },
+    notifAdmin: { x: 1010, y: R2[7], type: 'task', actor: 'E', label: 'Recepção Valida & Aprova Agendamento',
+      level: 'Nível 3 · Painel Admin',
+      code: 'admin.tsx (Aba Agenda) | mutate status: confirmado',
+      tip: 'Recepção recebe o agendamento no painel em tempo real, valida a disponibilidade da agenda e aprova com 1 clique.' },
+    alertaSonoroConfirmado: { x: 1285, y: R2[8], type: 'task', actor: 'W', label: 'Alerta Sonoro em Tempo Real: Loja Confirmou!',
+      level: 'Nível 3 · Web Audio API',
+      code: 'playStatusSound("confirmado") | StatusAlertNotifier.tsx | D5 -> A5',
+      tip: 'Assim que a loja clica em confirmar, o tutor recebe na tela principal do app um sino/chime cristalino ascendente (D5 -> A5) e toast comemorativo com o nome do pet.' },
+    gwPrecisaVan: { x: 440, y: R2[9], type: 'gateway', actor: 'S', label: 'Exige Táxi Pet?',
+      level: 'Nível 2 · Gateway Decisão',
+      code: 'wantsTransport (transport_orders)',
+      tip: 'Se o cliente contratou Táxi Pet, segue para a Macroetapa 3 de Despacho e Rota do Motorista. Se for entrega pelo próprio tutor, vai direto para a Macroetapa 4.' },
+
+    // ===== ETAPA 3 =====
+    designaMotorista: { x: 1010, y: R3[0], type: 'task', actor: 'E', label: 'Despachar Transporte para Motorista',
+      level: 'Nível 3 · Despacho',
+      code: 'admin.tsx (Retirada-Entrega) | assignDriver.mutate()',
+      tip: 'O despachante visualiza o endereço no mapa e atribui a corrida para o motorista da van daquela região.' },
+    alertaSonoroViagemIda: { x: 1285, y: R3[1], type: 'task', actor: 'W', label: 'Alerta Sonoro: Motorista a Caminho & Portão',
+      level: 'Nível 3 · Web Audio API',
+      code: 'playStatusSound("transporte") | playStatusSound("portao")',
+      tip: 'Ao motorista iniciar a viagem de busca, o tutor ouve o acorde dinâmico de viagem. Ao chegar no endereço, toca o alerta sonoro duplo de portão.' },
+    rotaMotorista: { x: 725, y: R3[2], type: 'task', actor: 'M', label: 'Painel do Motorista: Rota & GPS com 1 Toque',
+      level: 'Nível 3 · App Motorista',
+      code: 'motorista.tsx | Botões diretos Waze e Google Maps',
+      tip: 'O motorista abre a rota no celular com 1 toque no Waze ou Google Maps com endereço, número e CEP exatos do cliente.' },
+    telemetriaGps: { x: 725, y: R3[3], type: 'task', actor: 'M', label: 'Transmissão de Telemetria GPS em Tempo Real',
+      level: 'Nível 3 · Rastreamento',
+      code: 'driver_locations | navigator.geolocation.watchPosition',
+      tip: 'A van transmite latitude e longitude em segundo plano para o Supabase Realtime a cada deslocamento.' },
+    mapaAoVivoTutor: { x: 155, y: R3[4], type: 'task', actor: 'C', label: 'Tutor Acompanha a Van no Mapa ao Vivo',
+      level: 'Nível 3 · Interface Home',
+      code: 'DriverLiveMap.tsx | Leaflet GPS | DriverContact.tsx',
+      tip: 'Na Home do tutor surge o mapa ao vivo com a van em movimento, distância estimada e botão de contato com o motorista.' },
+    avançaEtapaTransporte: { x: 725, y: R3[5], type: 'task', actor: 'M', label: 'Avanço das 10 Etapas Operacionais',
+      level: 'Nível 3 · 10 Etapas Ops',
+      code: 'OpsStatus: motorista_designado -> a_caminho -> pet_retirado',
+      tip: 'O motorista atualiza as etapas no app ("Cheguei no portão", "Thor retirado"). O app registra carimbo de hora em pet_status_history.' },
+    petChegaLoja: { x: 1010, y: R3[6], type: 'task', actor: 'E', label: 'Recepção Confirma Chegada do Pet na Loja',
+      level: 'Nível 3 · Operação',
+      code: 'ops_status: no_petshop | TransportHistoryList',
+      tip: 'A recepção dá entrada no petshop. O tutor recebe o aviso e tom suave de que o pet já está seguro dentro da clínica.' },
+
+    // ===== ETAPA 4 =====
+    iniciaAtendimento: { x: 1010, y: R4[0], type: 'task', actor: 'E', label: 'Iniciar Procedimento ("Em Atendimento")',
+      level: 'Nível 3 · Operação',
+      code: 'appointments.ops_status = "em_atendimento"',
+      tip: 'O tosador ou veterinário inicia o atendimento do pet e marca como "Em Atendimento".' },
+    alertaSonoroAtendimento: { x: 1285, y: R4[1], type: 'task', actor: 'W', label: 'Alerta Sonoro: Pet Entrou em Atendimento!',
+      level: 'Nível 3 · Web Audio API',
+      code: 'playStatusSound("atendimento") | C5 -> E5 -> G5',
+      tip: 'Assim que o atendimento inicia, o tutor ouve um acorde harmônico suave de sino anunciando o banho/tosa em andamento.' },
+    regraEmAtendimentoTopo: { x: 440, y: R4[2], type: 'task', actor: 'S', label: 'Regra de Ouro: "Em Atendimento" no Topo da Fila',
+      level: 'Nível 3 · Regra Universal',
+      code: 'sortInServiceFirst() | Borda verde esmeralda (#10B981)',
+      tip: 'REGRA UNIVERSAL: Qualquer item "Em Atendimento" sobre imediatamente para a 1ª posição em todas as filas (Home, Conta, Admin e Motorista) com borda verde e badge pulsante.' },
+    tutorAcompanhaStatus: { x: 155, y: R4[3], type: 'task', actor: 'C', label: 'Tutor Vê Card Verde com Pulso em Tempo Real',
+      level: 'Nível 3 · Experiência Tutor',
+      code: 'index.tsx | conta.tsx | "Thor em atendimento"',
+      tip: 'O tutor vê na Home e na Conta o card verde esmeralda com o aviso de que o Thor está no banho ou na consulta agora.' },
+    atendimentoClinico: { x: 1010, y: R4[4], type: 'task', actor: 'E', label: 'Registrar Prontuário, Peso & Prescrição',
+      level: 'Nível 3 · Prontuário Médico',
+      code: 'medical_records | peso histórico | prescrições',
+      tip: 'O veterinário registra a evolução de peso, diagnóstico, medicação ministrada e anexa laudos na ficha do pet.' },
+    gwDefiniuRetorno: { x: 1010, y: R4[5], type: 'gateway', actor: 'E', label: 'Definiu Data de Retorno Clínico?',
+      level: 'Nível 2 · Gateway Decisão',
+      code: 'next_return_date (medical_records)',
+      tip: 'Se o veterinário indicar próxima data para retorno ou retirada de pontos, o sistema gera o alerta preventivo automaticamente.' },
+    criaLembreteAutomatico: { x: 440, y: R4[6], type: 'task', actor: 'S', label: 'Criar Lembrete Preventivo (care_reminders)',
+      level: 'Nível 3 · Banco de Dados',
+      code: 'care_reminders (retorno, exame, vacina)',
+      tip: 'Gera registro de cuidado futuro sem duplicar, sincronizado com o prontuário para disparo no momento oportuno.' },
+    finalizaServico: { x: 1010, y: R4[7], type: 'task', actor: 'E', label: 'Concluir Serviço & Solicitar Devolução',
+      level: 'Nível 3 · Logística Reversa',
+      code: 'ops_status: em_deslocamento_entrega',
+      tip: 'Pet pronto! O despachante aciona o motorista para levar o pet de volta para casa ou avisa o tutor que ele pode retirar no balcão.' },
+
+    // ===== ETAPA 5 =====
+    rotaDevolucao: { x: 725, y: R5[0], type: 'task', actor: 'M', label: 'Motorista Realiza Entrega no Endereço do Tutor',
+      level: 'Nível 3 · Táxi Pet Entrega',
+      code: 'motorista.tsx | ops_status: pet_entregue',
+      tip: 'O motorista leva o pet em segurança até a casa do tutor e marca como entregue, finalizando o ciclo logístico.' },
+    alertaSonoroEntrega: { x: 1285, y: R5[1], type: 'task', actor: 'W', label: 'Alerta Sonoro Triunfal: Pet Entregue!',
+      level: 'Nível 3 · Web Audio API',
+      code: 'playStatusSound("concluido") | Acorde Triunfal C5-E5-G5-C6',
+      tip: 'Ao finalizar a entrega do pet no portão, toca o acorde triunfal de sino comemorativo com mensagem de agradecimento.' },
+    filtroContaTutor: { x: 155, y: R5[2], type: 'task', actor: 'C', label: 'Minha Conta: Filtros Inteligentes & Botão Fechar',
+      level: 'Nível 3 · Usabilidade',
+      code: 'conta.tsx | Filtro Em Aberto por padrão + Botão Fechar',
+      tip: 'O tutor vê na Conta apenas agendamentos e pedidos em andamento. Se alternar para Concluídos ou Cancelados, pode voltar com 1 clique no botão Fechar Filtro.' },
+    catchLoja: { x: 70, y: R5[3], type: 'link', dir: 'catch', letter: 'L', actor: 'C', label: 'Entrada Loja Virtual',
+      level: 'Nível 2 · Conector',
+      code: 'Rota /loja e /carrinho',
+      tip: 'O tutor navega por rações, medicamentos e acessórios com filtros por categoria e adiciona ao carrinho.' },
+    comprasLoja: { x: 155, y: R5[4], type: 'task', actor: 'C', label: 'Comprar Produtos na Loja & Pedido Conectado',
+      level: 'Nível 3 · E-commerce',
+      code: 'orders | order_items | cupom desconto',
+      tip: 'Finaliza a compra pelo carrinho com entrega combinada no endereço ou retirada junto com o pet no petshop.' },
+    centralRetornosHoje: { x: 155, y: R5[5], type: 'task', actor: 'C', label: 'Avisos da Home: Retornos de Hoje no Topo em Verde',
+      level: 'Nível 3 · Regra de Retenção',
+      code: 'homeAlerts | days === 0 -> Verde Esmeralda no topo',
+      tip: 'Se o pet tiver retorno clínico previsto para hoje, o card aparece no topo absoluto da Home em verde com botão Agendar e WhatsApp.' },
+    curvaAbcAdmin: { x: 1010, y: R5[6], type: 'task', actor: 'E', label: 'Curva ABC de Clientes & Ações Comerciais VIP',
+      level: 'Nível 3 · Inteligência Gestão',
+      code: 'CurvaAbcClientes.tsx | Classes A (80%), B (15%), C (5%)',
+      tip: 'O administrador analisa clientes mais rentáveis (Classe A), oportunidades de expansão (B) e clientes inativos em risco de abandono (Classe C).' },
+    throwAgendamento: { x: 155, y: R5[7], type: 'link', dir: 'throw', letter: 'A', actor: 'C', label: 'Reagendar (Ciclo Fechado)',
+      level: 'Nível 2 · Conector Retenção',
+      code: 'Retorno ao Agendamento',
+      tip: 'O tutor clica no lembrete de vacina/retorno e reinicia o ciclo na Macroetapa 2 com dados pré-preenchidos.' },
+    endProcess: { x: 1010, y: R5[8], type: 'end', actor: 'E', label: 'Ciclo Concluído com Fidelização',
+      level: 'Nível 1 · Fim',
+      code: 'Operação Completa',
+      tip: 'Pet tratado com segurança, tutor fidelizado, financeiro registrado na Curva ABC e retenção garantida.' }
+  };
+
+  // CONEXÕES (FLUXO COMPLETO 3º NÍVEL)
+  var edges = [
+    // Etapa 1
+    { from: 'start', to: 'gwAcesso' },
+    { from: 'gwAcesso', to: 'cadTutor', label: 'Novo no App' },
+    { from: 'gwAcesso', to: 'cadBalcao', label: 'Novo no Balcão' },
+    { from: 'gwAcesso', to: 'authSession', label: 'Já tem login' },
+    { from: 'cadTutor', to: 'cadPet' },
+    { from: 'cadBalcao', to: 'cadPet' },
+    { from: 'cadPet', to: 'authSession' },
+    { from: 'authSession', to: 'homePersonalizada' },
+    { from: 'homePersonalizada', to: 'gwIntencao' },
+    { from: 'gwIntencao', to: 'throwLoja', label: 'Loja' },
+    { from: 'gwIntencao', to: 'selServico', label: 'Agendar' },
+
+    // Etapa 2
+    { from: 'catchAgendamento', to: 'selServico' },
+    { from: 'selServico', to: 'selTransporte' },
+    { from: 'selTransporte', to: 'criticaCapacidade' },
+    { from: 'criticaCapacidade', to: 'excecaoEncaixe', label: 'Lotado (Vermelho)' },
+    { from: 'criticaCapacidade', to: 'aplicaCupom', label: 'Vaga Livre (Verde)' },
+    { from: 'excecaoEncaixe', to: 'aplicaCupom', label: 'Encaixe Aceito' },
+    { from: 'aplicaCupom', to: 'gravaAgendamento' },
+    { from: 'gravaAgendamento', to: 'notifAdmin' },
+    { from: 'notifAdmin', to: 'alertaSonoroConfirmado' },
+    { from: 'alertaSonoroConfirmado', to: 'gwPrecisaVan' },
+    { from: 'gwPrecisaVan', to: 'designaMotorista', label: 'Sim (Táxi Pet)' },
+    { from: 'gwPrecisaVan', to: 'iniciaAtendimento', label: 'Não (No Balcão)' },
+
+    // Etapa 3
+    { from: 'designaMotorista', to: 'alertaSonoroViagemIda' },
+    { from: 'alertaSonoroViagemIda', to: 'rotaMotorista' },
+    { from: 'rotaMotorista', to: 'telemetriaGps' },
+    { from: 'telemetriaGps', to: 'mapaAoVivoTutor' },
+    { from: 'telemetriaGps', to: 'avançaEtapaTransporte' },
+    { from: 'avançaEtapaTransporte', to: 'petChegaLoja' },
+    { from: 'petChegaLoja', to: 'iniciaAtendimento' },
+
+    // Etapa 4
+    { from: 'iniciaAtendimento', to: 'alertaSonoroAtendimento' },
+    { from: 'alertaSonoroAtendimento', to: 'regraEmAtendimentoTopo' },
+    { from: 'regraEmAtendimentoTopo', to: 'tutorAcompanhaStatus' },
+    { from: 'regraEmAtendimentoTopo', to: 'atendimentoClinico' },
+    { from: 'atendimentoClinico', to: 'gwDefiniuRetorno' },
+    { from: 'gwDefiniuRetorno', to: 'criaLembreteAutomatico', label: 'Sim' },
+    { from: 'gwDefiniuRetorno', to: 'finalizaServico', label: 'Não' },
+    { from: 'criaLembreteAutomatico', to: 'finalizaServico' },
+    { from: 'finalizaServico', to: 'rotaDevolucao' },
+
+    // Etapa 5
+    { from: 'rotaDevolucao', to: 'alertaSonoroEntrega' },
+    { from: 'alertaSonoroEntrega', to: 'filtroContaTutor' },
+    { from: 'catchLoja', to: 'comprasLoja' },
+    { from: 'comprasLoja', to: 'filtroContaTutor' },
+    { from: 'filtroContaTutor', to: 'centralRetornosHoje' },
+    { from: 'filtroContaTutor', to: 'curvaAbcAdmin' },
+    { from: 'centralRetornosHoje', to: 'throwAgendamento', label: 'Agendar Retorno / Vacina' },
+    { from: 'curvaAbcAdmin', to: 'endProcess' }
+  ];
+
+  // RENDERIZAÇÃO HEADER SVG
+  var headerSvg = document.getElementById('headerSvg');
+  headerSvg.setAttribute('viewBox', '0 0 ' + WIDTH + ' ' + TITLE_H);
+  headerSvg.setAttribute('width', WIDTH);
+  headerSvg.setAttribute('height', TITLE_H);
+
+  var svg = document.getElementById('bpmnSvg');
+  svg.setAttribute('viewBox', '0 ' + TITLE_H + ' ' + WIDTH + ' ' + (HEIGHT - TITLE_H));
+  svg.setAttribute('width', WIDTH);
+  svg.setAttribute('height', HEIGHT - TITLE_H);
+
+  svg.appendChild(el('defs', {}, [
+    el('marker', { id: 'arrow', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' }, [
+      el('path', { d: 'M0,0 L10,5 L0,10 z', fill: '#64748b' })
+    ])
+  ]));
+
+  svg.appendChild(el('rect', { x: 0, y: TITLE_H, width: WIDTH, height: HEIGHT - TITLE_H, fill: '#0b132b' }));
+  headerSvg.appendChild(el('rect', { x: 0, y: 0, width: WIDTH, height: TITLE_H, fill: '#090d16' }));
+
+  headerSvg.appendChild(el('text', { x: WIDTH / 2, y: 32, 'text-anchor': 'middle', 'font-size': 20, 'font-weight': 900, fill: '#fff' },
+    ['ARQUITETURA DE PROCESSOS (BPMN 2.0) · SISTEMA INTEGRADO BIG DOG PET']));
+  headerSvg.appendChild(el('text', { x: WIDTH / 2, y: 52, 'text-anchor': 'middle', 'font-size': 12, fill: '#94a3b8' },
+    ['Microvisão de 3º Nível: Regras Operacionais de Código, 10 Etapas Táxi Pet, Destaque em Atendimento, Retornos do Dia e Curva ABC']));
+
+  // Legenda
+  var legendItems = [
+    { shape: 'circle-thin', label: 'Início', color: '#10b981' },
+    { shape: 'rect', label: 'Microtarefa / Código', color: '#3b82f6' },
+    { shape: 'diamond', label: 'Decisão / Gateway', color: '#f59e0b' },
+    { shape: 'link', label: 'Conector de Retenção', color: '#94a3b8' },
+    { shape: 'circle-thick', label: 'Fim do Ciclo', color: '#ef4444' }
+  ];
+  var lfont = '11px Segoe UI, Arial, sans-serif';
+  var legendTotal = 0;
+  legendItems.forEach(function (it, i) { legendTotal += 20 + textWidth(it.label, lfont) + (i < legendItems.length - 1 ? 20 : 0); });
+  var lx = (WIDTH - legendTotal) / 2, gy = 74;
+  legendItems.forEach(function (it) {
+    if (it.shape === 'circle-thin') {
+      headerSvg.appendChild(el('circle', { cx: lx + 7, cy: gy, r: 7, fill: '#090d16', stroke: it.color, 'stroke-width': 2 }));
+    } else if (it.shape === 'circle-thick') {
+      headerSvg.appendChild(el('circle', { cx: lx + 7, cy: gy, r: 7, fill: '#090d16', stroke: it.color, 'stroke-width': 3 }));
+    } else if (it.shape === 'rect') {
+      headerSvg.appendChild(el('rect', { x: lx, y: gy - 7, width: 14, height: 14, rx: 3, fill: '#1e293b', stroke: it.color, 'stroke-width': 2 }));
+    } else if (it.shape === 'diamond') {
+      headerSvg.appendChild(el('rect', { x: lx, y: gy - 7, width: 14, height: 14, fill: '#1e293b', stroke: it.color, 'stroke-width': 2, transform: 'rotate(45 ' + (lx + 7) + ' ' + gy + ')' }));
+    } else {
+      headerSvg.appendChild(el('circle', { cx: lx + 7, cy: gy, r: 7, fill: '#090d16', stroke: it.color, 'stroke-width': 1.6 }));
+      headerSvg.appendChild(el('circle', { cx: lx + 7, cy: gy, r: 4.5, fill: it.color, stroke: it.color, 'stroke-width': 1 }));
+    }
+    headerSvg.appendChild(el('text', { x: lx + 20, y: gy + 4, 'font-size': 11, fill: '#cbd5e1' }, [it.label]));
+    lx += 20 + textWidth(it.label, lfont) + 20;
+  });
+
+  // Cabeçalhos das 5 Colunas
+  COLS.forEach(function (col) {
+    var c = COLORS[col.actor];
+    headerSvg.appendChild(el('rect', { x: col.x - 120, y: 98, width: 240, height: 32, rx: 8, fill: c.stroke }));
+    headerSvg.appendChild(el('text', { x: col.x, y: 119, 'text-anchor': 'middle', 'font-size': 12.5, 'font-weight': 800, fill: '#ffffff' }, [col.label]));
+  });
+
+  // Faixas verticais das raias
+  var bandTop = TITLE_H, bandBottom = HEIGHT - 30;
+  COLS.forEach(function (col) {
+    var c = COLORS[col.actor];
+    svg.appendChild(el('rect', { x: col.x - COLW / 2, y: bandTop, width: COLW, height: bandBottom - bandTop, fill: c.band }));
+    svg.appendChild(el('line', { x1: col.x - COLW / 2, y1: bandTop, x2: col.x - COLW / 2, y2: bandBottom, stroke: '#1e293b', 'stroke-width': 1 }));
+  });
+
+  // Barras horizontais das Macroetapas
+  [S.s1, S.s2, S.s3, S.s4, S.s5].forEach(function (sec) {
+    svg.appendChild(el('rect', { x: 0, y: sec.headerY, width: WIDTH, height: HEADER_H, fill: '#090d16' }));
+    svg.appendChild(el('line', { x1: 0, y1: sec.headerY + HEADER_H, x2: WIDTH, y2: sec.headerY + HEADER_H, stroke: '#334155', 'stroke-width': 1 }));
+    var ty = sec.headerY + HEADER_H / 2 + 5;
+    svg.appendChild(el('text', { x: 24, y: ty, 'font-size': 14.5, 'font-weight': 800, fill: '#34d399' }, [sec.title]));
+    var tw = textWidth(sec.title, '800 14.5px Segoe UI, Arial, sans-serif');
+    svg.appendChild(el('text', { x: 24 + tw + 18, y: ty, 'font-size': 12, fill: '#94a3b8' }, [sec.sub]));
+  });
+
+  // Linhas de Conexão
+  function edgePoints(edge) {
+    if (edge.points) return edge.points;
+    var a = nodes[edge.from], b = nodes[edge.to];
+    var midY = a.y + (b.y - a.y) / 2;
+    return [[a.x, a.y], [a.x, midY], [b.x, midY], [b.x, b.y]];
+  }
+  edges.forEach(function (edge) {
+    var pts = edgePoints(edge);
+    var d = pts.map(function (p, i) { return (i === 0 ? 'M' : 'L') + p[0] + ',' + p[1]; }).join(' ');
+    svg.appendChild(el('path', {
+      d: d, fill: 'none', stroke: '#64748b', 'stroke-width': 2,
+      'stroke-dasharray': edge.dashed ? '6,5' : null, 'marker-end': 'url(#arrow)'
+    }));
+    if (edge.label) {
+      var mid = edge.labelAt || pts[Math.floor(pts.length / 2)];
+      var font = '800 10.5px Segoe UI, Arial, sans-serif';
+      var tw = textWidth(edge.label, font);
+      svg.appendChild(el('rect', { x: mid[0] - tw / 2 - 6, y: mid[1] - 10, width: tw + 12, height: 18, rx: 5, fill: '#0f172a', stroke: '#334155' }));
+      svg.appendChild(el('text', { x: mid[0], y: mid[1] + 3, 'text-anchor': 'middle', 'font-size': 10.5, 'font-weight': 800, fill: '#38bdf8' }, [edge.label]));
+    }
+  });
+
+  // Renderização dos Nós com Tooltips de 3º Nível
+  var tooltip = document.getElementById('tooltip');
+  function attachTip(group, n) {
+    group.addEventListener('mouseenter', function (e) {
+      tooltip.innerHTML = '<div class="tt-level">' + (n.level || 'Microvisão 3º Nível') + '</div>' +
+                          '<div class="tt-title">' + n.label + '</div>' +
+                          '<div>' + n.tip + '</div>' +
+                          (n.code ? '<div class="tt-code">⚙️ Código / Tabela: ' + n.code + '</div>' : '');
+      tooltip.style.display = 'block';
+      positionTip(e);
+      var shape = group.querySelector('.shape');
+      if (shape) shape.setAttribute('stroke-width', 3.5);
+    });
+    group.addEventListener('mousemove', positionTip);
+    group.addEventListener('mouseleave', function () {
+      tooltip.style.display = 'none';
+      var shape = group.querySelector('.shape');
+      if (shape) shape.setAttribute('stroke-width', shape.getAttribute('data-sw') || 2);
+    });
+  }
+
+  function positionTip(e) {
+    var pad = 18;
+    var x = e.clientX + pad, y = e.clientY + pad;
+    var rect = tooltip.getBoundingClientRect();
+    if (x + rect.width > window.innerWidth - 10) x = e.clientX - rect.width - pad;
+    if (y + rect.height > window.innerHeight - 10) y = e.clientY - rect.height - pad;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+  }
+
+  function sideLabel(g, n, offsetX, font, fontSize) {
+    var lines = wrapLines(n.label, font, 180);
+    var w = Math.max.apply(null, lines.map(function (l) { return textWidth(l, font); })) + 16;
+    var x0 = n.x + offsetX;
+    var y0 = n.y - (lines.length * 15) / 2 + 8;
+    g.appendChild(el('rect', { x: x0 - 5, y: y0 - 12, width: w, height: lines.length * 15 + 6, rx: 6, fill: '#090d16', stroke: '#334155' }));
+    lines.forEach(function (line, i) {
+      g.appendChild(el('text', { x: x0, y: y0 + i * 15, 'font-size': fontSize, 'font-weight': 800, fill: '#f8fafc' }, [line]));
+    });
+  }
+
+  Object.keys(nodes).forEach(function (id) {
+    var n = nodes[id];
+    var c = COLORS[n.actor];
+    var g = el('g', { class: 'node' }, []);
+
+    if (n.type === 'task') {
+      var w = 230, h = 76;
+      g.appendChild(el('rect', { class: 'shape', 'data-sw': '2', x: n.x - w / 2, y: n.y - h / 2, width: w, height: h, rx: 12, fill: c.fill, stroke: c.stroke, 'stroke-width': 2 }));
+      var lines = wrapLines(n.label, '800 11.5px Segoe UI, Arial, sans-serif', w - 18);
+      var lh = 15;
+      var startY = n.y - ((lines.length - 1) * lh) / 2 + 4;
+      lines.forEach(function (line, i) {
+        g.appendChild(el('text', { x: n.x, y: startY + i * lh, 'text-anchor': 'middle', 'font-size': 11.5, 'font-weight': 800, fill: '#f8fafc' }, [line]));
+      });
+    } else if (n.type === 'gateway') {
+      var s = 58;
+      g.appendChild(el('rect', { class: 'shape', 'data-sw': '2.2', x: n.x - s / 2, y: n.y - s / 2, width: s, height: s, fill: '#451a03', stroke: '#f59e0b', 'stroke-width': 2.2, transform: 'rotate(45 ' + n.x + ' ' + n.y + ')' }));
+      g.appendChild(el('text', { x: n.x, y: n.y + 7, 'text-anchor': 'middle', 'font-size': 20, 'font-weight': 900, fill: '#fbbf24' }, ['X']));
+      sideLabel(g, n, s / 2 + 16, '800 11.5px Segoe UI, Arial, sans-serif', 11.5);
+    } else if (n.type === 'start' || n.type === 'end') {
+      var r = 26;
+      var col = n.type === 'end' ? '#ef4444' : '#10b981';
+      g.appendChild(el('circle', { class: 'shape', 'data-sw': n.type === 'end' ? '3.5' : '2.5', cx: n.x, cy: n.y, r: r, fill: '#090d16', stroke: col, 'stroke-width': n.type === 'end' ? 3.5 : 2.5 }));
+      if (n.type === 'start') {
+        g.appendChild(el('polygon', { points: (n.x - 6) + ',' + (n.y - 8) + ' ' + (n.x - 6) + ',' + (n.y + 8) + ' ' + (n.x + 8) + ',' + n.y, fill: '#10b981' }));
+      } else {
+        g.appendChild(el('rect', { x: n.x - 7, y: n.y - 7, width: 14, height: 14, rx: 2, fill: '#ef4444' }));
+      }
+      sideLabel(g, n, r + 14, '800 12px Segoe UI, Arial, sans-serif', 12);
+    } else if (n.type === 'link') {
+      var ro = 23;
+      g.appendChild(el('circle', { class: 'shape', 'data-sw': '2', cx: n.x, cy: n.y, r: ro, fill: '#090d16', stroke: '#64748b', 'stroke-width': 2 }));
+      g.appendChild(el('circle', { cx: n.x, cy: n.y, r: ro - 5, fill: n.dir === 'throw' ? '#64748b' : '#090d16', stroke: '#64748b', 'stroke-width': 1.6 }));
+      g.appendChild(el('text', { x: n.x, y: n.y + 6, 'text-anchor': 'middle', 'font-size': 17, 'font-weight': 900, fill: n.dir === 'throw' ? '#ffffff' : '#94a3b8' }, [n.letter]));
+      sideLabel(g, n, ro + 14, '800 11.5px Segoe UI, Arial, sans-serif', 11.5);
+    }
+
+    attachTip(g, n);
+    svg.appendChild(g);
+  });
+
+  svg.appendChild(el('text', { x: WIDTH / 2, y: HEIGHT - 12, 'text-anchor': 'middle', 'font-size': 11, fill: '#64748b' },
+    ['Big Dog Pet Franco da Rocha &middot; Arquitetura As-Is validada com c\u00f3digo-fonte real &middot; ' + new Date().toLocaleDateString('pt-BR')]));
+
+  // ZOOM
+  var zoomRange = document.getElementById('zoomRange');
+  var zoomVal = document.getElementById('zoomVal');
+  function applyZoom() {
+    var pct = parseInt(zoomRange.value, 10);
+    zoomVal.textContent = pct + '%';
+    headerSvg.style.width = (WIDTH * pct / 100) + 'px';
+    headerSvg.style.height = (TITLE_H * pct / 100) + 'px';
+    svg.style.width = (WIDTH * pct / 100) + 'px';
+    svg.style.height = ((HEIGHT - TITLE_H) * pct / 100) + 'px';
+  }
+  zoomRange.addEventListener('input', applyZoom);
+  applyZoom();
+
+  // DOWNLOAD PNG
+  document.getElementById('downloadBtn').addEventListener('click', function () {
+    var exportSvg = document.createElementNS(SVGNS, 'svg');
+    exportSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    exportSvg.setAttribute('viewBox', '0 0 ' + WIDTH + ' ' + HEIGHT);
+    exportSvg.setAttribute('width', WIDTH);
+    exportSvg.setAttribute('height', HEIGHT);
+    Array.prototype.forEach.call(headerSvg.childNodes, function (n) { exportSvg.appendChild(n.cloneNode(true)); });
+    Array.prototype.forEach.call(svg.childNodes, function (n) { exportSvg.appendChild(n.cloneNode(true)); });
+    var svgStr = new XMLSerializer().serializeToString(exportSvg);
+    var svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    var url = URL.createObjectURL(svgBlob);
+    var img = new Image();
+    img.onload = function () {
+      var scale = 2;
+      var canvas = document.createElement('canvas');
+      canvas.width = WIDTH * scale;
+      canvas.height = HEIGHT * scale;
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#0b132b';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(function (blob) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'bpmn-3o-nivel-big-dog-pet.png';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      });
+    };
+    img.onerror = function () { alert('Erro ao renderizar imagem.'); };
+    img.src = url;
+  });
+})();
+</script>
+</body>
+</html>
