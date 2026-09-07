@@ -23,6 +23,7 @@ export type CatalogValues = {
   durationMin: number;
   /** Só produtos. */
   stock: number;
+  criticalStock?: number | undefined;
   active: boolean;
 };
 
@@ -34,6 +35,7 @@ export function emptyCatalogValues(kind: CatalogKind): CatalogValues {
     priceCents: 0,
     durationMin: 30,
     stock: 0,
+    criticalStock: 5,
     active: true,
   };
 }
@@ -82,6 +84,7 @@ export function CatalogForm({
   const [price, setPrice] = useState(centsToInput(initial.priceCents));
   const [durationMin, setDurationMin] = useState(String(initial.durationMin));
   const [stock, setStock] = useState(String(initial.stock));
+  const [criticalStock, setCriticalStockInput] = useState(String(initial.criticalStock ?? 5));
   const [active, setActive] = useState(initial.active);
 
   function handleSubmit() {
@@ -110,6 +113,7 @@ export function CatalogForm({
       toast.error("Estoque inválido — informe um número inteiro");
       return;
     }
+    const parsedCriticalStock = isService ? undefined : (parseInteger(criticalStock, 0) ?? 5);
 
     onSubmit({
       name: trimmedName,
@@ -118,6 +122,7 @@ export function CatalogForm({
       priceCents,
       durationMin: parsedDuration,
       stock: parsedStock,
+      criticalStock: parsedCriticalStock,
       active,
     });
   }
@@ -178,15 +183,28 @@ export function CatalogForm({
             />
           </div>
         ) : (
-          <div>
-            <Label htmlFor={`${listId}-estoque`}>Estoque</Label>
-            <Input
-              id={`${listId}-estoque`}
-              inputMode="numeric"
-              value={stock}
-              onChange={(e) => setStock(e.target.value)}
-              className="mt-1 h-10 rounded-xl"
-            />
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label htmlFor={`${listId}-estoque`}>Estoque Atual</Label>
+              <Input
+                id={`${listId}-estoque`}
+                inputMode="numeric"
+                value={stock}
+                onChange={(e) => setStock(e.target.value)}
+                className="mt-1 h-10 rounded-xl"
+              />
+            </div>
+            <div>
+              <Label htmlFor={`${listId}-estoque-critico`}>Estoque Crítico (Curva A)</Label>
+              <Input
+                id={`${listId}-estoque-critico`}
+                inputMode="numeric"
+                value={criticalStock}
+                onChange={(e) => setCriticalStockInput(e.target.value)}
+                placeholder="Mín. 5"
+                className="mt-1 h-10 rounded-xl"
+              />
+            </div>
           </div>
         )}
         <div className="flex items-end">

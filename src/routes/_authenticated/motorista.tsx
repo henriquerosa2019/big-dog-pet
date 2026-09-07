@@ -2,19 +2,32 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { toast } from "sonner";
-import { Compass, MapPin, MessageCircle, Navigation, Truck } from "lucide-react";
+import {
+  CheckCircle2,
+  Compass,
+  CreditCard,
+  DollarSign,
+  Fuel,
+  MapPin,
+  MessageCircle,
+  Navigation,
+  QrCode,
+  Truck,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesUpdate } from "@/integrations/supabase/types";
 import { useAuth, useIsDriver } from "@/hooks/useAuth";
 import {
   AVISO_AUTOMATICO_WHATSAPP,
   capitalizeWords,
+  formatBRL,
   formatDateTime,
   isAppointmentInService,
   sortInServiceFirst,
   statusToneClass,
   whatsappLinkTo,
 } from "@/lib/format";
+import { openInAppChat } from "@/components/InAppChatDrawer";
 import { formatFullAddress, getGoogleMapsUrl, getWazeUrl } from "@/lib/navigation";
 import {
   CLOSING_OPS_STATUS,
@@ -80,12 +93,40 @@ function Motorista() {
       const { data, error } = await supabase
         .from("transport_orders")
         .select(
-          "id, code, appointment_id, driver_id, pickup_notes, appointments(user_id, scheduled_at, ops_status, logistics_type, notes, services(name), pets(name, size)), addresses(label, street, number, complement, district, city, state, cep, reference)",
+          "id, code, appointment_id, driver_id, pickup_notes, price_cents, fee_breakdown, appointments(id, user_id, scheduled_at, ops_status, logistics_type, notes, service_price_cents, transport_price_cents, total_cents, payment_status, payment_method, paid_at, services(name), pets(name, size)), addresses(label, street, number, complement, district, city, state, cep, reference)",
         )
         .order("created_at", { ascending: true });
       if (error) throw error;
       return data;
     },
+  });
+
+  const registerPayment = useMutation({
+    mutationFn: async ({
+      appointmentId,
+      method,
+    }: {
+      appointmentId: string;
+      method: "credito" | "debito" | "pix" | "dinheiro";
+    }) => {
+      const { error } = await supabase
+        .from("appointments")
+        .update({
+          payment_status: "pago",
+          payment_method: method,
+          paid_at: new Date().toISOString(),
+        })
+        .eq("id", appointmentId);
+      if (error) throw error;
+      return method;
+    },
+    onSuccess: (method) => {
+      queryClient.invalidateQueries({ queryKey: ["driver-routes"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      toast.success(`Pagamento registrado via ${method.toUpperCase()} com sucesso!`);
+      playStatusSound("confirmado", 1);
+    },
+    onError: () => toast.error("Não foi possível registrar o pagamento"),
   });
 
   const claimRoute = useMutation({
@@ -217,6 +258,10 @@ function Motorista() {
                 })
               }
               isPending={advanceStatus.isPending}
+              onRegisterPayment={(appointmentId, method) =>
+                registerPayment.mutate({ appointmentId, method })
+              }
+              isPaying={registerPayment.isPending}
             />
           ))}
           {myRoutes.length === 0 && (
@@ -280,18 +325,29 @@ function RouteCard({
   client,
   onAdvance,
   isPending,
+  onRegisterPayment,
+  isPaying,
 }: {
   item: {
     id: string;
     code: number;
     appointment_id: string;
     pickup_notes: string | null;
+    price_cents?: number | null;
+    fee_breakdown?: unknown;
     appointments: {
+      id?: string;
       user_id: string;
       scheduled_at: string;
       ops_status: string;
       logistics_type: string;
       notes: string | null;
+      service_price_cents?: number | null;
+      transport_price_cents?: number | null;
+      total_cents?: number | null;
+      payment_status?: string | null;
+      payment_method?: string | null;
+      paid_at?: string | null;
       services: { name: string } | null;
       pets: { name: string; size: string | null } | null;
     } | null;
@@ -310,6 +366,8 @@ function RouteCard({
   client?: { full_name: string | null; phone: string | null } | undefined;
   onAdvance: (status: OpsStatus) => void;
   isPending: boolean;
+  onRegisterPayment: (appointmentId: string, method: "credito" | "debito" | "pix" | "dinheiro") => void;
+  isPaying: boolean;
 }) {
   const currentStatus = (item.appointments?.ops_status ?? "agendado") as OpsStatus;
   const next = nextOpsStatus(currentStatus);
@@ -334,6 +392,18 @@ function RouteCard({
   );
 
   const inService = isAppointmentInService(item.appointments);
+  const appt = item.appointments;
+  const paymentStatus = appt?.payment_status ?? "pendente";
+  const isPaid = paymentStatus === "pago";
+  const totalCents =
+    appt?.total_cents ??
+    ((appt?.service_price_cents ?? 0) + (appt?.transport_price_cents ?? item.price_cents ?? 0));
+  const rawBreakdown = item.fee_breakdown as
+    | { distance_km?: number; fuel_cost_estimate_cents?: number; round_trip?: boolean }
+    | undefined
+    | null;
+  const distanceKm = rawBreakdown?.distance_km;
+  const fuelCostCents = rawBreakdown?.fuel_cost_estimate_cents;
 
   return (
     <div
@@ -407,12 +477,118 @@ function RouteCard({
           {item.addresses.reference ? ` (${item.addresses.reference})` : ""}
         </p>
       )}
+
+      {/* Exibição da Distância e Combustível Calculados */}
+      {distanceKm != null && (
+        <div className="mt-1.5 flex items-center justify-between rounded-xl bg-secondary/60 px-2.5 py-1 text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1 font-semibold text-foreground">
+            <Fuel className="h-3.5 w-3.5 text-primary" />
+            Distância total: {distanceKm} km {rawBreakdown?.round_trip ? "(Ida e Volta)" : ""}
+          </span>
+          {fuelCostCents != null && (
+            <span>Combustível est.: <strong className="text-foreground">{formatBRL(fuelCostCents)}</strong></span>
+          )}
+        </div>
+      )}
+
       {item.appointments?.notes && (
         <p className="mt-1 text-xs text-muted-foreground">Obs.: {item.appointments.notes}</p>
       )}
 
+      {/* Cobrança na Entrega pelo Motorista com 1 toque */}
+      <div className="mt-2.5 rounded-xl border border-border/80 bg-background/70 p-2.5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-foreground flex items-center gap-1">
+            <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
+            Pagamento na Entrega
+          </span>
+          <span className="text-xs font-bold text-primary">
+            Total: {formatBRL(totalCents)}
+          </span>
+        </div>
+
+        {isPaid ? (
+          <div className="mt-2 flex items-center justify-between rounded-lg bg-emerald-500/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              ✓ Pago via {appt?.payment_method?.toUpperCase() ?? "PAGO"}
+            </span>
+            <span className="text-[10px] text-emerald-600/80">
+              {appt?.paid_at ? new Date(appt.paid_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "Confirmado"}
+            </span>
+          </div>
+        ) : (
+          <div className="mt-2 space-y-1.5">
+            <p className="text-[11px] text-muted-foreground">
+              Receber agora do tutor (1 toque para registro contábil):
+            </p>
+            <div className="grid grid-cols-4 gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={isPaying}
+                className="h-8 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/10"
+                onClick={() => onRegisterPayment(item.appointment_id, "credito")}
+              >
+                <CreditCard className="h-3 w-3" />
+                Crédito
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={isPaying}
+                className="h-8 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 border-blue-500/30 text-blue-700 hover:bg-blue-500/10"
+                onClick={() => onRegisterPayment(item.appointment_id, "debito")}
+              >
+                <CreditCard className="h-3 w-3" />
+                Débito
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={isPaying}
+                className="h-8 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 border-teal-500/30 text-teal-700 hover:bg-teal-500/10"
+                onClick={() => onRegisterPayment(item.appointment_id, "pix")}
+              >
+                <QrCode className="h-3 w-3" />
+                Pix
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={isPaying}
+                className="h-8 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 border-amber-500/30 text-amber-700 hover:bg-amber-500/10"
+                onClick={() => onRegisterPayment(item.appointment_id, "dinheiro")}
+              >
+                <DollarSign className="h-3 w-3" />
+                Dinheiro
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Botões de Ação Direta: Contato e Navegação de 1 Toque */}
       <div className="mt-2.5 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() =>
+            openInAppChat({
+              contextTag: `Entrega #${item.code}`,
+              petName: item.appointments?.pets?.name,
+              defaultText: `Olá! Aqui é o motorista da van do Big Dog Pet a caminho para ${item.appointments?.pets?.name ?? "o pet"}.`,
+            })
+          }
+          className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1.5 text-[11px] font-bold text-primary hover:bg-primary/20 transition-colors"
+        >
+          <MessageCircle className="h-3.5 w-3.5" />
+          Chat no App (1 Toque)
+        </button>
+
         {talkLink && (
           <a
             href={talkLink}
@@ -421,7 +597,7 @@ function RouteCard({
             className="inline-flex items-center gap-1 rounded-lg bg-secondary px-2.5 py-1.5 text-[11px] font-semibold text-secondary-foreground hover:bg-secondary/80 transition-colors"
           >
             <MessageCircle className="h-3.5 w-3.5 text-emerald-600" />
-            Falar com tutor
+            WhatsApp
           </a>
         )}
 

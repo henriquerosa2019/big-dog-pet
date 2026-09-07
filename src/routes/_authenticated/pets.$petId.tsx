@@ -4,12 +4,17 @@ import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
+  CheckCircle2,
+  Clock,
+  FileText,
+  MessageCircle,
   Paperclip,
   Printer,
   Scissors,
   Stethoscope,
   Syringe,
 } from "lucide-react";
+import { openInAppChat } from "@/components/InAppChatDrawer";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -79,6 +84,8 @@ const vaccineSchema = z.object({
   dose: z.string().trim().max(40),
   applied_at: z.string().min(10, "Informe a data de aplicação"),
   next_due_at: z.string().trim().max(10),
+  vet_name: z.string().trim().max(80).optional(),
+  notes: z.string().trim().max(500).optional(),
 });
 
 const reminderTypes = ["retirada_pontos", "exame", "retorno", "outro"] as const;
@@ -273,6 +280,8 @@ function PetFicha() {
     dose: "",
     applied_at: new Date().toISOString().slice(0, 10),
     next_due_at: "",
+    vet_name: "",
+    notes: "",
   });
 
   const addVaccine = useMutation({
@@ -284,6 +293,8 @@ function PetFicha() {
         dose: parsed.dose || null,
         applied_at: parsed.applied_at,
         next_due_at: parsed.next_due_at || null,
+        vet_name: parsed.vet_name || null,
+        notes: parsed.notes || null,
       });
       if (error) throw error;
     },
@@ -294,6 +305,8 @@ function PetFicha() {
         dose: "",
         applied_at: new Date().toISOString().slice(0, 10),
         next_due_at: "",
+        vet_name: "",
+        notes: "",
       });
       toast.success("Vacina registrada");
     },
@@ -462,14 +475,24 @@ function PetFicha() {
               <div className="min-w-0 text-xs">
                 <p className="font-semibold">{a.title}</p>
                 <p className="text-muted-foreground">Retorno: {formatDate(a.dueDate)}</p>
-                <a
-                  className="mt-1 inline-block font-semibold text-primary underline"
-                  href={whatsappLink(a.whatsappMsg)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Agendar no WhatsApp
-                </a>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="h-7 px-2.5 text-[11px] font-semibold gap-1 rounded-lg text-primary bg-primary/10 hover:bg-primary/20"
+                    onClick={() =>
+                      openInAppChat({
+                        petId: pet?.id,
+                        petName: pet?.name,
+                        contextTag: a.title,
+                        defaultText: a.whatsappMsg,
+                      })
+                    }
+                  >
+                    <MessageCircle className="h-3 w-3" />
+                    Falar no Chat do App (1 toque)
+                  </Button>
+                </div>
               </div>
             </div>
           ))}
@@ -625,138 +648,373 @@ function PetFicha() {
             </div>
           </TabsContent>
 
-          <TabsContent value="vacinas" className="mt-3 space-y-2">
-            <ul className="space-y-2">
-              {(vaccines ?? []).map((v) => (
-                <li key={v.id} className="rounded-2xl bg-card p-3 shadow-card">
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">
-                        <Syringe className="mr-1 inline h-3.5 w-3.5 text-primary" />
-                        {v.vaccine_name}
-                        {v.dose ? ` · ${v.dose}` : ""}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Aplicada em {formatDate(v.applied_at)}
-                        {v.next_due_at ? ` · retorno ${formatDate(v.next_due_at)}` : ""}
-                      </p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="shrink-0 text-xs"
-                      onClick={() => removeVaccine.mutate(v.id)}
-                    >
-                      Remover
-                    </Button>
-                  </div>
-                </li>
-              ))}
-              {(vaccines ?? []).length === 0 && (
-                <li className="text-sm text-muted-foreground">Nenhuma vacina registrada.</li>
-              )}
-            </ul>
+          <TabsContent value="vacinas" className="mt-3 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold flex items-center gap-1.5">
+                  <Syringe className="h-4 w-4 text-primary" />
+                  Linha do Tempo de Vacinas
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Registro cronológico de aplicações, retornos e observações no período
+                </p>
+              </div>
+              <Badge variant="secondary" className="text-[11px]">
+                {(vaccines ?? []).length} registro(s)
+              </Badge>
+            </div>
 
-            <div className="rounded-2xl bg-card p-3 shadow-card">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Registrar vacina
+            {(vaccines ?? []).length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground bg-card">
+                <Syringe className="mx-auto h-8 w-8 opacity-40 mb-1 text-primary" />
+                Nenhuma vacina registrada ainda na carteirinha do pet.
+              </div>
+            ) : (
+              <div className="relative border-l-2 border-primary/25 pl-4 ml-3.5 space-y-3.5 my-2">
+                {(vaccines ?? []).map((v) => {
+                  const isOverdue = v.next_due_at && daysUntil(v.next_due_at) < 0;
+                  const isUpcoming =
+                    v.next_due_at &&
+                    daysUntil(v.next_due_at) >= 0 &&
+                    daysUntil(v.next_due_at) <= 30;
+
+                  return (
+                    <div key={v.id} className="relative">
+                      {/* Nó da Linha do Tempo */}
+                      <div
+                        className={cn(
+                          "absolute -left-[27px] top-1.5 flex h-6 w-6 items-center justify-center rounded-full text-xs shadow-sm ring-4 ring-background",
+                          isOverdue
+                            ? "bg-amber-500 text-white"
+                            : "bg-primary text-primary-foreground",
+                        )}
+                      >
+                        <Syringe className="h-3 w-3" />
+                      </div>
+
+                      <div className="rounded-2xl bg-card p-3.5 shadow-card border border-border/50 hover:border-primary/40 transition-colors">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-sm font-bold text-foreground">
+                                {v.vaccine_name}
+                              </span>
+                              {v.dose && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] font-medium border-primary/30 text-primary"
+                                >
+                                  {v.dose}
+                                </Badge>
+                              )}
+                              {v.next_due_at && (
+                                <Badge
+                                  variant={
+                                    isOverdue
+                                      ? "destructive"
+                                      : isUpcoming
+                                        ? "secondary"
+                                        : "outline"
+                                  }
+                                  className="text-[10px]"
+                                >
+                                  {isOverdue
+                                    ? `Reforço atrasado (${Math.abs(daysUntil(v.next_due_at))}d)`
+                                    : `Reforço: ${formatDate(v.next_due_at)}`}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
+                              <span>
+                                Aplicada em{" "}
+                                <strong className="text-foreground">{formatDate(v.applied_at)}</strong>
+                              </span>
+                              {v.vet_name && (
+                                <>
+                                  <span>•</span>
+                                  <span>Dr(a). {v.vet_name}</span>
+                                </>
+                              )}
+                            </p>
+                          </div>
+
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-[11px] text-muted-foreground hover:text-destructive shrink-0"
+                            onClick={() => removeVaccine.mutate(v.id)}
+                          >
+                            Remover
+                          </Button>
+                        </div>
+
+                        {/* Observações importantes do período para o veterinário */}
+                        {v.notes && (
+                          <div className="mt-2.5 rounded-xl bg-muted/50 p-2.5 text-xs text-foreground border border-border/50">
+                            <span className="font-semibold text-muted-foreground block text-[10px] uppercase tracking-wider mb-0.5">
+                              Observações do Período / Reações:
+                            </span>
+                            <p className="whitespace-pre-line">{v.notes}</p>
+                          </div>
+                        )}
+
+                        {/* Botão de Contato em 1 Toque via Chat do App */}
+                        <div className="mt-3 pt-2.5 border-t border-border/40 flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-muted-foreground">
+                            Dúvidas ou agendar reforço?
+                          </span>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="h-7 text-xs gap-1.5 text-primary bg-primary/10 hover:bg-primary/20 rounded-lg"
+                            onClick={() =>
+                              openInAppChat({
+                                petId: pet?.id,
+                                petName: pet?.name,
+                                contextTag: `Vacina ${v.vaccine_name}`,
+                                defaultText: `Olá! Gostaria de falar sobre a vacina ${v.vaccine_name} do pet ${pet?.name ? capitalizeWords(pet.name) : ""} (aplicada em ${formatDate(v.applied_at)}).`,
+                              })
+                            }
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" />
+                            Chat no App (1 toque)
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="rounded-2xl bg-card p-3.5 shadow-card border border-border/60">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                <Syringe className="h-3.5 w-3.5 text-primary" />
+                Registrar nova vacina na linha do tempo
               </p>
-              <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className="mt-2.5 grid grid-cols-2 gap-2">
                 <Input
-                  placeholder="Vacina (ex: V10)"
+                  placeholder="Vacina (ex: V10, Raiva, Gripe)"
                   value={vaccine.vaccine_name}
                   maxLength={80}
                   onChange={(e) => setVaccine({ ...vaccine, vaccine_name: e.target.value })}
-                  className="col-span-2 h-11 rounded-xl"
+                  className="col-span-2 h-10 rounded-xl text-xs"
                 />
                 <Input
-                  placeholder="Dose (opcional)"
+                  placeholder="Dose (ex: 1ª Dose, Reforço Anual)"
                   value={vaccine.dose}
                   maxLength={40}
                   onChange={(e) => setVaccine({ ...vaccine, dose: e.target.value })}
-                  className="col-span-2 h-11 rounded-xl"
+                  className="h-10 rounded-xl text-xs"
+                />
+                <Input
+                  placeholder="Veterinário responsável (opcional)"
+                  value={vaccine.vet_name}
+                  maxLength={80}
+                  onChange={(e) => setVaccine({ ...vaccine, vet_name: e.target.value })}
+                  className="h-10 rounded-xl text-xs"
                 />
                 <div>
-                  <Label htmlFor="applied">Aplicação</Label>
+                  <Label htmlFor="applied" className="text-xs">Data da Aplicação</Label>
                   <Input
                     id="applied"
                     type="date"
                     value={vaccine.applied_at}
                     onChange={(e) => setVaccine({ ...vaccine, applied_at: e.target.value })}
-                    className="mt-1 h-11 rounded-xl"
+                    className="mt-1 h-10 rounded-xl text-xs"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="due">Retorno</Label>
+                  <Label htmlFor="due" className="text-xs">Previsão Próxima Dose</Label>
                   <Input
                     id="due"
                     type="date"
                     value={vaccine.next_due_at}
                     onChange={(e) => setVaccine({ ...vaccine, next_due_at: e.target.value })}
-                    className="mt-1 h-11 rounded-xl"
+                    className="mt-1 h-10 rounded-xl text-xs"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Label htmlFor="vaccine-notes" className="text-xs">Observações do período (reações, cuidados, lote)</Label>
+                  <Textarea
+                    id="vaccine-notes"
+                    placeholder="Ex: Pet sem reações adversas, vermifugado junto..."
+                    value={vaccine.notes}
+                    maxLength={500}
+                    onChange={(e) => setVaccine({ ...vaccine, notes: e.target.value })}
+                    className="mt-1 rounded-xl text-xs"
+                    rows={2}
                   />
                 </div>
               </div>
               <Button
-                variant="secondary"
-                className="mt-2 h-11 w-full rounded-xl"
+                variant="default"
+                className="mt-3 h-10 w-full rounded-xl text-xs font-semibold"
                 disabled={addVaccine.isPending}
                 onClick={() => addVaccine.mutate()}
               >
-                Salvar vacina
+                {addVaccine.isPending ? "Salvando..." : "Adicionar à Linha do Tempo"}
               </Button>
             </div>
           </TabsContent>
 
-          <TabsContent value="retornos" className="mt-3 space-y-2">
-            <ul className="space-y-2">
-              {(reminders ?? []).map((r) => (
-                <li key={r.id} className="rounded-2xl bg-card p-3 shadow-card">
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">
-                        <Scissors className="mr-1 inline h-3.5 w-3.5 text-primary" />
-                        {r.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {reminderTypeLabels[r.reminder_type as (typeof reminderTypes)[number]]} ·{" "}
-                        {r.completed ? "concluído" : formatDate(r.due_date)}
-                      </p>
-                      {r.notes && <p className="mt-1 text-xs text-muted-foreground">{r.notes}</p>}
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      {!r.completed && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs"
-                          onClick={() => completeReminder.mutate(r.id)}
-                        >
-                          Concluir
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs"
-                        onClick={() => removeReminder.mutate(r.id)}
-                      >
-                        Remover
-                      </Button>
-                    </div>
-                  </div>
-                </li>
-              ))}
-              {(reminders ?? []).length === 0 && (
-                <li className="text-sm text-muted-foreground">Nenhum lembrete de retorno.</li>
-              )}
-            </ul>
+          <TabsContent value="retornos" className="mt-3 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold flex items-center gap-1.5">
+                  <Clock className="h-4 w-4 text-primary" />
+                  Linha do Tempo de Retornos e Prazos
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Acompanhamento cronológico de retornos clínicos, retiradas de pontos e exames
+                </p>
+              </div>
+              <Badge variant="secondary" className="text-[11px]">
+                {(reminders ?? []).length} registro(s)
+              </Badge>
+            </div>
 
-            <div className="rounded-2xl bg-card p-3 shadow-card">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Novo lembrete de retorno
+            {(reminders ?? []).length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground bg-card">
+                <Clock className="mx-auto h-8 w-8 opacity-40 mb-1 text-primary" />
+                Nenhum retorno ou lembrete agendado para este pet.
+              </div>
+            ) : (
+              <div className="relative border-l-2 border-primary/25 pl-4 ml-3.5 space-y-3.5 my-2">
+                {(reminders ?? []).map((r) => {
+                  const isDone = r.completed;
+                  const days = daysUntil(r.due_date);
+                  const isLate = !isDone && days < 0;
+
+                  return (
+                    <div key={r.id} className="relative">
+                      {/* Nó da Linha do Tempo */}
+                      <div
+                        className={cn(
+                          "absolute -left-[27px] top-1.5 flex h-6 w-6 items-center justify-center rounded-full text-xs shadow-sm ring-4 ring-background",
+                          isDone
+                            ? "bg-emerald-600 text-white"
+                            : isLate
+                              ? "bg-destructive text-white"
+                              : "bg-primary text-primary-foreground",
+                        )}
+                      >
+                        {isDone ? (
+                          <CheckCircle2 className="h-3 w-3" />
+                        ) : (
+                          <Clock className="h-3 w-3" />
+                        )}
+                      </div>
+
+                      <div
+                        className={cn(
+                          "rounded-2xl bg-card p-3.5 shadow-card border transition-colors",
+                          isDone
+                            ? "border-border/30 opacity-85"
+                            : "border-border/60 hover:border-primary/40",
+                        )}
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span
+                                className={cn(
+                                  "text-sm font-bold text-foreground",
+                                  isDone && "line-through text-muted-foreground",
+                                )}
+                              >
+                                {r.title}
+                              </span>
+                              <Badge variant="outline" className="text-[10px]">
+                                {reminderTypeLabels[
+                                  r.reminder_type as (typeof reminderTypes)[number]
+                                ] ?? r.reminder_type}
+                              </Badge>
+                              <Badge
+                                variant={isDone ? "secondary" : isLate ? "destructive" : "outline"}
+                                className="text-[10px]"
+                              >
+                                {isDone
+                                  ? "Concluído"
+                                  : isLate
+                                    ? `Atrasado (${Math.abs(days)}d)`
+                                    : `Previsto: ${formatDate(r.due_date)}`}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Data prevista:{" "}
+                              <strong className="text-foreground">{formatDate(r.due_date)}</strong>
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {!isDone && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 px-2 text-[11px] text-emerald-600 border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                                onClick={() => completeReminder.mutate(r.id)}
+                              >
+                                <CheckCircle2 className="h-3 w-3 mr-1" />
+                                Concluir
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-[11px] text-muted-foreground hover:text-destructive"
+                              onClick={() => removeReminder.mutate(r.id)}
+                            >
+                              Remover
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Observações clínicas importantes do retorno */}
+                        {r.notes && (
+                          <div className="mt-2.5 rounded-xl bg-muted/50 p-2.5 text-xs text-foreground border border-border/50">
+                            <span className="font-semibold text-muted-foreground block text-[10px] uppercase tracking-wider mb-0.5">
+                              Observações / O que avaliar no retorno:
+                            </span>
+                            <p className="whitespace-pre-line">{r.notes}</p>
+                          </div>
+                        )}
+
+                        {/* Botão de Contato em 1 Toque via Chat do App */}
+                        <div className="mt-3 pt-2.5 border-t border-border/40 flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-muted-foreground">
+                            Confirmar ou reagendar retorno?
+                          </span>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="h-7 text-xs gap-1.5 text-primary bg-primary/10 hover:bg-primary/20 rounded-lg"
+                            onClick={() =>
+                              openInAppChat({
+                                petId: pet?.id,
+                                petName: pet?.name,
+                                contextTag: `Retorno: ${r.title}`,
+                                defaultText: `Olá! Gostaria de falar sobre o retorno "${r.title}" (${reminderTypeLabels[r.reminder_type as (typeof reminderTypes)[number]] ?? r.reminder_type}) do pet ${pet?.name ? capitalizeWords(pet.name) : ""}, previsto para ${formatDate(r.due_date)}.`,
+                              })
+                            }
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" />
+                            Chat no App (1 toque)
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="rounded-2xl bg-card p-3.5 shadow-card border border-border/60">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5 text-primary" />
+                Novo lembrete de retorno na linha do tempo
               </p>
-              <div className="mt-2 space-y-2">
+              <div className="mt-2.5 space-y-2">
                 <Select
                   value={reminder.reminder_type}
                   onValueChange={(value) =>
@@ -766,7 +1024,7 @@ function PetFicha() {
                     })
                   }
                 >
-                  <SelectTrigger className="h-11 rounded-xl">
+                  <SelectTrigger className="h-10 rounded-xl text-xs">
                     <SelectValue placeholder={selectedReminderLabel} />
                   </SelectTrigger>
                   <SelectContent>
@@ -778,54 +1036,61 @@ function PetFicha() {
                   </SelectContent>
                 </Select>
                 <Input
-                  placeholder="Título (ex: Retirada de pontos da castração)"
+                  placeholder="Título (ex: Retirada de pontos, Exame de sangue)"
                   value={reminder.title}
                   maxLength={120}
                   onChange={(e) => setReminder({ ...reminder, title: e.target.value })}
-                  className="h-11 rounded-xl"
+                  className="h-10 rounded-xl text-xs"
                 />
                 <div>
-                  <Label htmlFor="reminder-due">Data prevista</Label>
+                  <Label htmlFor="reminder-due" className="text-xs">Data prevista</Label>
                   <Input
                     id="reminder-due"
                     type="date"
                     value={reminder.due_date}
                     onChange={(e) => setReminder({ ...reminder, due_date: e.target.value })}
-                    className="mt-1 h-11 rounded-xl"
+                    className="mt-1 h-10 rounded-xl text-xs"
                   />
                 </div>
                 <Textarea
-                  placeholder="Observações (opcional)"
+                  placeholder="Observações clínicas para o veterinário (ex: checar cicatrização, jejum...)"
                   value={reminder.notes}
                   maxLength={300}
                   onChange={(e) => setReminder({ ...reminder, notes: e.target.value })}
-                  className="rounded-xl"
+                  className="rounded-xl text-xs"
+                  rows={2}
                 />
               </div>
               <Button
-                variant="secondary"
-                className="mt-2 h-11 w-full rounded-xl"
+                variant="default"
+                className="mt-3 h-10 w-full rounded-xl text-xs font-semibold"
                 disabled={addReminder.isPending}
                 onClick={() => addReminder.mutate()}
               >
-                Salvar lembrete
+                {addReminder.isPending ? "Salvando..." : "Adicionar à Linha do Tempo"}
               </Button>
             </div>
           </TabsContent>
 
-          <TabsContent value="prontuario" className="mt-3 space-y-3 print:mt-0">
+          <TabsContent value="prontuario" className="mt-3 space-y-4 print:mt-0">
             <div className="flex items-center justify-between gap-2 print:hidden">
-              <p className="text-xs text-muted-foreground">
-                Registros preenchidos pela equipe do {CLINIC.name}.
-              </p>
+              <div>
+                <h3 className="text-sm font-semibold flex items-center gap-1.5">
+                  <Stethoscope className="h-4 w-4 text-primary" />
+                  Linha do Tempo do Prontuário Médico
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Registros cronológicos de consultas, diagnósticos, tratamentos e evolução clínica
+                </p>
+              </div>
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className="h-8 shrink-0 gap-1 text-xs"
+                className="h-8 shrink-0 gap-1.5 text-xs rounded-xl"
                 onClick={() => window.print()}
               >
                 <Printer className="h-3.5 w-3.5" />
-                Exportar
+                Imprimir / PDF
               </Button>
             </div>
 
@@ -846,7 +1111,7 @@ function PetFicha() {
                   />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todos">Todos os tipos</SelectItem>
+                  <SelectItem value="todos">Todos os tipos de atendimento</SelectItem>
                   {recordTypes.map((type) => (
                     <SelectItem key={type} value={type}>
                       {recordTypeLabels[type]}
@@ -856,81 +1121,139 @@ function PetFicha() {
               </Select>
             </div>
             <Input
-              placeholder="Buscar no histórico..."
+              placeholder="Buscar por sintoma, diagnóstico, medicamento ou motivo..."
               value={recordSearch}
               onChange={(e) => setRecordSearch(e.target.value)}
               className="h-10 rounded-xl text-xs print:hidden"
             />
 
-            <ul className="space-y-2">
-              {filteredRecords.map((r) => (
-                <li key={r.id} className="rounded-2xl bg-card p-3 shadow-card">
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                    <div className="min-w-0">
-                      <Badge variant="outline" className="mb-1 text-[10px]">
-                        {recordTypeLabels[r.record_type as (typeof recordTypes)[number]] ??
-                          r.record_type}
-                      </Badge>
-                      <p className="truncate text-sm font-semibold">{r.reason}</p>
+            {filteredRecords.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground bg-card">
+                <Stethoscope className="mx-auto h-8 w-8 opacity-40 mb-1 text-primary" />
+                {(records ?? []).length === 0
+                  ? "Nenhum atendimento ou consulta registrado ainda na clínica."
+                  : "Nenhum registro encontrado para a busca ou filtro selecionado."}
+              </div>
+            ) : (
+              <div className="relative border-l-2 border-primary/25 pl-4 ml-3.5 space-y-3.5 my-2">
+                {filteredRecords.map((r) => (
+                  <div key={r.id} className="relative">
+                    {/* Nó da Linha do Tempo */}
+                    <div className="absolute -left-[27px] top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs shadow-sm ring-4 ring-background">
+                      <Stethoscope className="h-3 w-3" />
                     </div>
-                    <Badge variant="secondary" className="shrink-0">
-                      {formatDateTime(r.visit_at)}
-                    </Badge>
-                  </div>
-                  {r.diagnosis && (
-                    <p className="mt-1 text-xs text-muted-foreground">Diagnóstico: {r.diagnosis}</p>
-                  )}
-                  {r.treatment && (
-                    <p className="text-xs text-muted-foreground">Tratamento: {r.treatment}</p>
-                  )}
-                  {r.prescription && (
-                    <p className="text-xs text-muted-foreground">Prescrição: {r.prescription}</p>
-                  )}
-                  {r.medication && (
-                    <p className="text-xs text-muted-foreground">
-                      Medicação: {r.medication}
-                      {r.dosage ? ` · ${r.dosage}` : ""}
-                      {r.duration ? ` · ${r.duration}` : ""}
-                    </p>
-                  )}
-                  {r.next_return_date && (
-                    <p className="text-xs text-muted-foreground">
-                      Retorno previsto: {formatDate(r.next_return_date)}
-                    </p>
-                  )}
-                  {(r.weight_kg != null || r.vet_name) && (
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      {r.weight_kg != null ? `${r.weight_kg} kg` : ""}
-                      {r.weight_kg != null && r.vet_name ? " · " : ""}
-                      {r.vet_name ?? ""}
-                    </p>
-                  )}
-                  {(r.attachments ?? []).length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1.5 print:hidden">
-                      {(r.attachments ?? []).map((path, i) => (
+
+                    <div className="rounded-2xl bg-card p-3.5 shadow-card border border-border/60 hover:border-primary/40 transition-colors">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] font-semibold border-primary/30 text-primary"
+                            >
+                              {recordTypeLabels[r.record_type as (typeof recordTypes)[number]] ??
+                                r.record_type}
+                            </Badge>
+                            <h4 className="text-sm font-bold text-foreground truncate">
+                              {r.reason}
+                            </h4>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Atendimento em{" "}
+                            <strong className="text-foreground">
+                              {formatDateTime(r.visit_at)}
+                            </strong>
+                            {r.vet_name && ` · Dr(a). ${r.vet_name}`}
+                            {r.weight_kg != null && ` · Peso: ${r.weight_kg} kg`}
+                          </p>
+                        </div>
+                        <Badge variant="secondary" className="shrink-0 text-[10px]">
+                          {formatDate(r.visit_at.slice(0, 10))}
+                        </Badge>
+                      </div>
+
+                      {/* Observações importantes e conduta médica do período */}
+                      <div className="mt-2.5 space-y-1.5 text-xs text-foreground bg-muted/40 rounded-xl p-3 border border-border/40">
+                        {r.diagnosis && (
+                          <p>
+                            <strong className="text-primary font-semibold">Diagnóstico:</strong>{" "}
+                            {r.diagnosis}
+                          </p>
+                        )}
+                        {r.treatment && (
+                          <p>
+                            <strong className="text-foreground font-semibold">
+                              Tratamento realizado:
+                            </strong>{" "}
+                            {r.treatment}
+                          </p>
+                        )}
+                        {r.prescription && (
+                          <p>
+                            <strong className="text-foreground font-semibold">Prescrição:</strong>{" "}
+                            {r.prescription}
+                          </p>
+                        )}
+                        {r.medication && (
+                          <p>
+                            <strong className="text-foreground font-semibold">Medicação:</strong>{" "}
+                            {r.medication}
+                            {r.dosage ? ` · Dose: ${r.dosage}` : ""}
+                            {r.duration ? ` · Duração: ${r.duration}` : ""}
+                          </p>
+                        )}
+                        {r.next_return_date && (
+                          <p className="font-semibold text-amber-700 dark:text-amber-400">
+                            📅 Retorno previsto pelo veterinário: {formatDate(r.next_return_date)}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Anexos */}
+                      {(r.attachments ?? []).length > 0 && (
+                        <div className="mt-2.5 flex flex-wrap gap-1.5 print:hidden">
+                          {(r.attachments ?? []).map((path, i) => (
+                            <Button
+                              key={path}
+                              variant="secondary"
+                              size="sm"
+                              className="h-7 gap-1 rounded-lg text-[11px]"
+                              onClick={() => openAttachment(path)}
+                            >
+                              <Paperclip className="h-3 w-3" />
+                              Anexo {i + 1}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Botão de Contato em 1 Toque via Chat do App */}
+                      <div className="mt-3 pt-2.5 border-t border-border/40 flex items-center justify-between gap-2 print:hidden">
+                        <span className="text-[10px] text-muted-foreground">
+                          Dúvidas sobre este atendimento ou receita?
+                        </span>
                         <Button
-                          key={path}
                           variant="secondary"
                           size="sm"
-                          className="h-7 gap-1 rounded-lg text-[11px]"
-                          onClick={() => openAttachment(path)}
+                          className="h-7 text-xs gap-1.5 text-primary bg-primary/10 hover:bg-primary/20 rounded-lg"
+                          onClick={() =>
+                            openInAppChat({
+                              petId: pet?.id,
+                              petName: pet?.name,
+                              contextTag: `Atendimento: ${r.reason}`,
+                              defaultText: `Olá, Dr(a)! Gostaria de tirar uma dúvida sobre o atendimento "${r.reason}" (${recordTypeLabels[r.record_type as (typeof recordTypes)[number]] ?? r.record_type}) do pet ${pet?.name ? capitalizeWords(pet.name) : ""} realizado em ${formatDateTime(r.visit_at)}.`,
+                            })
+                          }
                         >
-                          <Paperclip className="h-3 w-3" />
-                          Anexo {i + 1}
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          Chat no App (1 toque)
                         </Button>
-                      ))}
+                      </div>
                     </div>
-                  )}
-                </li>
-              ))}
-              {filteredRecords.length === 0 && (
-                <li className="text-sm text-muted-foreground">
-                  {(records ?? []).length === 0
-                    ? "Nenhum atendimento registrado ainda."
-                    : "Nenhum registro encontrado para esse filtro."}
-                </li>
-              )}
-            </ul>
+                  </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </section>

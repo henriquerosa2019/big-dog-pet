@@ -19,6 +19,8 @@ import { CLINIC, whatsappLink } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { StatusAlertNotifier } from "@/components/StatusAlertNotifier";
 import { testSoundAlert } from "@/lib/soundAlerts";
+import { InAppChatDrawer, openInAppChat } from "@/components/InAppChatDrawer";
+import { useInAppChat } from "@/lib/inAppChat";
 
 const baseTabs = [
   { to: "/", label: "Início", icon: Home },
@@ -46,6 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isAdmin = useIsAdmin(user?.id);
   const isDriver = useIsDriver(user?.id);
   const tabs = [...baseTabs, ...(isAdmin ? [adminTab] : []), ...(isDriver ? [driverTab] : [])];
+  const { hasNewMessage } = useInAppChat({ role: isAdmin ? "loja" : "tutor" });
 
   const [isMuted, setIsMuted] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -104,18 +107,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
             </button>
-            <a
-              href={whatsappLink("Olá! Vim pelo app da Big Dog Pet.")}
-              target="_blank"
-              rel="noreferrer"
-              className="flex shrink-0 items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground"
+
+            {/* Bate-papo Interno Offline do App (Substituição do WhatsApp) */}
+            <button
+              type="button"
+              onClick={() => openInAppChat()}
+              className={cn(
+                "relative flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all",
+                hasNewMessage
+                  ? "bg-amber-500 text-white shadow-md shadow-amber-500/20"
+                  : "bg-primary text-primary-foreground hover:bg-primary/90"
+              )}
             >
               <MessageCircle className="h-3.5 w-3.5" />
-              WhatsApp
-            </a>
+              <span>Chat</span>
+              {hasNewMessage && (
+                <span className="ml-1 rounded-full bg-red-600 px-1.5 py-0.5 text-[9px] font-bold text-white animate-pulse">
+                  (Msg Nova)
+                </span>
+              )}
+            </button>
           </div>
         </div>
       </header>
+
+      <InAppChatDrawer />
 
       <main className="flex-1 pb-24">{children}</main>
 

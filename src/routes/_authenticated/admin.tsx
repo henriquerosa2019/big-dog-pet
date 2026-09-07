@@ -6,6 +6,8 @@ import { z } from "zod";
 import {
   CheckCircle2,
   Compass,
+  CreditCard,
+  DollarSign,
   Eye,
   EyeOff,
   FileSpreadsheet,
@@ -15,6 +17,7 @@ import {
   MessageCircle,
   Navigation,
   Pencil,
+  QrCode,
   Search,
   Sliders,
   Syringe,
@@ -77,6 +80,10 @@ import { DeliverySimulator } from "@/components/DeliverySimulator";
 import { CurvaAbcProdutos } from "@/components/CurvaAbcProdutos";
 import { CurvaAbcServicos } from "@/components/CurvaAbcServicos";
 import { CurvaAbcClientes } from "@/components/CurvaAbcClientes";
+import { RelatorioEntregasMotoristas } from "@/components/RelatorioEntregasMotoristas";
+import { openInAppChat } from "@/components/InAppChatDrawer";
+import { getCriticalStock, setCriticalStock, findCurveACriticalProducts } from "@/lib/stockSettings";
+import { calculateProductAbc } from "@/lib/curvaAbc";
 import { useClientAbcMap } from "@/hooks/useClientAbcMap";
 import {
   CatalogForm,
@@ -226,7 +233,7 @@ function Admin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("appointments")
-        .select("id, user_id, scheduled_at, status, notes, origin, services(name), pets(name)")
+        .select("id, user_id, scheduled_at, status, notes, origin, total_cents, service_price_cents, transport_price_cents, payment_status, payment_method, paid_at, services(name), pets(name)")
         .order("scheduled_at", { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -1002,6 +1009,34 @@ function Admin() {
     onError: () => toast.error("Não foi possível marcar a origem"),
   });
 
+  const registerStorePayment = useMutation({
+    mutationFn: async ({
+      appointmentId,
+      method,
+    }: {
+      appointmentId: string;
+      method: "credito" | "debito" | "pix" | "dinheiro";
+    }) => {
+      const { error } = await supabase
+        .from("appointments")
+        .update({
+          payment_status: "pago",
+          payment_method: method,
+          paid_at: new Date().toISOString(),
+        })
+        .eq("id", appointmentId);
+      if (error) throw error;
+      return method;
+    },
+    onSuccess: (method) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      toast.success(`Pagamento no balcão registrado via ${method.toUpperCase()} com sucesso!`);
+      playStatusSound("confirmado", 1);
+    },
+    onError: () => toast.error("Não foi possível registrar o pagamento"),
+  });
+
   const confirmAppointment = useMutation({
     mutationFn: async (item: {
       id: string;
@@ -1383,7 +1418,9 @@ function Admin() {
   });
 
   // --- Aba "Relatórios": geração de Excel/PDF de vendas + serviços ---
-  const [reportSubTab, setReportSubTab] = useState<"financeiro" | "abc-produtos" | "abc-servicos" | "abc-clientes">("financeiro");
+  const [reportSubTab, setReportSubTab] = useState<
+    "financeiro" | "abc-produtos" | "abc-servicos" | "abc-clientes" | "entregas-motoristas"
+  >("financeiro");
   const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("mes");
   const [reportFrom, setReportFrom] = useState(todayISODate());
   const [reportTo, setReportTo] = useState(todayISODate());
@@ -1393,6 +1430,41 @@ function Admin() {
   const [reportGeneratedAt, setReportGeneratedAt] = useState<Date | null>(null);
   const [creatingCatalog, setCreatingCatalog] = useState<CatalogKind | null>(null);
   const [editingCatalogId, setEditingCatalogId] = useState<string | null>(null);
+
+  // Alerta de Estoque Crítico de Produtos Curva A
+  const curveAProductIds = useMemo(() => {
+    const rawItems: Array<{
+      productId?: string | null;
+      productName: string;
+      category?: string | null;
+      quantity: number;
+      unitPriceCents: number;
+      orderId: string;
+    }> = [];
+
+    for (const ord of orders ?? []) {
+      for (const it of ord.order_items ?? []) {
+        rawItems.push({
+          productName: it.product_name,
+          quantity: it.quantity,
+          unitPriceCents: 0,
+          orderId: ord.id,
+        });
+      }
+    }
+
+    if (rawItems.length > 0) {
+      const { items } = calculateProductAbc(rawItems);
+      return new Set(items.filter((i) => i.abcClass === "A").map((i) => i.name.trim().toLowerCase()));
+    } else {
+      return new Set((products ?? []).slice(0, 3).map((p) => p.name.trim().toLowerCase()));
+    }
+  }, [orders, products]);
+
+  const curveACriticalAlerts = useMemo(() => {
+    if (!products) return [];
+    return findCurveACriticalProducts(products, curveAProductIds);
+  }, [products, curveAProductIds]);
   const [showReportPreview, setShowReportPreview] = useState(false);
 
   async function generateReport() {
@@ -1874,7 +1946,65 @@ function Admin() {
 
   return (
     <div className="p-4">
-      <h1 className="font-display text-2xl">Painel administrativo</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="font-display text-2xl">Painel administrativo</h1>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => openInAppChat()}
+          className="h-8 gap-1.5 rounded-xl text-xs font-bold text-primary"
+        >
+          <MessageCircle className="h-3.5 w-3.5" />
+          Bate-papo Loja (Offline)
+        </Button>
+      </div>
+
+      {/* Alerta de Estoque Crítico de Produtos Curva A (Amarelo Destacado) */}
+      {curveACriticalAlerts.length > 0 && (
+        <div className="mt-3 rounded-2xl border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/40 p-3.5 shadow-md space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="flex h-3 w-3 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+              </span>
+              <h3 className="text-xs font-black uppercase tracking-wide text-amber-900 dark:text-amber-200">
+                ⚠️ Alerta: Estoque Crítico em Produtos Curva A (Carro-Chefe)
+              </h3>
+            </div>
+            <Badge className="bg-amber-500 text-white font-bold text-[10px]">
+              {curveACriticalAlerts.length} produto(s)
+            </Badge>
+          </div>
+          <div className="space-y-1.5">
+            {curveACriticalAlerts.map((alert) => (
+              <div
+                key={alert.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-100/90 dark:bg-amber-900/50 px-3 py-2 text-xs font-semibold text-amber-950 dark:text-amber-100 border border-amber-300 dark:border-amber-700"
+              >
+                <span>
+                  Alerta: <strong>{alert.name}</strong> ,{" "}
+                  <span className="bg-amber-300 dark:bg-amber-700 text-amber-950 dark:text-amber-100 px-1.5 py-0.5 rounded font-black">
+                    Curva A
+                  </span>{" "}
+                  em estoque crítico ({alert.stock} restantes, mínimo {alert.criticalLimit}).{" "}
+                  <span className="font-black text-amber-900 dark:text-amber-100 underline">Repor estoque!!!</span>
+                </span>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="h-7 text-xs rounded-lg font-bold bg-amber-300 hover:bg-amber-400 text-amber-950"
+                  onClick={() => {
+                    setEditingCatalogId(alert.id);
+                  }}
+                >
+                  Repor / Ajustar
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <Tabs defaultValue="dashboard" className="mt-4">
         <TabsList className="flex w-full items-center justify-start gap-1 overflow-x-auto">
@@ -3313,6 +3443,18 @@ function Admin() {
             >
               👥 Curva ABC - Clientes
             </button>
+            <button
+              type="button"
+              onClick={() => setReportSubTab("entregas-motoristas")}
+              className={cn(
+                "rounded-xl px-3 py-2 text-xs font-semibold whitespace-nowrap transition-colors",
+                reportSubTab === "entregas-motoristas"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+              )}
+            >
+              🚚 Entregas & Motoristas
+            </button>
           </div>
 
           {reportSubTab === "financeiro" && (
@@ -3496,6 +3638,8 @@ function Admin() {
       {reportSubTab === "abc-servicos" && <CurvaAbcServicos />}
 
       {reportSubTab === "abc-clientes" && <CurvaAbcClientes />}
+
+      {reportSubTab === "entregas-motoristas" && <RelatorioEntregasMotoristas />}
     </TabsContent>
 
         <TabsContent value="clinica" className="mt-4 space-y-3">
@@ -3866,6 +4010,95 @@ function Admin() {
                     Confirmar agendamento
                   </Button>
                 )}
+
+              {/* Recebimento no Balcão da Loja (1 Toque) */}
+              <div className="mt-2 rounded-xl border border-border/70 bg-background/60 p-2.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold flex items-center gap-1 text-foreground">
+                    <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
+                    Pagamento no Balcão:
+                  </span>
+                  <span className="font-bold text-primary">
+                    {item.total_cents ? formatBRL(item.total_cents) : "Valor sob consulta"}
+                  </span>
+                </div>
+
+                {item.payment_status === "pago" ? (
+                  <div className="mt-1.5 flex items-center justify-between text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-1 rounded-lg">
+                    <span className="flex items-center gap-1">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                      ✓ Pago no Caixa via {item.payment_method?.toUpperCase() || "BALCÃO"}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {item.paid_at ? new Date(item.paid_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "Confirmado"}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="mt-1.5 space-y-1">
+                    <p className="text-[10px] text-muted-foreground">Receber no caixa com 1 toque:</p>
+                    <div className="grid grid-cols-4 gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={registerStorePayment.isPending}
+                        className="h-7 rounded-lg text-[10px] font-bold border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/10"
+                        onClick={() => registerStorePayment.mutate({ appointmentId: item.id, method: "credito" })}
+                      >
+                        <CreditCard className="h-2.5 w-2.5 mr-0.5" />
+                        Crédito
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={registerStorePayment.isPending}
+                        className="h-7 rounded-lg text-[10px] font-bold border-blue-500/30 text-blue-700 hover:bg-blue-500/10"
+                        onClick={() => registerStorePayment.mutate({ appointmentId: item.id, method: "debito" })}
+                      >
+                        <CreditCard className="h-2.5 w-2.5 mr-0.5" />
+                        Débito
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={registerStorePayment.isPending}
+                        className="h-7 rounded-lg text-[10px] font-bold border-teal-500/30 text-teal-700 hover:bg-teal-500/10"
+                        onClick={() => registerStorePayment.mutate({ appointmentId: item.id, method: "pix" })}
+                      >
+                        <QrCode className="h-2.5 w-2.5 mr-0.5" />
+                        Pix
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={registerStorePayment.isPending}
+                        className="h-7 rounded-lg text-[10px] font-bold border-amber-500/30 text-amber-700 hover:bg-amber-500/10"
+                        onClick={() => registerStorePayment.mutate({ appointmentId: item.id, method: "dinheiro" })}
+                      >
+                        <DollarSign className="h-2.5 w-2.5 mr-0.5" />
+                        Dinheiro
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Botão de Chat Interno no App (Substituição do WhatsApp) */}
+              <button
+                type="button"
+                onClick={() =>
+                  openInAppChat({
+                    contextTag: `Atendimento: ${item.services?.name ?? "Serviço"}`,
+                    petName: item.pets?.name,
+                    conversationId: item.user_id,
+                    defaultText: `Olá ${clientName ? clientName : ""}! Estamos confirmando os detalhes do atendimento de ${item.pets?.name ?? "seu pet"} no Big Dog Pet.`,
+                  })
+                }
+                className="mt-2 flex items-center gap-1.5 rounded-lg bg-primary/10 px-2.5 py-1.5 text-[11px] font-bold text-primary hover:bg-primary/20 transition-colors"
+              >
+                <MessageCircle className="h-3.5 w-3.5" />
+                Conversar no Chat do App (1 Toque)
+              </button>
+
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {statuses.map((status) => (
                   <button

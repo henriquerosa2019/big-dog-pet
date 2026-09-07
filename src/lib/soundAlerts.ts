@@ -178,6 +178,32 @@ export function playStatusSound(tone: SoundAlertTone, repeats = 3): void {
 }
 
 /**
+ * Toca alerta sonoro de 2 toques nítidos para mensagem nova recebida no bate-papo.
+ * Dispara 2 beeps harmônicos cristalinos (880Hz e 1174Hz) com intervalo rítmico.
+ */
+export function playChatNotificationSound(): void {
+  try {
+    const isMuted = typeof window !== "undefined" && localStorage.getItem("bigdog_sound_muted") === "true";
+    if (isMuted) return;
+
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+
+    const now = ctx.currentTime + 0.03;
+    // Toque 1: Lá 5 (880 Hz)
+    playTone(ctx, 880.0, now, 0.16, 0.28, "sine");
+    // Toque 2: Ré 6 (1174.66 Hz)
+    playTone(ctx, 1174.66, now + 0.18, 0.28, 0.32, "sine");
+  } catch (err) {
+    console.warn("Não foi possível reproduzir som de nova mensagem:", err);
+  }
+}
+
+/**
  * Função utilitária para testar qualquer som (chamada pela interface).
  */
 export function testSoundAlert(tone: SoundAlertTone = "confirmado", repeats = 3): void {

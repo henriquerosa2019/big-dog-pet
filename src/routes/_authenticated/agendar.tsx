@@ -37,8 +37,9 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { fetchAddressByCep, maskCep } from "@/lib/navigation";
-import { AlertTriangle, Clock, CheckCircle2, Check } from "lucide-react";
+import { AlertTriangle, Clock, CheckCircle2, Check, Truck } from "lucide-react";
 import { dispatchStatusAlert } from "@/components/StatusAlertNotifier";
+import { calculateTripDistanceAndFuel } from "@/lib/distanceCalculator";
 import {
   evaluateSlotCapacity,
   findNextAvailableSlot,
@@ -487,6 +488,12 @@ function Agendar() {
       coupon: appliedCoupon,
     });
   }, [logisticsType, zone, discountedServicePriceCents, isReturningClient, transportSettings, appliedCoupon]);
+
+  // Cálculo da distância do tutor e estimativa de combustível (com regra de dobro para ida e volta)
+  const tripDistanceInfo = useMemo(() => {
+    return calculateTripDistanceAndFuel(selectedAddress, logisticsType);
+  }, [selectedAddress, logisticsType]);
+
   const outOfArea = needsAddress(logisticsType) && Boolean(selectedAddress) && !zone;
   // Prévia da taxa de transporte, calculada mesmo quando a opção atual é
   // "Levar ao petshop" — usada só para mostrar um valor de referência nos
@@ -557,12 +564,25 @@ function Agendar() {
       if (error) throw error;
 
       if (wantsTransport) {
+        // Registra na base a distância (dobro na ida e volta) e custo estimado de combustível junto ao frete
+        const enrichedBreakdown = {
+          steps: feeResult.breakdown,
+          distance_km: tripDistanceInfo.distanceKm,
+          one_way_km: tripDistanceInfo.oneWayKm,
+          round_trip: tripDistanceInfo.isRoundTrip,
+          logistics_type: logisticsType,
+          fuel_cost_estimate_cents: tripDistanceInfo.fuelCostEstimateCents,
+          fuel_price_cents: tripDistanceInfo.fuelPriceCents,
+          consumption_km_per_liter: tripDistanceInfo.consumptionKmPerLiter,
+          transport_price_cents: transportPriceCents,
+        };
+
         const { error: transportError } = await supabase.from("transport_orders").insert({
           appointment_id: appt.id,
           address_id: addressId,
           zone_id: zone?.id ?? null,
           price_cents: transportPriceCents,
-          fee_breakdown: feeResult.breakdown as unknown as Json,
+          fee_breakdown: enrichedBreakdown as unknown as Json,
           pickup_notes: zoneNotCovered
             ? `Bairro "${selectedAddress?.district ?? ""}" fora das zonas cadastradas — confirmar valor da retirada/devolução manualmente.`
             : null,
@@ -1053,6 +1073,29 @@ function Agendar() {
                     </button>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Resumo de Distância Calculada e Custo Estimado de Combustível */}
+            {selectedAddress && (
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3 text-xs space-y-1.5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-foreground flex items-center gap-1.5">
+                    <Truck className="h-4 w-4 text-primary" />
+                    Distância estimada ({tripDistanceInfo.isRoundTrip ? "Ida e Volta - Dobro" : "1 Trecho"}):
+                  </span>
+                  <span className="font-bold text-primary text-sm">{tripDistanceInfo.formattedDistance}</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span>Custo estimado de combustível ({tripDistanceInfo.consumptionKmPerLiter} km/l):</span>
+                  <span className="font-medium text-foreground">{tripDistanceInfo.formattedFuelCost}</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] pt-1 border-t border-primary/10">
+                  <span className="font-medium text-muted-foreground">Frete calculado:</span>
+                  <span className="font-bold text-foreground">
+                    {feeResult.feeCents > 0 ? formatBRL(feeResult.feeCents) : "Grátis"}
+                  </span>
+                </div>
               </div>
             )}
 
