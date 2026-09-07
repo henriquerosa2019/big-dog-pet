@@ -1017,22 +1017,12 @@ function Admin() {
       if (error) throw error;
       return item;
     },
-    onSuccess: (item) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
       playStatusSound("confirmado");
-      const client = profileById.get(item.user_id);
-      const message = `Olá${client?.full_name ? `, ${client.full_name}` : ""}! Seu agendamento de ${item.services?.name ?? "serviço"}${item.pets?.name ? ` para ${item.pets.name}` : ""} em ${formatDateTime(item.scheduled_at)} foi CONFIRMADO pelo ${CLINIC.name}. Qualquer dúvida, estamos à disposição!`;
-      const link = AVISO_AUTOMATICO_WHATSAPP ? whatsappLinkTo(client?.phone, message) : null;
-      if (!AVISO_AUTOMATICO_WHATSAPP) {
-        toast.success("Agendamento confirmado.");
-      } else if (link) {
-        window.open(link, "_blank", "noopener,noreferrer");
-        toast.success("Agendamento confirmado! Envie a mensagem no WhatsApp que abriu.");
-      } else {
-        toast.error("Agendamento confirmado, mas o cliente não tem telefone cadastrado.");
-      }
+      toast.success("Agendamento confirmado no app!");
     },
     onError: () => toast.error("Não foi possível confirmar"),
   });
@@ -2036,7 +2026,7 @@ function Admin() {
                         onClick={() => confirmAppointment.mutate(item)}
                       >
                         <CheckCircle2 className="h-4 w-4" />
-                        Confirmar e avisar no WhatsApp (Padrão)
+                        Confirmar agendamento
                       </Button>
                     </div>
                   );
@@ -3873,7 +3863,7 @@ function Admin() {
                     onClick={() => confirmAppointment.mutate(item)}
                   >
                     <CheckCircle2 className="h-4 w-4" />
-                    Confirmar e avisar no WhatsApp
+                    Confirmar agendamento
                   </Button>
                 )}
               <div className="mt-2 flex flex-wrap gap-1.5">

@@ -12,7 +12,6 @@ import {
   CLINIC,
   formatBRL,
   formatDateTime,
-  whatsappLink,
 } from "@/lib/format";
 import {
   computeTransportFeeCents,
@@ -253,14 +252,6 @@ function Agendar() {
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
 
-  // Aberta de forma síncrona no clique do botão "Confirmar agendamento" (ver
-  // onClick abaixo), antes de qualquer await. Isso preserva a autorização de
-  // gesto do usuário: se window.open só fosse chamado depois dos awaits do
-  // createAppointment (dentro do onSuccess), Safari/Chrome mobile bloqueiam o
-  // pop-up. Guardamos a referência e só definimos o destino (o link do
-  // WhatsApp) quando a resposta chega — a aba já está aberta, então isso não
-  // conta como um novo pop-up.
-  const whatsappWindowRef = useRef<Window | null>(null);
 
   const { data: services } = useQuery({
     queryKey: ["services"],
@@ -590,48 +581,24 @@ function Agendar() {
 
       return { scheduled, transportPriceCents, servicePriceCents, wantsTransport, zoneNotCovered };
     },
-    onSuccess: ({ scheduled, transportPriceCents, servicePriceCents, wantsTransport, zoneNotCovered }) => {
+    onSuccess: ({ scheduled }) => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
 
-      const serviceName = (services ?? []).find((s) => s.id === serviceId)?.name ?? "serviço";
       const rawPetName = (pets ?? []).find((p) => p.id === petId)?.name;
       const petName = rawPetName ? capitalizeWords(rawPetName) : undefined;
-      const feeLine = zoneNotCovered ? "a confirmar" : formatBRL(transportPriceCents);
-      const addressLine =
-        wantsTransport && selectedAddress
-          ? `\n• Retirada: ${selectedAddress.street}${selectedAddress.number ? `, ${selectedAddress.number}` : ""} - ${selectedAddress.district}\n• Modalidade: ${logisticsTypeLabels[logisticsType]}\n• Taxa: ${feeLine}`
-          : "";
-      // Com desconto de aniversário, deixamos explícito no WhatsApp — o valor
-      // total já sai calculado, sem depender da equipe aplicar manualmente.
-      const priceLine = isBirthdayOffer
-        ? `\n• Valor do serviço: ${formatBRL(servicePriceCents)} (${BIRTHDAY_DISCOUNT_PERCENT}% de desconto de aniversário já aplicado)`
-        : `\n• Valor do serviço: ${formatBRL(servicePriceCents)}`;
-      const message = `Olá, ${CLINIC.name}! Solicito a liberação/autorização do agendamento:\n• Serviço: ${serviceName}\n• Pet: ${petName ?? "não informado"}\n• Data: ${formatDateTime(scheduled)}${priceLine}${addressLine}${notes.trim() ? `\n• Observações: ${notes.trim()}` : ""}`;
-      const link = whatsappLink(message);
-      const preOpened = whatsappWindowRef.current;
-      if (preOpened && !preOpened.closed) {
-        // A aba já foi aberta de forma síncrona no clique do botão — só
-        // definir o destino agora não conta como um novo pop-up.
-        preOpened.location.href = link;
-      } else {
-        // Pop-up bloqueado mesmo assim (ex.: configuração restritiva do
-        // navegador): não perde a confirmação, mas navega a própria aba.
-        window.location.href = link;
-      }
 
       // Alerta sonoro de 3 repetições (3 toques de alarme harmônicos) + Notificação
       dispatchStatusAlert(
         "confirmado",
-        `🔔 Agendamento Confirmado!${petName ? ` (${petName})` : ""}`,
-        `Horário agendado para ${formatDateTime(scheduled)}. Acompanhe em tempo real no início da tela principal!`,
+        `🔔 Agendamento Registrado!${petName ? ` (${petName})` : ""}`,
+        `Horário agendado para ${formatDateTime(scheduled)}. Aguardando confirmação da loja. Acompanhe em tempo real na tela inicial!`,
         3
       );
 
       navigate({ to: "/" });
     },
     onError: (error) => {
-      whatsappWindowRef.current?.close();
       toast.error(error instanceof Error ? error.message : "Não foi possível agendar");
     },
   });
@@ -1279,11 +1246,6 @@ function Agendar() {
             (isCurrentSlotExhausted && !allowCapacityException)
           }
           onClick={() => {
-            // Abre a aba do WhatsApp já aqui, de forma síncrona no clique —
-            // antes dos awaits do createAppointment — para não ser bloqueada
-            // como pop-up pelo navegador. O destino é definido depois, no
-            // onSuccess, quando já temos o texto da mensagem.
-            whatsappWindowRef.current = window.open("", "_blank");
             createAppointment.mutate();
           }}
         >
