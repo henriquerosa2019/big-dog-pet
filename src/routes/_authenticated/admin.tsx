@@ -2270,10 +2270,10 @@ function Admin() {
         <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full h-auto p-1 bg-muted/70 rounded-2xl gap-1">
           <TabsTrigger
             value="hoje"
-            className="h-10 rounded-xl text-xs font-bold gap-1.5 data-[state=active]:bg-card data-[state=active]:shadow-xs"
+            className="h-10 rounded-xl text-xs font-bold gap-1.5 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-border/60"
           >
             <Scissors className="h-3.5 w-3.5 text-primary" />
-            Operacional (Hoje)
+            <span>Operacional (Hoje)</span>
             {todayServicesCount > 0 && (
               <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px] font-bold">
                 {todayServicesCount}
@@ -2283,10 +2283,10 @@ function Admin() {
 
           <TabsTrigger
             value="comunicacao"
-            className="h-10 rounded-xl text-xs font-bold gap-1.5 data-[state=active]:bg-card data-[state=active]:shadow-xs"
+            className="h-10 rounded-xl text-xs font-bold gap-1.5 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-border/60"
           >
             <MessageCircle className="h-3.5 w-3.5 text-primary" />
-            Atendimento & Chat
+            <span>Atendimento & Chat</span>
             {totalChatUnread > 0 ? (
               <Badge className="bg-emerald-600 text-white ml-0.5 px-1.5 py-0 text-[10px] font-bold animate-pulse">
                 {totalChatUnread}
@@ -2300,10 +2300,10 @@ function Admin() {
 
           <TabsTrigger
             value="saude"
-            className="h-10 rounded-xl text-xs font-bold gap-1.5 data-[state=active]:bg-card data-[state=active]:shadow-xs"
+            className="h-10 rounded-xl text-xs font-bold gap-1.5 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-border/60"
           >
             <Syringe className="h-3.5 w-3.5 text-primary" />
-            Saúde & Retornos
+            <span>Saúde & Retornos</span>
             {urgentHealthAlertsCount > 0 ? (
               <Badge className="bg-rose-600 text-white ml-0.5 px-1.5 py-0 text-[10px] font-bold">
                 {urgentHealthAlertsCount}
@@ -2317,10 +2317,10 @@ function Admin() {
 
           <TabsTrigger
             value="gestao"
-            className="h-10 rounded-xl text-xs font-bold gap-1.5 data-[state=active]:bg-card data-[state=active]:shadow-xs"
+            className="h-10 rounded-xl text-xs font-bold gap-1.5 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-border/60"
           >
             <Settings className="h-3.5 w-3.5 text-primary" />
-            Gestão & Cadastros
+            <span>Gestão & Cadastros</span>
             {curveACriticalAlerts.length > 0 && (
               <Badge className="bg-amber-500 text-white ml-0.5 px-1.5 py-0 text-[10px] font-bold">
                 ⚠️
@@ -2666,22 +2666,22 @@ function Admin() {
         <TabsContent value="gestao" className="mt-4 space-y-4">
           <Tabs value={gestaoSubTab} onValueChange={setGestaoSubTab}>
             <TabsList className="flex w-full items-center justify-start gap-1 overflow-x-auto pb-1 bg-muted/60 p-1 rounded-2xl">
-              <TabsTrigger value="clientes" className="rounded-xl text-xs font-bold shrink-0">
+              <TabsTrigger value="clientes" className="rounded-xl text-xs font-bold shrink-0 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm">
                 Clientes
               </TabsTrigger>
-              <TabsTrigger value="novo-cliente" className="rounded-xl text-xs font-bold shrink-0">
+              <TabsTrigger value="novo-cliente" className="rounded-xl text-xs font-bold shrink-0 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm">
                 + Novo Cliente
               </TabsTrigger>
-              <TabsTrigger value="relatorios" className="rounded-xl text-xs font-bold shrink-0">
+              <TabsTrigger value="relatorios" className="rounded-xl text-xs font-bold shrink-0 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm">
                 Relatórios (Curva ABC)
               </TabsTrigger>
-              <TabsTrigger value="pedidos" className="rounded-xl text-xs font-bold shrink-0">
+              <TabsTrigger value="pedidos" className="rounded-xl text-xs font-bold shrink-0 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm">
                 Pedidos Loja
               </TabsTrigger>
-              <TabsTrigger value="servicos" className="rounded-xl text-xs font-bold shrink-0">
+              <TabsTrigger value="servicos" className="rounded-xl text-xs font-bold shrink-0 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm">
                 Serviços
               </TabsTrigger>
-              <TabsTrigger value="produtos" className="rounded-xl text-xs font-bold gap-1 shrink-0">
+              <TabsTrigger value="produtos" className="rounded-xl text-xs font-bold gap-1 shrink-0 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm">
                 Produtos
                 {curveACriticalAlerts.length > 0 && (
                   <Badge className="bg-amber-500 text-white text-[9px] py-0 px-1 font-bold">
@@ -2689,13 +2689,13 @@ function Admin() {
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="clinica" className="rounded-xl text-xs font-bold shrink-0">
+              <TabsTrigger value="clinica" className="rounded-xl text-xs font-bold shrink-0 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm">
                 Prontuários / Clínica
               </TabsTrigger>
-              <TabsTrigger value="agenda" className="rounded-xl text-xs font-bold shrink-0">
+              <TabsTrigger value="agenda" className="rounded-xl text-xs font-bold shrink-0 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm">
                 Agendamentos Detalhados
               </TabsTrigger>
-              <TabsTrigger value="retirada-entrega" className="rounded-xl text-xs font-bold shrink-0">
+              <TabsTrigger value="retirada-entrega" className="rounded-xl text-xs font-bold shrink-0 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm">
                 Logística Completa
               </TabsTrigger>
             </TabsList>
