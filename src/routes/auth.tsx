@@ -55,7 +55,13 @@ function Auth() {
   }, []);
 
   useEffect(() => {
-    if (user) navigate({ to: "/conta", replace: true });
+    if (user) {
+      if (user.email?.toLowerCase() === "bigdog@gmail.com") {
+        navigate({ to: "/admin", replace: true });
+      } else {
+        navigate({ to: "/conta", replace: true });
+      }
+    }
   }, [user, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -92,7 +98,11 @@ function Auth() {
         });
         if (error) throw error;
       }
-      navigate({ to: "/conta" });
+      if (parsed.data.email.toLowerCase() === "bigdog@gmail.com") {
+        navigate({ to: "/admin", replace: true });
+      } else {
+        navigate({ to: "/conta" });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Não foi possível continuar";
       toast.error(

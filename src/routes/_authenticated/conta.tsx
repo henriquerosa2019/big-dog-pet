@@ -18,7 +18,7 @@ import {
 import { openInAppChat } from "@/components/InAppChatDrawer";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, useIsAdminStatus } from "@/hooks/useAuth";
 import { fetchAddressByCep, maskCep } from "@/lib/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -78,12 +78,19 @@ export const Route = createFileRoute("/_authenticated/conta")({
 
 function Conta() {
   const { user } = useAuth();
+  const { isAdmin } = useIsAdminStatus(user?.id, user?.email);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  useEffect(() => {
+    if (isAdmin) {
+      navigate({ to: "/admin", replace: true });
+    }
+  }, [isAdmin, navigate]);
+
   const { data: profile } = useQuery({
     queryKey: ["profile", user?.id],
-    enabled: Boolean(user?.id),
+    enabled: Boolean(user?.id && !isAdmin),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
@@ -97,7 +104,7 @@ function Conta() {
 
   const { data: appointments } = useQuery({
     queryKey: ["appointments", user?.id],
-    enabled: Boolean(user?.id),
+    enabled: Boolean(user?.id && !isAdmin),
     refetchInterval: 3000,
     refetchOnWindowFocus: true,
     queryFn: async () => {
@@ -106,6 +113,7 @@ function Conta() {
         .select(
           "id, scheduled_at, status, notes, logistics_type, ops_status, transport_price_cents, services(name, price_cents), pets(name)",
         )
+        .eq("user_id", user!.id)
         .order("scheduled_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -114,11 +122,12 @@ function Conta() {
 
   const { data: orders } = useQuery({
     queryKey: ["orders", user?.id],
-    enabled: Boolean(user?.id),
+    enabled: Boolean(user?.id && !isAdmin),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orders")
         .select("id, total_cents, status, created_at, order_items(product_name, quantity)")
+        .eq("user_id", user!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -368,11 +377,12 @@ function Conta() {
 
   const { data: pets } = useQuery({
     queryKey: ["pets", user?.id],
-    enabled: Boolean(user?.id),
+    enabled: Boolean(user?.id && !isAdmin),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pets")
-        .select("id, name, species, breed, allergies, birth_date");
+        .select("id, name, species, breed, allergies, birth_date")
+        .eq("owner_id", user!.id);
       if (error) throw error;
       return data;
     },
@@ -500,6 +510,14 @@ function Conta() {
     await supabase.auth.signOut();
     toast.success("Você saiu da sua conta");
     navigate({ to: "/auth", replace: true });
+  }
+
+  if (isAdmin) {
+    return (
+      <div className="p-8 text-center text-sm text-muted-foreground">
+        Redirecionando para a Central Administrativa da Loja...
+      </div>
+    );
   }
 
   return (

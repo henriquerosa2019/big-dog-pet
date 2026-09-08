@@ -38,6 +38,8 @@ const driverTab = { to: "/motorista", label: "Motorista", icon: Truck };
 function gridColsClass(count: number): string {
   if (count >= 7) return "grid-cols-7";
   if (count === 6) return "grid-cols-6";
+  if (count === 4) return "grid-cols-4";
+  if (count === 3) return "grid-cols-3";
   return "grid-cols-5";
 }
 
@@ -45,9 +47,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { count } = useCart();
   const { user } = useAuth();
-  const isAdmin = useIsAdmin(user?.id);
+  const isAdmin = useIsAdmin(user?.id, user?.email);
   const isDriver = useIsDriver(user?.id);
-  const tabs = [...baseTabs, ...(isAdmin ? [adminTab] : []), ...(isDriver ? [driverTab] : [])];
+  const tabs = isAdmin
+    ? [
+        { to: "/", label: "Início", icon: Home },
+        { to: "/loja", label: "Loja", icon: ShoppingBag },
+        { to: "/admin", label: "Painel Loja", icon: ShieldCheck },
+        ...(isDriver ? [driverTab] : []),
+      ]
+    : [...baseTabs, ...(isDriver ? [driverTab] : [])];
   const { hasNewMessage } = useInAppChat({ role: isAdmin ? "loja" : "tutor" });
 
   const [isMuted, setIsMuted] = useState(() => {
