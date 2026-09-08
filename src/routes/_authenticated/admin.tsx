@@ -288,7 +288,13 @@ function Admin() {
     }
   }, [search?.tab]);
 
-  const { conversations: chatQueue, totalUnread: totalChatUnread } = useChatQueue();
+  const {
+    conversations: chatQueue,
+    openConversations,
+    closedConversations,
+    unreadConversationsCount,
+    totalUnread: totalChatUnread,
+  } = useChatQueue();
   const [capacitySettings, setCapacitySettings] = useState<CapacitySettings>(getCapacitySettings);
 
   function handleSaveCapacity() {
@@ -2046,16 +2052,51 @@ function Admin() {
     return healthAlertItems.filter((a) => a.dueDate <= today).length;
   }, [healthAlertItems]);
 
-  const activeDeliveriesCount = useMemo(() => {
-    return (
-      transportOrders?.filter(
-        (t) =>
-          t.appointments?.ops_status &&
-          t.appointments.ops_status !== "concluido" &&
-          t.appointments.ops_status !== "cancelado"
-      ).length ?? 0
+  const urgentHealthPetsCount = useMemo(() => {
+    const today = todayISODate();
+    const urgentPetKeys = new Set<string>();
+    for (const item of healthAlertItems) {
+      if (item.dueDate <= today) {
+        const key = item.petId || `${item.petName}-${item.ownerId || "anon"}`;
+        urgentPetKeys.add(key);
+      }
+    }
+    return urgentPetKeys.size;
+  }, [healthAlertItems]);
+
+  // Sincronização exata com o Kanban de hoje para Táxis / Delivery
+  const todayTaxiItems = useMemo(() => {
+    return kanbanItems.filter(
+      (i) =>
+        Boolean(i.logisticsType && i.logisticsType !== "levar") &&
+        i.status !== "cancelado" &&
+        i.opsStatus !== "cancelado"
     );
-  }, [transportOrders]);
+  }, [kanbanItems]);
+
+  const todayTaxiActive = useMemo(() => {
+    return todayTaxiItems.filter(
+      (i) =>
+        i.status !== "concluido" &&
+        i.opsStatus !== "entregue" &&
+        i.opsStatus !== "finalizado"
+    );
+  }, [todayTaxiItems]);
+
+  const todayTaxiInRoute = useMemo(() => {
+    return todayTaxiActive.filter((i) =>
+      [
+        "em_deslocamento_retirada",
+        "retirado_em_transito_loja",
+        "em_rota_devolucao",
+        "cheguei_retirada",
+        "pronto_para_devolucao",
+      ].includes(i.opsStatus || "")
+    );
+  }, [todayTaxiActive]);
+
+  const activeDeliveriesCount = todayTaxiActive.length;
+  const inRouteDeliveriesCount = todayTaxiInRoute.length;
 
   // Estatísticas e faturamento em tempo real sincronizados com o Kanban Operacional
   const kanbanStats = useMemo(() => {
@@ -2223,13 +2264,13 @@ function Admin() {
           >
             <MessageCircle className="h-4 w-4" />
             Central de Chat
-            {totalChatUnread > 0 ? (
+            {unreadConversationsCount > 0 ? (
               <Badge className="bg-emerald-600 text-white animate-pulse text-[10px] py-0 px-1.5 h-5 font-extrabold">
-                {totalChatUnread} nova{totalChatUnread > 1 ? "s" : ""}
+                {unreadConversationsCount} nova{unreadConversationsCount > 1 ? "s" : ""}
               </Badge>
-            ) : chatQueue.length > 0 ? (
+            ) : openConversations.length > 0 ? (
               <span className="text-[11px] font-semibold text-primary-foreground/80">
-                ({chatQueue.length})
+                ({openConversations.length})
               </span>
             ) : null}
           </Button>
@@ -2238,15 +2279,18 @@ function Admin() {
 
       {/* 2. KPIS RÁPIDOS NO TOPO (PÍLULAS OPERACIONAIS SINCRONIZADAS) */}
       <AdminKpiPills
-        unreadChatCount={totalChatUnread}
-        totalChatConversations={chatQueue.length}
+        unreadChatCount={unreadConversationsCount}
+        totalChatConversations={openConversations.length}
         activeDeliveriesCount={activeDeliveriesCount}
+        todayTaxiCount={todayTaxiItems.length}
+        inRouteDeliveriesCount={inRouteDeliveriesCount}
         todayServicesCount={todayServicesCount}
         inProgressServicesCount={inProgressServicesCount}
         waitingServicesCount={kanbanStats.waitingCount}
         completedServicesCount={kanbanStats.completedCount}
         pendingHealthAlertsCount={healthAlertItems.length}
         urgentHealthAlertsCount={urgentHealthAlertsCount}
+        urgentHealthPetsCount={urgentHealthPetsCount}
         criticalStockCount={curveACriticalAlerts.length}
         currentTab={currentTab}
         onSelectTab={(tab) => {
@@ -2287,13 +2331,13 @@ function Admin() {
           >
             <MessageCircle className="h-4 w-4 text-primary transition-colors shrink-0" />
             <span>Atendimento & Chat</span>
-            {totalChatUnread > 0 ? (
+            {unreadConversationsCount > 0 ? (
               <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-white animate-pulse shadow-xs">
-                {totalChatUnread}
+                {unreadConversationsCount}
               </span>
-            ) : chatQueue.length > 0 ? (
+            ) : openConversations.length > 0 ? (
               <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-800 group-data-[state=active]:bg-white group-data-[state=active]:text-primary transition-colors">
-                {chatQueue.length}
+                {openConversations.length}
               </span>
             ) : null}
           </TabsTrigger>
@@ -2304,9 +2348,9 @@ function Admin() {
           >
             <Syringe className="h-4 w-4 text-primary transition-colors shrink-0" />
             <span>Saúde & Retornos</span>
-            {urgentHealthAlertsCount > 0 ? (
+            {urgentHealthPetsCount > 0 ? (
               <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white shadow-xs">
-                {urgentHealthAlertsCount}
+                {urgentHealthPetsCount}
               </span>
             ) : (
               <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-800 group-data-[state=active]:bg-white group-data-[state=active]:text-primary transition-colors">
@@ -2572,7 +2616,7 @@ function Admin() {
               <div className="flex items-center gap-2">
                 <MessageCircle className="h-4 w-4 text-primary" />
                 <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
-                  Fila de Chamados Recentes ({chatQueue.length})
+                  Fila de Chamados Recentes ({openConversations.length})
                 </h3>
               </div>
               <Button
@@ -2586,12 +2630,12 @@ function Admin() {
             </div>
 
             <div className="mt-3 space-y-2">
-              {chatQueue.length === 0 ? (
+              {openConversations.length === 0 ? (
                 <div className="p-4 rounded-xl border border-dashed border-border/80 text-center text-xs text-muted-foreground">
-                  Nenhum chamado pendente no momento. Todas as conversas estão em dia!
+                  Nenhum chamado em aberto no momento. Todas as conversas estão em dia!
                 </div>
               ) : (
-                chatQueue.slice(0, 3).map((conv) => {
+                openConversations.slice(0, 5).map((conv) => {
                   const hasUnread = conv.unreadCountStore > 0;
                   return (
                     <div

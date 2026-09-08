@@ -6,12 +6,15 @@ export interface AdminKpiPillsProps {
   unreadChatCount: number;
   totalChatConversations: number;
   activeDeliveriesCount: number;
+  todayTaxiCount?: number | undefined;
+  inRouteDeliveriesCount?: number | undefined;
   todayServicesCount: number;
   inProgressServicesCount: number;
   waitingServicesCount?: number | undefined;
   completedServicesCount?: number | undefined;
   pendingHealthAlertsCount: number;
   urgentHealthAlertsCount: number;
+  urgentHealthPetsCount?: number | undefined;
   criticalStockCount: number;
   currentTab: string;
   onSelectTab: (tab: string) => void;
@@ -21,17 +24,23 @@ export function AdminKpiPills({
   unreadChatCount,
   totalChatConversations,
   activeDeliveriesCount,
+  todayTaxiCount,
+  inRouteDeliveriesCount,
   todayServicesCount,
   inProgressServicesCount,
   waitingServicesCount,
   completedServicesCount,
   pendingHealthAlertsCount,
   urgentHealthAlertsCount,
+  urgentHealthPetsCount,
   criticalStockCount,
   currentTab,
   onSelectTab,
 }: AdminKpiPillsProps) {
-  const totalPendingAlerts = urgentHealthAlertsCount + criticalStockCount;
+  const inRouteCount = inRouteDeliveriesCount ?? 0;
+  const todayTaxiTotal = todayTaxiCount ?? activeDeliveriesCount;
+  const urgentPets = urgentHealthPetsCount ?? (urgentHealthAlertsCount > 0 ? urgentHealthAlertsCount : 0);
+  const totalPendingAlerts = urgentPets + criticalStockCount;
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
@@ -68,8 +77,12 @@ export function AdminKpiPills({
                 <span>
                   {unreadChatCount} nova{unreadChatCount > 1 ? "s" : ""}
                 </span>
+              ) : totalChatConversations > 0 ? (
+                <span className="text-muted-foreground font-semibold">
+                  {totalChatConversations} aberta{totalChatConversations > 1 ? "s" : ""}
+                </span>
               ) : (
-                <span className="text-muted-foreground font-semibold">{totalChatConversations} conversas</span>
+                <span className="text-muted-foreground font-semibold">Sem novos</span>
               )}
             </p>
           </div>
@@ -77,7 +90,7 @@ export function AdminKpiPills({
 
         {unreadChatCount > 0 ? (
           <Badge className="bg-emerald-600 text-white font-extrabold text-[10px] px-2 py-0.5 shrink-0 shadow-xs animate-pulse">
-            Nova
+            Nova ({unreadChatCount})
           </Badge>
         ) : (
           <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0 group-hover:translate-x-0.5 transition-transform" />
@@ -90,11 +103,11 @@ export function AdminKpiPills({
         onClick={() => onSelectTab("hoje")}
         className={cn(
           "flex items-center justify-between gap-2 rounded-2xl p-2.5 sm:p-3 text-left transition-all border shadow-xs cursor-pointer group",
-          currentTab === "hoje" && activeDeliveriesCount > 0
+          currentTab === "hoje" && inRouteCount > 0
             ? "border-sky-500 bg-sky-50/50 dark:bg-sky-950/20 ring-2 ring-sky-500/20"
             : currentTab === "hoje"
             ? "border-primary bg-primary/10 ring-2 ring-primary/20"
-            : activeDeliveriesCount > 0
+            : inRouteCount > 0
             ? "border-sky-500/50 bg-card hover:bg-sky-50/50 dark:hover:bg-sky-950/20"
             : "border-border/70 bg-card hover:bg-muted/40"
         )}
@@ -103,7 +116,7 @@ export function AdminKpiPills({
           <div
             className={cn(
               "grid h-8 w-8 sm:h-9 sm:w-9 shrink-0 place-items-center rounded-xl transition-colors",
-              activeDeliveriesCount > 0
+              inRouteCount > 0
                 ? "bg-sky-600 text-white shadow-xs"
                 : "bg-sky-500/10 text-sky-700 dark:text-sky-300 group-hover:bg-sky-500/20"
             )}
@@ -115,18 +128,26 @@ export function AdminKpiPills({
               Delivery / Táxi
             </p>
             <p className="text-xs sm:text-sm font-extrabold font-display text-foreground truncate mt-0.5">
-              {activeDeliveriesCount > 0 ? (
-                <span>{activeDeliveriesCount} em rota</span>
+              {inRouteCount > 0 ? (
+                <span>{inRouteCount} em rota</span>
+              ) : activeDeliveriesCount > 0 ? (
+                <span>{activeDeliveriesCount} agendado{activeDeliveriesCount > 1 ? "s" : ""} hoje</span>
+              ) : todayTaxiTotal > 0 ? (
+                <span>{todayTaxiTotal} concluído{todayTaxiTotal > 1 ? "s" : ""}</span>
               ) : (
-                <span className="text-muted-foreground font-semibold">Sem rota ativa</span>
+                <span className="text-muted-foreground font-semibold">Sem táxi hoje</span>
               )}
             </p>
           </div>
         </div>
 
-        {activeDeliveriesCount > 0 ? (
-          <Badge className="bg-sky-600 text-white border-0 text-[10px] font-extrabold px-1.5 py-0.5 shrink-0 shadow-xs">
-            {activeDeliveriesCount}
+        {inRouteCount > 0 ? (
+          <Badge className="bg-sky-600 text-white border-0 text-[10px] font-extrabold px-1.5 py-0.5 shrink-0 shadow-xs animate-pulse">
+            {inRouteCount} em rota
+          </Badge>
+        ) : activeDeliveriesCount > 0 ? (
+          <Badge className="bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border-0 text-[10px] font-bold px-1.5 py-0.5 shrink-0">
+            {activeDeliveriesCount} hoje
           </Badge>
         ) : (
           <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0 group-hover:translate-x-0.5 transition-transform" />
@@ -177,9 +198,13 @@ export function AdminKpiPills({
           <Badge className="bg-violet-600 text-white text-[10px] font-extrabold px-1.5 py-0.5 shrink-0 shadow-xs">
             {inProgressServicesCount} ativo{inProgressServicesCount > 1 ? "s" : ""}
           </Badge>
+        ) : waitingServicesCount && waitingServicesCount > 0 ? (
+          <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.5 shrink-0 text-amber-600 border-amber-500/40">
+            {waitingServicesCount} aguardando
+          </Badge>
         ) : todayServicesCount > 0 ? (
-          <Badge variant="secondary" className="text-[10px] font-bold px-1.5 py-0.5 shrink-0">
-            {todayServicesCount}
+          <Badge variant="secondary" className="text-[10px] font-bold px-1.5 py-0.5 shrink-0 text-emerald-600">
+            Concluído
           </Badge>
         ) : (
           <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0 group-hover:translate-x-0.5 transition-transform" />
@@ -215,9 +240,9 @@ export function AdminKpiPills({
               Saúde / Atrasos
             </p>
             <p className="text-xs sm:text-sm font-extrabold font-display text-foreground truncate mt-0.5">
-              {totalPendingAlerts > 0 ? (
+              {urgentPets > 0 ? (
                 <span>
-                  {totalPendingAlerts} pendente{totalPendingAlerts > 1 ? "s" : ""}
+                  {urgentPets} pet{urgentPets > 1 ? "s" : ""} em atraso
                 </span>
               ) : pendingHealthAlertsCount > 0 ? (
                 <span className="text-muted-foreground font-semibold">{pendingHealthAlertsCount} previstos</span>
@@ -228,9 +253,9 @@ export function AdminKpiPills({
           </div>
         </div>
 
-        {totalPendingAlerts > 0 ? (
+        {urgentHealthAlertsCount > 0 ? (
           <Badge className="bg-amber-500 text-slate-950 text-[10px] font-extrabold px-1.5 py-0.5 shrink-0 shadow-xs">
-            Ação
+            {urgentHealthAlertsCount} {urgentHealthAlertsCount > 1 ? "avisos" : "aviso"}
           </Badge>
         ) : (
           <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0 group-hover:translate-x-0.5 transition-transform" />

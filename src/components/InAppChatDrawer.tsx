@@ -73,8 +73,16 @@ export function InAppChatDrawer() {
   // Se for Loja, começa na Fila de Atendimentos. Se for Tutor, vai direto na sua conversa.
   const [isViewingQueue, setIsViewingQueue] = useState<boolean>(isAdmin);
   const [queueSearch, setQueueSearch] = useState("");
+  const [queueTab, setQueueTab] = useState<"abertos" | "finalizados">("abertos");
 
-  const { conversations, totalUnread, refresh: refreshQueue } = useChatQueue();
+  const {
+    conversations,
+    openConversations,
+    closedConversations,
+    unreadConversationsCount,
+    totalUnread,
+    refresh: refreshQueue,
+  } = useChatQueue();
 
   // Garante que o tutor use sua conversa particular mesmo ao deslogar/trocar
   useEffect(() => {
@@ -234,16 +242,17 @@ export function InAppChatDrawer() {
   };
 
   const filteredQueue = useMemo(() => {
-    if (!queueSearch.trim()) return conversations;
+    const list = queueTab === "abertos" ? openConversations : closedConversations;
+    if (!queueSearch.trim()) return list;
     const term = queueSearch.toLowerCase();
-    return conversations.filter(
+    return list.filter(
       (c) =>
         c.tutorName.toLowerCase().includes(term) ||
         (c.petName && c.petName.toLowerCase().includes(term)) ||
         (c.contextTag && c.contextTag.toLowerCase().includes(term)) ||
         c.lastMessageText.toLowerCase().includes(term)
     );
-  }, [conversations, queueSearch]);
+  }, [queueTab, openConversations, closedConversations, queueSearch]);
 
   // Emoji elegante dinâmico (🐱 gato, 🐶 cão ou 🐾 patinhas)
   const petEmoji = useMemo(
@@ -402,8 +411,8 @@ export function InAppChatDrawer() {
         {/* CORPO DO DRAWER: SE FOR LOJA E ESTIVER NA FILA, RENDERIZA A FILA DE ATENDIMENTOS */}
         {isAdmin && isViewingQueue ? (
           <div className="flex-1 flex flex-col overflow-hidden bg-muted/20">
-            {/* Barra de Busca de Tutores na Fila */}
-            <div className="p-3 border-b border-border/60 bg-card">
+            {/* Barra de Busca e Tabs de Tutores na Fila */}
+            <div className="p-3 border-b border-border/60 bg-card space-y-2">
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
@@ -413,18 +422,61 @@ export function InAppChatDrawer() {
                   className="pl-8 h-9 text-xs rounded-xl"
                 />
               </div>
+
+              {/* Tabs Em Aberto vs Finalizados */}
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-muted/60 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setQueueTab("abertos")}
+                  className={cn(
+                    "flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-lg transition-all",
+                    queueTab === "abertos"
+                      ? "bg-card text-foreground shadow-xs font-bold"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <span>Em Aberto</span>
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      "text-[10px] px-1.5 py-0 h-4 font-bold",
+                      unreadConversationsCount > 0 ? "bg-emerald-500/15 text-emerald-600" : ""
+                    )}
+                  >
+                    {openConversations.length}
+                  </Badge>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQueueTab("finalizados")}
+                  className={cn(
+                    "flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-lg transition-all",
+                    queueTab === "finalizados"
+                      ? "bg-card text-foreground shadow-xs font-bold"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <span>Finalizados</span>
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-bold">
+                    {closedConversations.length}
+                  </Badge>
+                </button>
+              </div>
             </div>
 
             {/* Lista da Fila de Chamados */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
               {filteredQueue.length === 0 ? (
                 <div className="p-6 text-center text-xs text-muted-foreground">
-                  Nenhum chamado de tutor no momento.
+                  {queueTab === "abertos"
+                    ? "Nenhum chamado de tutor em aberto no momento."
+                    : "Nenhum atendimento finalizado encontrado."}
                 </div>
               ) : (
                 filteredQueue.map((conv) => {
-                  const hasUnread = conv.unreadCountStore > 0;
-                  const isAberto = conv.status === "aberto";
+                  const isClosed = conv.status === "fechado";
+                  const hasUnread = !isClosed && conv.unreadCountStore > 0;
+                  const isAberto = !isClosed && conv.status === "aberto";
 
                   return (
                     <button
@@ -433,7 +485,9 @@ export function InAppChatDrawer() {
                       onClick={() => handleOpenConversationFromQueue(conv)}
                       className={cn(
                         "w-full text-left rounded-2xl border p-3 transition-all flex items-start gap-3 relative shadow-xs",
-                        hasUnread || isAberto
+                        isClosed
+                          ? "bg-muted/30 border-border/50 opacity-80 hover:opacity-100 hover:bg-card"
+                          : hasUnread || isAberto
                           ? "bg-card border-primary/40 hover:border-primary shadow-sm"
                           : "bg-background/80 border-border/70 hover:bg-card"
                       )}
@@ -442,7 +496,9 @@ export function InAppChatDrawer() {
                       <div
                         className={cn(
                           "relative grid h-10 w-10 shrink-0 place-items-center rounded-xl font-bold text-sm",
-                          hasUnread || isAberto
+                          isClosed
+                            ? "bg-muted text-muted-foreground"
+                            : hasUnread || isAberto
                             ? "bg-primary text-primary-foreground"
                             : "bg-secondary text-secondary-foreground"
                         )}
@@ -480,7 +536,11 @@ export function InAppChatDrawer() {
                               {conv.contextTag}
                             </span>
                           )}
-                          {hasUnread ? (
+                          {isClosed ? (
+                            <Badge variant="outline" className="text-[9px] py-0 px-1.5 text-muted-foreground border-muted-foreground/30">
+                              🏁 Finalizado
+                            </Badge>
+                          ) : hasUnread ? (
                             <Badge className="bg-emerald-600 text-white text-[9px] py-0 px-1.5 font-bold">
                               Nova ({conv.unreadCountStore})
                             </Badge>
@@ -488,7 +548,11 @@ export function InAppChatDrawer() {
                             <Badge variant="outline" className="text-[9px] py-0 px-1.5 text-amber-600 border-amber-500/40">
                               Aguardando Loja
                             </Badge>
-                          ) : null}
+                          ) : (
+                            <Badge variant="outline" className="text-[9px] py-0 px-1.5 text-muted-foreground border-border">
+                              Respondido
+                            </Badge>
+                          )}
                         </div>
 
                         {/* Trecho da última mensagem */}

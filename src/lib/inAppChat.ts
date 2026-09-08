@@ -7,7 +7,7 @@
  * Dispara alarme sonoro de 2 toques e badge "(Msg Nova)" ao receber mensagens.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { playChatNotificationSound } from "./soundAlerts";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -379,8 +379,8 @@ export function sendChatMessage(params: {
     contextTag: params.contextTag ?? null,
     text: params.text.trim(),
     createdAt: new Date().toISOString(),
-    readByTutor: params.senderRole === "tutor",
-    readByStore: params.senderRole !== "tutor",
+    readByTutor: defaultStatus === "fechado" ? true : (params.senderRole === "tutor"),
+    readByStore: defaultStatus === "fechado" ? true : (params.senderRole !== "tutor"),
     status: defaultStatus,
   };
 
@@ -433,7 +433,7 @@ export function closeConversation(params: {
   const current = getAllChatMessages();
   const convId = params.conversationId;
 
-  // Atualiza status de todas as mensagens dessa conversa para 'fechado'
+  // Atualiza status de todas as mensagens dessa conversa para 'fechado' e marca como lidas
   let foundPetSpecies: string | null = null;
   let foundPetName: string | null = null;
 
@@ -441,7 +441,12 @@ export function closeConversation(params: {
     if (m.conversationId === convId || (m.tutorId && m.tutorId === convId)) {
       if (m.petSpecies && !foundPetSpecies) foundPetSpecies = m.petSpecies;
       if (m.petName && !foundPetName) foundPetName = m.petName;
-      return { ...m, status: "fechado" as ChatMessageStatus };
+      return {
+        ...m,
+        status: "fechado" as ChatMessageStatus,
+        readByStore: true,
+        readByTutor: true,
+      };
     }
     return m;
   });
@@ -626,10 +631,12 @@ export function getAllChatConversations(): ChatConversationSummary[] {
       tutorName = "Atendimento Geral";
     }
 
-    const unreadStore = msgList.filter((m) => !m.readByStore).length;
-    const unreadTutor = msgList.filter((m) => !m.readByTutor).length;
+    const isClosed = lastMsg.status === "fechado";
+    const unreadStore = isClosed ? 0 : msgList.filter((m) => !m.readByStore).length;
+    const unreadTutor = isClosed ? 0 : msgList.filter((m) => !m.readByTutor).length;
 
-    // Status: se a última mensagem foi da loja, status é "respondido"; se foi do tutor e loja ainda não leu/respondeu, "aberto"
+    // Status: se a última mensagem foi 'fechado', o status é 'fechado'
+    // Se a última mensagem foi da loja, status é "respondido"; se foi do tutor e loja ainda não leu/respondeu, "aberto"
     const status: ChatMessageStatus =
       lastMsg.status ?? (lastMsg.senderRole === "loja" ? "respondido" : "aberto");
 
@@ -653,9 +660,13 @@ export function getAllChatConversations(): ChatConversationSummary[] {
   }
 
   // Ordenação da Fila:
-  // 1º: Não lidas da loja (ou abertas) no topo absoluto
-  // 2º: Data da última mensagem decrescente (mais recentes primeiro)
+  // 1º: Fechados sempre no final
+  // 2º: Não lidas da loja no topo
+  // 3º: Abertos antes de respondidos
+  // 4º: Data da última mensagem decrescente (mais recentes primeiro)
   return summaries.sort((a, b) => {
+    if (a.status !== "fechado" && b.status === "fechado") return -1;
+    if (a.status === "fechado" && b.status !== "fechado") return 1;
     if (a.unreadCountStore > 0 && b.unreadCountStore === 0) return -1;
     if (a.unreadCountStore === 0 && b.unreadCountStore > 0) return 1;
     if (a.status === "aberto" && b.status !== "aberto") return -1;
@@ -749,8 +760,24 @@ export function useChatQueue() {
     };
   }, []);
 
+  const openConversations = useMemo(
+    () => conversations.filter((c) => c.status !== "fechado"),
+    [conversations]
+  );
+  const closedConversations = useMemo(
+    () => conversations.filter((c) => c.status === "fechado"),
+    [conversations]
+  );
+  const unreadConversationsCount = useMemo(
+    () => conversations.filter((c) => c.unreadCountStore > 0 && c.status !== "fechado").length,
+    [conversations]
+  );
+
   return {
     conversations,
+    openConversations,
+    closedConversations,
+    unreadConversationsCount,
     totalUnread,
     refresh,
   };
