@@ -42,18 +42,27 @@ test.describe('Painel Administrativo', () => {
     await loginAsAdmin(page);
   });
 
-  test('Deve acessar o Painel Administrativo e exibir o Dashboard com métricas', async ({ page }) => {
+  test('Deve acessar o Painel Administrativo e exibir o Dashboard com KPIs e Kanban', async ({ page }) => {
     // Valida título do painel
-    await expect(page.locator('h1:has-text("Painel administrativo")')).toBeVisible();
+    await expect(page.locator('h1:has-text("Painel Administrativo")')).toBeVisible();
 
-    // Valida se os blocos de resumo do Dashboard estão presentes
-    await expect(page.locator('text=SERVIÇOS EXECUTADOS')).toBeVisible();
-    await expect(page.locator('text=VENDAS DE PRODUTOS')).toBeVisible();
-    await expect(page.locator('text=AGENDAMENTOS').first()).toBeVisible();
+    // Valida presença das pílulas de KPIs rápidos no topo
+    await expect(page.locator('text=Chat Loja')).toBeVisible();
+    await expect(page.locator('text=Delivery')).toBeVisible();
+    await expect(page.locator('text=Atendimentos')).toBeVisible();
+    await expect(page.locator('text=Alertas')).toBeVisible();
+
+    // Valida colunas do Kanban Operacional de Hoje
+    await expect(page.locator('text=Aguardando')).first().toBeVisible();
+    await expect(page.locator('text=Em Andamento')).first().toBeVisible();
+    await expect(page.locator('text=Pronto / Concluído')).first().toBeVisible();
   });
 
-  test('Deve navegar para a aba "Novo Cliente" e exibir o formulário', async ({ page }) => {
-    // Clica na aba Novo Cliente
+  test('Deve navegar para a aba Gestão & Cadastros e acessar "Novo Cliente"', async ({ page }) => {
+    // Acessa Gestão & Cadastros
+    await page.getByRole('tab', { name: /Gestão & Cadastros/i }).click();
+
+    // Clica na sub-aba Novo Cliente
     const novoClienteTab = page.getByRole('tab', { name: 'Novo Cliente' });
     await novoClienteTab.scrollIntoViewIfNeeded();
     await novoClienteTab.click();
@@ -64,7 +73,10 @@ test.describe('Painel Administrativo', () => {
   });
 
   test('Deve navegar para a aba "Clientes" e exibir o campo de busca', async ({ page }) => {
-    // Clica na aba Clientes
+    // Acessa Gestão & Cadastros
+    await page.getByRole('tab', { name: /Gestão & Cadastros/i }).click();
+
+    // Clica na sub-aba Clientes
     await page.getByRole('tab', { name: 'Clientes' }).click();
 
     // Valida presença do campo de pesquisa de clientes
@@ -73,8 +85,11 @@ test.describe('Painel Administrativo', () => {
   });
 
   test('Deve navegar para a aba "Relatórios" e exibir opções financeiras e Curvas ABC', async ({ page }) => {
-    // Clica na aba Relatórios
-    await page.getByRole('tab', { name: 'Relatórios' }).click();
+    // Acessa Gestão & Cadastros
+    await page.getByRole('tab', { name: /Gestão & Cadastros/i }).click();
+
+    // Clica na sub-aba Relatórios
+    await page.getByRole('tab', { name: /Relatórios/i }).click();
 
     // Valida presença das sub-abas gerenciais
     await expect(page.getByRole('button', { name: /Financeiro Geral/i })).toBeVisible();
@@ -99,34 +114,36 @@ test.describe('Painel Administrativo', () => {
     await expect(page.locator('text=Filtros da Curva ABC de Clientes')).toBeVisible();
   });
 
-  test('Deve navegar para a aba "Agendamentos" e carregar a agenda', async ({ page }) => {
-    // Clica na aba Agendamentos
-    await page.getByRole('tab', { name: 'Agendamentos' }).click();
+  test('Deve navegar para a aba "Saúde & Retornos" e exibir agrupamento de alertas', async ({ page }) => {
+    // Clica na aba Saúde & Retornos
+    await page.getByRole('tab', { name: /Saúde & Retornos/i }).click();
 
-    // Valida que o container da agenda está visível
-    await expect(page.getByRole('tabpanel', { name: 'Agendamentos' })).toBeVisible();
+    // Valida presença da seção de alertas
+    await expect(page.locator('text=Alertas de Saúde e Retornos')).toBeVisible();
   });
 
-  test('Deve navegar pelas abas de catálogo ("Serviços" e "Produtos")', async ({ page }) => {
+  test('Deve navegar para a aba "Atendimento & Chat" e exibir chamados e histórico', async ({ page }) => {
+    // Clica na aba Atendimento & Chat
+    await page.getByRole('tab', { name: /Atendimento & Chat/i }).click();
+
+    // Valida presença dos componentes de chat
+    await expect(page.locator('text=Fila de Chamados Recentes')).toBeVisible();
+    await expect(page.locator('text=Log e Histórico de Atendimentos do Chat')).toBeVisible();
+    await expect(page.locator('text=Total de Chamados')).toBeVisible();
+    await expect(page.locator('text=Aguardando Loja')).toBeVisible();
+    await expect(page.locator('text=Respondidos')).toBeVisible();
+  });
+
+  test('Deve navegar pelas abas de catálogo ("Serviços" e "Produtos") em Gestão', async ({ page }) => {
+    // Acessa Gestão & Cadastros
+    await page.getByRole('tab', { name: /Gestão & Cadastros/i }).click();
+
     // Clica na aba Serviços
     await page.getByRole('tab', { name: 'Serviços' }).click();
     await expect(page.getByRole('tabpanel', { name: 'Serviços' })).toBeVisible();
 
     // Clica na aba Produtos
-    await page.getByRole('tab', { name: 'Produtos' }).click();
-    await expect(page.getByRole('tabpanel', { name: 'Produtos' })).toBeVisible();
-  });
-
-  test('Deve navegar para a aba Atendimentos & Chat ao clicar em Ver todos no painel da loja', async ({ page }) => {
-    // Clica no botão "Ver todos" do bloco de mensagens do chat
-    const verTodosBtn = page.locator('button:has-text("Ver todos")').first();
-    await expect(verTodosBtn).toBeVisible();
-    await verTodosBtn.click();
-
-    // Valida que o painel de Atendimentos & Chat carregou com os logs
-    await expect(page.locator('text=Log e Histórico de Atendimentos do Chat')).toBeVisible();
-    await expect(page.locator('text=Total de Chamados')).toBeVisible();
-    await expect(page.locator('text=Aguardando Loja')).toBeVisible();
-    await expect(page.locator('text=Respondidos')).toBeVisible();
+    await page.getByRole('tab', { name: /Produtos/i }).click();
+    await expect(page.getByRole('tabpanel', { name: /Produtos/i })).toBeVisible();
   });
 });

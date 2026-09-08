@@ -26,6 +26,10 @@ import {
   X,
   Clock,
   ChevronRight,
+  Scissors,
+  Settings,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { getCapacitySettings, saveCapacitySettings, type CapacitySettings } from "@/lib/schedulingCapacity";
 import { playStatusSound, testSoundAlert } from "@/lib/soundAlerts";
@@ -86,6 +90,9 @@ import { RelatorioEntregasMotoristas } from "@/components/RelatorioEntregasMotor
 import { openInAppChat } from "@/components/InAppChatDrawer";
 import { useChatQueue } from "@/lib/inAppChat";
 import { AdminChatLogs } from "@/components/AdminChatLogs";
+import { AdminKpiPills } from "@/components/admin/AdminKpiPills";
+import { AdminOperationalKanban, type KanbanItem } from "@/components/admin/AdminOperationalKanban";
+import { AdminHealthAlertsGrouped, type HealthAlertItem } from "@/components/admin/AdminHealthAlertsGrouped";
 import { getCriticalStock, setCriticalStock, findCurveACriticalProducts } from "@/lib/stockSettings";
 import { calculateProductAbc } from "@/lib/curvaAbc";
 import { useClientAbcMap } from "@/hooks/useClientAbcMap";
@@ -245,11 +252,39 @@ function Admin() {
   const { isAdmin, loading: adminLoading } = useIsAdminStatus(user?.id, user?.email);
   const queryClient = useQueryClient();
   const { getClientAbcInfo } = useClientAbcMap();
-  const [currentTab, setCurrentTab] = useState(search?.tab || "dashboard");
+  const mapSearchToTabs = (tab?: string): { master: string; sub?: string } => {
+    if (!tab) return { master: "hoje" };
+    if (["hoje", "comunicacao", "saude", "gestao"].includes(tab)) return { master: tab };
+    if (["dashboard"].includes(tab)) return { master: "hoje" };
+    if (["atendimentos", "chat"].includes(tab)) return { master: "comunicacao" };
+    if (["retornos"].includes(tab)) return { master: "saude" };
+    if (
+      [
+        "clientes",
+        "novo-cliente",
+        "relatorios",
+        "clinica",
+        "pedidos",
+        "servicos",
+        "produtos",
+        "agenda",
+        "retirada-entrega",
+      ].includes(tab)
+    ) {
+      return { master: "gestao", sub: tab };
+    }
+    return { master: "hoje" };
+  };
+
+  const initialMapped = mapSearchToTabs(search?.tab);
+  const [currentTab, setCurrentTab] = useState<string>(initialMapped.master);
+  const [gestaoSubTab, setGestaoSubTab] = useState<string>(initialMapped.sub || "clientes");
 
   useEffect(() => {
     if (search?.tab) {
-      setCurrentTab(search.tab);
+      const mapped = mapSearchToTabs(search.tab);
+      setCurrentTab(mapped.master);
+      if (mapped.sub) setGestaoSubTab(mapped.sub);
     }
   }, [search?.tab]);
 
@@ -267,7 +302,7 @@ function Admin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("appointments")
-        .select("id, user_id, scheduled_at, status, notes, origin, total_cents, service_price_cents, transport_price_cents, payment_status, payment_method, paid_at, services(name), pets(name)")
+        .select("id, user_id, pet_id, scheduled_at, status, ops_status, logistics_type, notes, origin, total_cents, service_price_cents, transport_price_cents, payment_status, payment_method, paid_at, services(name, category), pets(name, species, size)")
         .order("scheduled_at", { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -1917,50 +1952,181 @@ function Admin() {
     onError: () => toast.error("Não foi possível atualizar"),
   });
 
-  const [returnFilter, setReturnFilter] = useState<"todos" | ReturnType>("todos");
-  const [returnDate, setReturnDate] = useState<Date>(new Date());
   const [showDeliverySimulator, setShowDeliverySimulator] = useState(false);
 
-  const allReturns = useMemo(() => {
-    const fromVaccines = (vaccinesDue ?? []).map((v) => ({
-      key: `vaccine-${v.id}`,
-      type: "vacina" as ReturnType,
-      title: `Reforço: ${v.vaccine_name}`,
-      dueDate: v.next_due_at as string,
-      petName: v.pets?.name ?? "Pet",
-      ownerId: v.pets?.owner_id as string | undefined,
-      reminderId: null as string | null,
-    }));
-    const fromReminders = (careReminders ?? []).map((r) => ({
-      key: `reminder-${r.id}`,
-      type: r.reminder_type as ReturnType,
-      title: r.title,
-      dueDate: r.due_date,
-      petName: r.pets?.name ?? "Pet",
-      ownerId: r.pets?.owner_id as string | undefined,
-      reminderId: r.id as string | null,
-    }));
-    return [...fromVaccines, ...fromReminders].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-  }, [vaccinesDue, careReminders]);
+  // Itens unificados para o Kanban Operacional (Hoje)
+  const kanbanItems: KanbanItem[] = useMemo(() => {
+    return (appointments ?? []).map((appt) => {
+      const clientInfo = getClientAbcInfo(appt.user_id);
+      const client = profileById.get(appt.user_id);
+      const tutorName = client?.full_name || clientInfo?.name || "Tutor";
+      const tutorPhone = client?.phone || clientInfo?.phone || null;
+      const pet = appt.pets as { name?: string | null; species?: string | null } | null;
+      const svc = appt.services as { name?: string | null; category?: string | null } | null;
+      const tOrder = (transportOrders ?? []).find((t) => t.appointment_id === appt.id);
 
-  // Vacinas + retornos dos próximos 30 dias para o card do Dashboard (pedido
-  // do Henrique 2026-08-14) — allReturns acima não tem limite de data, então
-  // filtramos aqui só para essa janela, igual ao painel do tutor em Conta.tsx.
-  const returnsNext30Days = useMemo(() => {
-    const limit = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+      return {
+        id: appt.id,
+        userId: appt.user_id,
+        tutorName,
+        tutorPhone,
+        petId: appt.pet_id,
+        petName: pet?.name || "Pet",
+        petSpecies: pet?.species || null,
+        serviceName: svc?.name || "Serviço",
+        serviceCategory: svc?.category || null,
+        scheduledAt: appt.scheduled_at,
+        status: appt.status,
+        opsStatus: appt.ops_status || null,
+        logisticsType: appt.logistics_type || null,
+        totalCents: appt.total_cents || 0,
+        transportOrderId: tOrder?.id || null,
+        addressSummary: tOrder?.addresses
+          ? `${tOrder.addresses.street || ""}, ${tOrder.addresses.number || ""}`.trim()
+          : null,
+      };
+    });
+  }, [appointments, transportOrders, getClientAbcInfo, profileById]);
+
+  // Alertas unificados para o Módulo de Saúde & Retornos Agrupados
+  const healthAlertItems: HealthAlertItem[] = useMemo(() => {
+    const fromVaccines: HealthAlertItem[] = (vaccinesDue ?? []).map((v) => {
+      const owner = v.pets?.owner_id ? profileById.get(v.pets.owner_id) : undefined;
+      return {
+        id: `vaccine-${v.id}`,
+        type: "vacina" as const,
+        title: `Reforço: ${v.vaccine_name}`,
+        dueDate: (v.next_due_at as string) || todayISODate(),
+        petId: v.pet_id,
+        petName: v.pets?.name ?? "Pet",
+        ownerId: v.pets?.owner_id ?? undefined,
+        ownerName: owner?.full_name ?? undefined,
+        ownerPhone: owner?.phone ?? undefined,
+        reminderId: undefined,
+      };
+    });
+
+    const fromReminders: HealthAlertItem[] = (careReminders ?? []).map((r) => {
+      const owner = r.pets?.owner_id ? profileById.get(r.pets.owner_id) : undefined;
+      return {
+        id: `reminder-${r.id}`,
+        type: (r.reminder_type === "vacina" ? "vacina" : "retorno") as "vacina" | "retorno",
+        title: r.title,
+        dueDate: r.due_date,
+        petId: r.pet_id,
+        petName: r.pets?.name ?? "Pet",
+        ownerId: r.pets?.owner_id ?? undefined,
+        ownerName: owner?.full_name ?? undefined,
+        ownerPhone: owner?.phone ?? undefined,
+        reminderId: r.id,
+        notes: r.notes ?? undefined,
+      };
+    });
+
+    return [...fromVaccines, ...fromReminders];
+  }, [vaccinesDue, careReminders, profileById]);
+
+  const urgentHealthAlertsCount = useMemo(() => {
     const today = todayISODate();
-    return allReturns
-      .filter((item) => item.dueDate >= today && item.dueDate <= limit)
-      .map((item) => ({ ...item, days: daysUntil(item.dueDate) }));
-  }, [allReturns]);
+    return healthAlertItems.filter((a) => a.dueDate <= today).length;
+  }, [healthAlertItems]);
 
-  const selectedReturnDateISO = returnDate.toISOString().slice(0, 10);
+  const activeDeliveriesCount = useMemo(() => {
+    return (
+      transportOrders?.filter(
+        (t) =>
+          t.appointments?.ops_status &&
+          t.appointments.ops_status !== "concluido" &&
+          t.appointments.ops_status !== "cancelado"
+      ).length ?? 0
+    );
+  }, [transportOrders]);
 
-  const filteredReturns = allReturns.filter((item) => {
-    const matchesType = returnFilter === "todos" || item.type === returnFilter;
-    const referenceDate = returnFilter === "todos" ? todayISODate() : selectedReturnDateISO;
-    return matchesType && item.dueDate === referenceDate;
+  const todayServicesCount = useMemo(() => {
+    const today = todayISODate();
+    return kanbanItems.filter(
+      (i) => i.status !== "cancelado" && i.scheduledAt.startsWith(today)
+    ).length;
+  }, [kanbanItems]);
+
+  const inProgressServicesCount = useMemo(() => {
+    return kanbanItems.filter(
+      (i) =>
+        i.opsStatus === "em_atendimento" ||
+        i.opsStatus === "em_deslocamento_retirada" ||
+        i.opsStatus === "em_rota_devolucao"
+    ).length;
+  }, [kanbanItems]);
+
+  const cancelAppointment = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("appointments")
+        .update({ status: "cancelado", ops_status: "cancelado" })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
+      toast.success("Agendamento cancelado");
+    },
+    onError: () => toast.error("Não foi possível cancelar o agendamento"),
   });
+
+  const handleKanbanAdvance = (item: KanbanItem) => {
+    if (item.status === "pendente") {
+      confirmAppointment.mutate({
+        id: item.id,
+        user_id: item.userId,
+        scheduled_at: item.scheduledAt,
+        services: { name: item.serviceName },
+        pets: { name: item.petName },
+      });
+      return;
+    }
+
+    if (item.transportOrderId) {
+      const next = nextOpsStatus(item.opsStatus as OpsStatus);
+      if (next) {
+        advanceOpsStatus.mutate({
+          appointmentId: item.id,
+          transportOrderId: item.transportOrderId,
+          status: next,
+          userId: item.userId,
+          petName: item.petName,
+        });
+        return;
+      }
+    }
+
+    const nextStatus = item.opsStatus === "em_atendimento" ? "servico_concluido" : "em_atendimento";
+    supabase
+      .from("appointments")
+      .update({
+        ops_status: nextStatus,
+        ...(nextStatus === "servico_concluido" ? { status: "concluido" } : {}),
+      })
+      .eq("id", item.id)
+      .then(({ error }) => {
+        if (error) {
+          toast.error("Erro ao atualizar status do atendimento");
+        } else {
+          queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
+          queryClient.invalidateQueries({ queryKey: ["appointments"] });
+          queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
+          if (nextStatus === "em_atendimento") {
+            playStatusSound("atendimento");
+            toast.success(`${item.petName} entrou em atendimento! ✂️`);
+          } else {
+            playStatusSound("concluido");
+            toast.success(`Atendimento de ${item.petName} concluído! ✨`);
+          }
+        }
+      });
+  };
 
   if (authLoading || (user && adminLoading)) {
     return (
@@ -1985,440 +2151,152 @@ function Admin() {
 
   return (
     <div className="p-4 space-y-4">
-      {/* 1. HERO OPERACIONAL DA LOJA (ESTILO DA HOME DO TUTOR) */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-primary/95 via-primary/85 to-primary/75 p-5 text-primary-foreground shadow-card">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-400"></span>
-              </span>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-primary-foreground/90">
-                Central de Operações · Loja Aberta
-              </span>
-            </div>
-            <h1 className="font-display text-2xl sm:text-3xl font-bold mt-1 tracking-tight">
-              Painel Administrativo · Big Dog Pet
-            </h1>
-            <p className="text-xs sm:text-sm text-primary-foreground/85 mt-0.5">
-              {CLINIC.unit} · Vila Bazú, Franco da Rocha
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => openInAppChat()}
-              className="h-9 px-3.5 rounded-xl text-xs font-bold gap-2 shadow-xs bg-white text-primary hover:bg-white/90"
-            >
-              <MessageCircle className="h-4 w-4 text-primary" />
-              Bate-papo Loja
-              {totalChatUnread > 0 && (
-                <Badge variant="destructive" className="animate-pulse text-[10px] py-0 px-1.5 h-5">
-                  {totalChatUnread}
-                </Badge>
-              )}
-            </Button>
-          </div>
-        </div>
-
-        {/* Mini Contadores Rápidos da Operação */}
-        <div className="mt-4 pt-3.5 border-t border-white/20 grid grid-cols-3 gap-2 text-center sm:text-left">
-          <div className="bg-black/15 rounded-xl p-2 sm:px-3">
-            <p className="text-[10px] uppercase font-semibold text-primary-foreground/75">
-              Mensagens Chat
-            </p>
-            <p className="text-lg font-bold font-display text-white mt-0.5">
-              {chatQueue.length} <span className="text-xs font-normal opacity-80">chamados</span>
-            </p>
-          </div>
-          <div className="bg-black/15 rounded-xl p-2 sm:px-3">
-            <p className="text-[10px] uppercase font-semibold text-primary-foreground/75">
-              Novos Agendamentos
-            </p>
-            <p className="text-lg font-bold font-display text-white mt-0.5">
-              {pendingAppointments.length} <span className="text-xs font-normal opacity-80">pendentes</span>
-            </p>
-          </div>
-          <div className="bg-black/15 rounded-xl p-2 sm:px-3">
-            <p className="text-[10px] uppercase font-semibold text-primary-foreground/75">
-              Transportes Ativos
-            </p>
-            <p className="text-lg font-bold font-display text-white mt-0.5">
-              {transportOrders?.filter(t => t.appointments?.ops_status && t.appointments.ops_status !== "concluido" && t.appointments.ops_status !== "cancelado").length ?? 0} <span className="text-xs font-normal opacity-80">em rota</span>
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. DESTAQUE NO TOPO: MENSAGENS E CHAMADOS RECENTES DOS TUTORES NO CHAT */}
-      <div className="rounded-3xl border-2 border-primary/25 bg-card p-4 shadow-card">
-        <div className="flex items-center justify-between gap-2 pb-3 border-b border-border/60">
+      {/* 1. CABEÇALHO EXECUTIVO E DESPOLUÍDO */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-card p-4 rounded-3xl border border-border/70 shadow-card">
+        <div>
           <div className="flex items-center gap-2">
-            <span className="relative flex h-3 w-3">
-              <span className={cn(
-                "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
-                totalChatUnread > 0 ? "bg-emerald-400" : "bg-primary/50"
-              )}></span>
-              <span className={cn(
-                "relative inline-flex rounded-full h-3 w-3",
-                totalChatUnread > 0 ? "bg-emerald-500" : "bg-primary"
-              )}></span>
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
             </span>
-            <h2 className="font-display text-base font-bold text-foreground flex items-center gap-2">
-              Mensagens do Chat dos Tutores
-              {totalChatUnread > 0 && (
-                <Badge className="bg-emerald-600 text-white font-bold text-[10px] py-0 px-2 animate-pulse">
-                  {totalChatUnread} Nova(s)
-                </Badge>
-              )}
-            </h2>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Central de Operações · Loja Aberta
+            </span>
           </div>
+          <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight mt-0.5 text-foreground">
+            Painel Administrativo
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            {CLINIC.name} · {CLINIC.unit} (Franco da Rocha)
+          </p>
+        </div>
 
-          <button
-            type="button"
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
             onClick={() => {
-              setCurrentTab("atendimentos");
-              setTimeout(() => {
-                const el = document.getElementById("tab-atendimentos-section") || document.querySelector('[role="tablist"]');
-                el?.scrollIntoView({ behavior: "smooth" });
-              }, 50);
+              setCurrentTab("comunicacao");
+              openInAppChat();
             }}
-            className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+            className="h-9 px-3.5 rounded-xl text-xs font-bold gap-2 border-primary/30 text-primary hover:bg-primary/10"
           >
-            Ver todos ({chatQueue.length})
-          </button>
-        </div>
-
-        {/* Fila de cards recentes de tutores */}
-        <div className="mt-3 space-y-2.5">
-          {chatQueue.length === 0 ? (
-            <div className="p-4 rounded-2xl border border-dashed border-border/80 text-center text-xs text-muted-foreground">
-              Nenhuma mensagem no chat no momento. Todas as conversas estão respondidas!
-            </div>
-          ) : (
-            chatQueue.slice(0, 3).map((conv) => {
-              const hasUnread = conv.unreadCountStore > 0;
-              const isAberto = conv.status === "aberto";
-
-              return (
-                <div
-                  key={conv.conversationId}
-                  className={cn(
-                    "rounded-2xl border p-3.5 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs",
-                    hasUnread
-                      ? "border-emerald-500/50 bg-emerald-50/50 dark:bg-emerald-950/20 ring-1 ring-emerald-500/20"
-                      : isAberto
-                        ? "border-amber-500/40 bg-amber-50/40 dark:bg-amber-950/20"
-                        : "border-border/80 bg-card hover:bg-muted/20"
-                  )}
-                >
-                  <div className="flex items-start gap-3 min-w-0 flex-1">
-                    {/* Avatar inicial */}
-                    <div className={cn(
-                      "grid h-10 w-10 shrink-0 place-items-center rounded-xl font-bold text-sm",
-                      hasUnread
-                        ? "bg-emerald-600 text-white shadow-xs"
-                        : "bg-primary/10 text-primary"
-                    )}>
-                      {conv.tutorName.charAt(0).toUpperCase()}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-bold text-xs sm:text-sm text-foreground">
-                          {conv.tutorName}
-                        </p>
-                        {conv.petName && (
-                          <Badge variant="secondary" className="text-[10px] py-0 font-bold">
-                            🐾 {conv.petName}
-                          </Badge>
-                        )}
-                        {conv.contextTag && (
-                          <Badge variant="outline" className="text-[10px] py-0 border-primary/30 text-primary font-semibold">
-                            🏷️ {conv.contextTag}
-                          </Badge>
-                        )}
-                        {hasUnread && (
-                          <Badge className="bg-emerald-600 text-white text-[9px] py-0 px-1.5 font-bold">
-                            Nova Mensagem
-                          </Badge>
-                        )}
-                      </div>
-
-                      <p className="mt-1 text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                        {conv.lastMessage.senderRole === "loja" && (
-                          <strong className="text-foreground/80 font-semibold">Loja: </strong>
-                        )}
-                        "{conv.lastMessageText}"
-                      </p>
-
-                      <p className="mt-1 text-[11px] text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
-                        Recebida {formatChatRelativeTime(conv.lastMessageAt)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Botão de Resposta em 1 Toque */}
-                  <div className="flex items-center justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40 shrink-0">
-                    <Button
-                      size="sm"
-                      onClick={() =>
-                        openInAppChat({
-                          conversationId: conv.conversationId,
-                          tutorName: conv.tutorName,
-                          petName: conv.petName ?? undefined,
-                          contextTag: conv.contextTag ?? undefined,
-                        })
-                      }
-                      className="h-8 rounded-xl text-xs font-semibold gap-1.5 px-3.5 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
-                    >
-                      <MessageCircle className="h-3.5 w-3.5" />
-                      Responder Tutor
-                    </Button>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-
-      {/* Alerta de Estoque Crítico de Produtos Curva A (Amarelo Destacado) */}
-      {curveACriticalAlerts.length > 0 && (
-        <div className="rounded-2xl border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/40 p-3.5 shadow-md space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="flex h-3 w-3 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
-              </span>
-              <h3 className="text-xs font-black uppercase tracking-wide text-amber-900 dark:text-amber-200">
-                ⚠️ Alerta: Estoque Crítico em Produtos Curva A (Carro-Chefe)
-              </h3>
-            </div>
-            <Badge className="bg-amber-500 text-white font-bold text-[10px]">
-              {curveACriticalAlerts.length} produto(s)
-            </Badge>
-          </div>
-          <div className="space-y-1.5">
-            {curveACriticalAlerts.map((alert) => (
-              <div
-                key={alert.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-100/90 dark:bg-amber-900/50 px-3 py-2 text-xs font-semibold text-amber-950 dark:text-amber-100 border border-amber-300 dark:border-amber-700"
-              >
-                <span>
-                  Alerta: <strong>{alert.name}</strong> ,{" "}
-                  <span className="bg-amber-300 dark:bg-amber-700 text-amber-950 dark:text-amber-100 px-1.5 py-0.5 rounded font-black">
-                    Curva A
-                  </span>{" "}
-                  em estoque crítico ({alert.stock} restantes, mínimo {alert.criticalLimit}).{" "}
-                  <span className="font-black text-amber-900 dark:text-amber-100 underline">Repor estoque!!!</span>
-                </span>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="h-7 text-xs rounded-lg font-bold bg-amber-300 hover:bg-amber-400 text-amber-950"
-                  onClick={() => {
-                    setEditingCatalogId(alert.id);
-                    setCurrentTab("produtos");
-                  }}
-                >
-                  Repor / Ajustar
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <Tabs value={currentTab} onValueChange={setCurrentTab} className="mt-4">
-        <TabsList className="flex w-full items-center justify-start gap-1 overflow-x-auto">
-          <TabsTrigger value="dashboard" className="shrink-0">
-            Dashboard
-          </TabsTrigger>
-          <TabsTrigger value="atendimentos" className="shrink-0 gap-1.5 font-semibold text-primary">
-            <MessageCircle className="h-3.5 w-3.5" />
-            Atendimentos & Chat
+            <MessageCircle className="h-4 w-4" />
+            Bate-papo da Loja
             {totalChatUnread > 0 && (
-              <Badge variant="destructive" className="ml-1 text-[9px] py-0 px-1 font-bold">
+              <Badge className="bg-emerald-600 text-white animate-pulse text-[10px] py-0 px-1.5 h-5 font-bold">
                 {totalChatUnread}
               </Badge>
             )}
+          </Button>
+        </div>
+      </div>
+
+      {/* 2. KPIS RÁPIDOS NO TOPO (PÍLULAS OPERACIONAIS) */}
+      <AdminKpiPills
+        unreadChatCount={totalChatUnread}
+        totalChatConversations={chatQueue.length}
+        activeDeliveriesCount={activeDeliveriesCount}
+        todayServicesCount={todayServicesCount}
+        inProgressServicesCount={inProgressServicesCount}
+        pendingHealthAlertsCount={healthAlertItems.length}
+        urgentHealthAlertsCount={urgentHealthAlertsCount}
+        criticalStockCount={curveACriticalAlerts.length}
+        currentTab={currentTab}
+        onSelectTab={(tab) => {
+          setCurrentTab(tab);
+        }}
+      />
+
+      <Tabs value={currentTab} onValueChange={setCurrentTab} className="mt-4">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full h-auto p-1 bg-muted/70 rounded-2xl gap-1">
+          <TabsTrigger
+            value="hoje"
+            className="h-10 rounded-xl text-xs font-bold gap-1.5 data-[state=active]:bg-card data-[state=active]:shadow-xs"
+          >
+            <Scissors className="h-3.5 w-3.5 text-primary" />
+            Operacional (Hoje)
+            {todayServicesCount > 0 && (
+              <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px] font-bold">
+                {todayServicesCount}
+              </Badge>
+            )}
           </TabsTrigger>
-          <TabsTrigger value="novo-cliente" className="shrink-0">
-            Novo Cliente
+
+          <TabsTrigger
+            value="comunicacao"
+            className="h-10 rounded-xl text-xs font-bold gap-1.5 data-[state=active]:bg-card data-[state=active]:shadow-xs"
+          >
+            <MessageCircle className="h-3.5 w-3.5 text-primary" />
+            Atendimento & Chat
+            {totalChatUnread > 0 ? (
+              <Badge className="bg-emerald-600 text-white ml-0.5 px-1.5 py-0 text-[10px] font-bold animate-pulse">
+                {totalChatUnread}
+              </Badge>
+            ) : chatQueue.length > 0 ? (
+              <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px] font-bold">
+                {chatQueue.length}
+              </Badge>
+            ) : null}
           </TabsTrigger>
-          <TabsTrigger value="clientes" className="shrink-0">
-            Clientes
+
+          <TabsTrigger
+            value="saude"
+            className="h-10 rounded-xl text-xs font-bold gap-1.5 data-[state=active]:bg-card data-[state=active]:shadow-xs"
+          >
+            <Syringe className="h-3.5 w-3.5 text-primary" />
+            Saúde & Retornos
+            {urgentHealthAlertsCount > 0 ? (
+              <Badge className="bg-rose-600 text-white ml-0.5 px-1.5 py-0 text-[10px] font-bold">
+                {urgentHealthAlertsCount}
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px] font-bold">
+                {healthAlertItems.length}
+              </Badge>
+            )}
           </TabsTrigger>
-          <TabsTrigger value="relatorios" className="shrink-0">
-            Relatórios
-          </TabsTrigger>
-          <TabsTrigger value="agenda" className="shrink-0">
-            Agendamentos
-          </TabsTrigger>
-          <TabsTrigger value="retirada-entrega" className="shrink-0">
-            Retirada/Entrega
-          </TabsTrigger>
-          <TabsTrigger value="retornos" className="shrink-0">
-            Retornos
-          </TabsTrigger>
-          <TabsTrigger value="clinica" className="shrink-0">
-            Clínica
-          </TabsTrigger>
-          <TabsTrigger value="pedidos" className="shrink-0">
-            Pedidos
-          </TabsTrigger>
-          <TabsTrigger value="servicos" className="shrink-0">
-            Serviços
-          </TabsTrigger>
-          <TabsTrigger value="produtos" className="shrink-0">
-            Produtos
+
+          <TabsTrigger
+            value="gestao"
+            className="h-10 rounded-xl text-xs font-bold gap-1.5 data-[state=active]:bg-card data-[state=active]:shadow-xs"
+          >
+            <Settings className="h-3.5 w-3.5 text-primary" />
+            Gestão & Cadastros
+            {curveACriticalAlerts.length > 0 && (
+              <Badge className="bg-amber-500 text-white ml-0.5 px-1.5 py-0 text-[10px] font-bold">
+                ⚠️
+              </Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent
-          value="dashboard"
-          className="mt-4 space-y-3 md:columns-2 md:gap-3 md:space-y-0 md:[&>div]:mb-3 md:[&>div]:break-inside-avoid"
-        >
-          {pendingAppointments.length > 0 ? (
-            <div className="rounded-2xl border-2 border-primary/40 bg-secondary p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Novos agendamentos ({pendingAppointments.length})
-              </p>
-              <div className="mt-2 space-y-2">
-                {pendingAppointments.slice(0, 6).map((item) => {
-                  const clientInfo = getClientAbcInfo(item.user_id);
-                  const clientName = profileById.get(item.user_id)?.full_name || clientInfo?.name || "Cliente";
-                  const clientPhone = profileById.get(item.user_id)?.phone || clientInfo?.phone;
+        {/* ABA 1: OPERACIONAL (HOJE) */}
+        <TabsContent value="hoje" className="mt-4 space-y-4">
+          {/* Kanban Operacional do Dia (3 Etapas: Aguardando -> Em Andamento -> Pronto/Concluído) */}
+          <AdminOperationalKanban
+            items={kanbanItems}
+            onAdvanceStatus={handleKanbanAdvance}
+            onConfirmAppointment={(appointmentId) => {
+              const appt = (appointments ?? []).find((a) => a.id === appointmentId);
+              if (appt) confirmAppointment.mutate(appt);
+            }}
+            onCancelAppointment={(appointmentId) => cancelAppointment.mutate(appointmentId)}
+            onOpenPetRecord={(petId) => {
+              setRecordPetId(petId);
+              setCurrentTab("gestao");
+              setGestaoSubTab("clinica");
+            }}
+          />
 
-                  return (
-                    <div
-                      key={item.id}
-                      className={cn(
-                        "rounded-xl bg-card p-3 shadow-card transition-all relative overflow-hidden",
-                        clientInfo?.abcClass === "A"
-                          ? "border-2 border-emerald-500/60 shadow-md ring-1 ring-emerald-500/20"
-                          : clientInfo?.abcClass === "B"
-                          ? "border-2 border-blue-500/50"
-                          : "border border-border/40",
-                      )}
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <p className="text-sm font-bold text-foreground truncate">{clientName}</p>
-                            {clientInfo && (
-                              <Badge className={cn("text-[10px] font-bold px-1.5 py-0.2", clientInfo.suggestion.badgeClass)}>
-                                {clientInfo.suggestion.badgeLabel}
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs font-semibold text-primary mt-0.5">
-                            {item.services?.name ?? "Serviço"}
-                            {item.pets?.name ? ` · 🐾 ${item.pets.name}` : ""}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {formatDateTime(item.scheduled_at)}
-                            {clientPhone ? ` · 📞 ${clientPhone}` : ""}
-                          </p>
-                        </div>
-
-                        <div className="text-right shrink-0">
-                          <Badge variant="secondary" className="capitalize text-[11px]">
-                            {item.status}
-                          </Badge>
-                          {clientInfo && clientInfo.ltvCents > 0 && (
-                            <p className="text-[10px] font-medium text-muted-foreground mt-0.5">
-                              Gasto Total: {formatBRL(clientInfo.ltvCents)} ({clientInfo.visitsCount} visitas)
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Box de Ação Proposta de acordo com o Volume de Negócios */}
-                      {clientInfo && (
-                        <div
-                          className={cn(
-                            "mt-2.5 rounded-xl p-2.5 text-xs space-y-1.5",
-                            clientInfo.abcClass === "A"
-                              ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-950 dark:text-emerald-100"
-                              : clientInfo.abcClass === "B"
-                              ? "bg-blue-500/10 border border-blue-500/30 text-blue-950 dark:text-blue-100"
-                              : "bg-secondary/40 border border-border/40 text-muted-foreground",
-                          )}
-                        >
-                          <div className="flex items-center justify-between font-bold text-[11px]">
-                            <span>{clientInfo.suggestion.title}</span>
-                            <span className="font-extrabold text-primary">{clientInfo.suggestion.suggestedOffer}</span>
-                          </div>
-                          <p className="text-[11px] leading-relaxed">
-                            {clientInfo.suggestion.actionSummary}
-                          </p>
-
-                          {clientPhone && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className={cn(
-                                "mt-1 h-8 w-full rounded-lg text-xs font-bold gap-1.5 transition-colors",
-                                clientInfo.abcClass === "A"
-                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white border-transparent shadow-sm"
-                                  : clientInfo.abcClass === "B"
-                                  ? "bg-blue-600 hover:bg-blue-700 text-white border-transparent shadow-sm"
-                                  : "hover:bg-secondary",
-                              )}
-                              onClick={() => {
-                                const petName = item.pets?.name ?? undefined;
-                                const msg = clientInfo.suggestion.whatsappMessageTemplate(clientName, petName);
-                                const link = whatsappLinkTo(clientPhone, msg);
-                                if (link) window.open(link, "_blank", "noopener,noreferrer");
-                              }}
-                            >
-                              <MessageCircle className="h-3.5 w-3.5" />
-                              Confirmar c/ Oferta Especial no WhatsApp
-                            </Button>
-                          )}
-                        </div>
-                      )}
-
-                      <Button
-                        size="sm"
-                        variant={clientInfo?.abcClass === "A" ? "secondary" : "default"}
-                        className="mt-2 h-9 w-full rounded-xl text-xs"
-                        disabled={confirmAppointment.isPending}
-                        onClick={() => confirmAppointment.mutate(item)}
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                        Confirmar agendamento
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-              {pendingAppointments.length > 6 && (
-                <p className="mt-2 text-[11px] text-muted-foreground">
-                  + {pendingAppointments.length - 6} na aba Agendamentos.
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className="rounded-2xl bg-card p-3 shadow-card">
-              <p className="text-sm text-muted-foreground">Nenhum agendamento novo no momento.</p>
-            </div>
-          )}
-
+          {/* Aniversariantes de Hoje e Amanhã */}
           {birthdaysSoon.length > 0 && (
-            <div className="rounded-2xl border-2 border-gold/50 bg-secondary p-3">
-              <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                <Gift className="h-3.5 w-3.5 text-gold" />
+            <div className="rounded-2xl border border-gold/50 bg-secondary/50 p-3 shadow-xs">
+              <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-foreground">
+                <Gift className="h-4 w-4 text-gold" />
                 Nivers de hoje e amanhã ({birthdaysSoon.length})
               </p>
-              <div className="mt-2 space-y-2">
+              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {birthdaysSoon.map((entry) => {
                   const isToday = entry.when === "hoje";
                   const message = isToday
@@ -2430,335 +2308,335 @@ function Admin() {
                       : `Oi, ${entry.ownerName}! Amanhã é seu aniversário 🎉 Já vamos preparar ${BIRTHDAY_DISCOUNT_PERCENT}% de desconto em banho ou tosa pro seu pet pra comemorar — quer garantir o horário?`;
                   const link = whatsappLinkTo(entry.phone, message);
                   return (
-                    <div key={entry.key} className="rounded-xl bg-card p-2.5 shadow-card">
+                    <div key={entry.key} className="rounded-xl bg-card p-2.5 shadow-xs border border-border/60">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-semibold">
+                        <p className="text-xs font-bold text-foreground truncate">
                           {entry.kind === "pet" ? entry.petName : entry.ownerName}
                           {entry.kind === "pet" && (
-                            <span className="ml-1 font-normal text-muted-foreground">
+                            <span className="ml-1 font-normal text-muted-foreground text-[11px]">
                               · {entry.ownerName}
                             </span>
                           )}
                         </p>
-                        <Badge variant={isToday ? "default" : "secondary"} className="shrink-0">
+                        <Badge variant={isToday ? "default" : "secondary"} className="shrink-0 text-[10px] py-0">
                           {isToday ? "Hoje" : "Amanhã"}
                         </Badge>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {entry.kind === "pet"
-                          ? `Aniversário do pet${entry.petAge ? ` · ${entry.petAge} de vida` : ""}`
-                          : "Aniversário do dono"}
-                      </p>
-                      {isSentToday(entry.lastBirthdayMessageSentAt) && (
-                        <p className="mt-1.5 text-[11px] font-semibold text-primary">
-                          ✓ Mensagem já enviada hoje
-                        </p>
+                      {link && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="mt-2 h-7 w-full rounded-lg text-xs font-semibold"
+                          onClick={() => {
+                            window.open(link, "_blank", "noopener,noreferrer");
+                            markBirthdayMessageSent.mutate(entry.ownerId);
+                          }}
+                        >
+                          <MessageCircle className="h-3.5 w-3.5 mr-1" />
+                          Parabéns no WhatsApp
+                        </Button>
                       )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Limites de Capacidade por Hora */}
+          <div className="rounded-2xl border border-border/80 bg-card p-3.5 shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2 pb-2 border-b border-border/60">
+              <div className="flex items-center gap-1.5">
+                <Sliders className="h-4 w-4 text-primary" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                  Capacidade da Agenda por Hora
+                </h3>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs font-bold gap-1 text-primary hover:bg-primary/10"
+                onClick={() => testSoundAlert()}
+              >
+                <Volume2 className="h-3.5 w-3.5 text-primary" />
+                Testar Alerta Sonoro
+              </Button>
+            </div>
+
+            <p className="text-xs text-muted-foreground mb-3">
+              Define o número máximo de agendamentos simultâneos na mesma hora.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Banhos por hora:</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  className="h-8 rounded-xl text-xs font-bold"
+                  value={capacitySettings.maxBanhosPerHour}
+                  onChange={(e) =>
+                    setCapacitySettings((prev) => ({
+                      ...prev,
+                      maxBanhosPerHour: Math.max(1, parseInt(e.target.value) || 1),
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Tosas por hora:</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  className="h-8 rounded-xl text-xs font-bold"
+                  value={capacitySettings.maxTosasPerHour}
+                  onChange={(e) =>
+                    setCapacitySettings((prev) => ({
+                      ...prev,
+                      maxTosasPerHour: Math.max(1, parseInt(e.target.value) || 1),
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Consultas/Geral por hora:</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  className="h-8 rounded-xl text-xs font-bold"
+                  value={capacitySettings.maxGeralPerHour}
+                  onChange={(e) =>
+                    setCapacitySettings((prev) => ({
+                      ...prev,
+                      maxGeralPerHour: Math.max(1, parseInt(e.target.value) || 1),
+                    }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="mt-3 flex justify-end">
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 rounded-xl text-xs font-semibold"
+                onClick={handleSaveCapacity}
+              >
+                Salvar Limites de Capacidade
+              </Button>
+            </div>
+          </div>
+
+          {/* Resumo de Agendamentos e Faturamento do Dia */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="rounded-2xl bg-card p-3 shadow-card border border-border/70">
+              <p className="text-xs font-bold uppercase tracking-wide text-foreground">
+                Agendamentos por Categoria
+              </p>
+              <div className="mt-2 overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-muted-foreground border-b border-border/60">
+                      <th className="py-1 pr-2 font-medium">Categoria</th>
+                      <th className="px-2 py-1 text-center font-medium">Hoje</th>
+                      <th className="px-2 py-1 text-center font-medium">Semana</th>
+                      <th className="px-2 py-1 text-center font-medium">Mês</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {serviceCategories.map((cat) => (
+                      <tr key={cat} className="border-t border-border/40">
+                        <td className="py-1.5 pr-2">{serviceCategoryLabels[cat]}</td>
+                        <td className="px-2 py-1.5 text-center font-semibold">
+                          {dashboardStats.apptByCategory[cat]?.day ?? 0}
+                        </td>
+                        <td className="px-2 py-1.5 text-center font-semibold">
+                          {dashboardStats.apptByCategory[cat]?.week ?? 0}
+                        </td>
+                        <td className="px-2 py-1.5 text-center font-semibold">
+                          {dashboardStats.apptByCategory[cat]?.month ?? 0}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="border-t border-border font-bold text-primary">
+                      <td className="py-1.5 pr-2">Total</td>
+                      <td className="px-2 py-1.5 text-center">{dashboardStats.apptTotal.day}</td>
+                      <td className="px-2 py-1.5 text-center">{dashboardStats.apptTotal.week}</td>
+                      <td className="px-2 py-1.5 text-center">{dashboardStats.apptTotal.month}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-card p-3 shadow-card border border-border/70">
+              <p className="text-xs font-bold uppercase tracking-wide text-foreground">
+                Faturamento de Serviços Executados
+              </p>
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {(
+                  [
+                    ["Hoje", dashboardStats.serviceCounts.day, dashboardStats.serviceRevenue.day],
+                    ["Semana", dashboardStats.serviceCounts.week, dashboardStats.serviceRevenue.week],
+                    ["Mês", dashboardStats.serviceCounts.month, dashboardStats.serviceRevenue.month],
+                  ] as const
+                ).map(([label, count, cents]) => (
+                  <div key={label} className="rounded-xl surface-paper p-2 text-center border border-border/40">
+                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">{label}</p>
+                    <p className="font-display text-base sm:text-lg font-bold text-primary mt-0.5">{formatBRL(cents)}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {count} serviço{count === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2.5 text-[11px] text-muted-foreground">
+                Concluídos hoje: <strong>{dashboardStats.executedToday.length}</strong> atendimento(s).
+              </p>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* ABA 2: ATENDIMENTO & CHAT */}
+        <TabsContent value="comunicacao" className="mt-4 space-y-4">
+          <div className="rounded-2xl border border-border/80 bg-card p-3.5 shadow-card">
+            <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-border/60">
+              <div className="flex items-center gap-2">
+                <MessageCircle className="h-4 w-4 text-primary" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                  Fila de Chamados Recentes ({chatQueue.length})
+                </h3>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs font-bold rounded-lg"
+                onClick={() => openInAppChat()}
+              >
+                Abrir Drawer de Chat
+              </Button>
+            </div>
+
+            <div className="mt-3 space-y-2">
+              {chatQueue.length === 0 ? (
+                <div className="p-4 rounded-xl border border-dashed border-border/80 text-center text-xs text-muted-foreground">
+                  Nenhum chamado pendente no momento. Todas as conversas estão em dia!
+                </div>
+              ) : (
+                chatQueue.slice(0, 3).map((conv) => {
+                  const hasUnread = conv.unreadCountStore > 0;
+                  return (
+                    <div
+                      key={conv.conversationId}
+                      className={cn(
+                        "rounded-xl border p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs",
+                        hasUnread
+                          ? "border-emerald-500/50 bg-emerald-50/50 dark:bg-emerald-950/20"
+                          : "border-border/70 bg-card"
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-xs text-foreground">{conv.tutorName}</span>
+                          {conv.petName && (
+                            <Badge variant="secondary" className="text-[10px] py-0 font-bold">
+                              🐾 {conv.petName}
+                            </Badge>
+                          )}
+                          {hasUnread && (
+                            <Badge className="bg-emerald-600 text-white text-[9px] py-0 px-1.5 font-bold">
+                              {conv.unreadCountStore} nova(s)
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground line-clamp-1">
+                          "{conv.lastMessageText}"
+                        </p>
+                      </div>
+
                       <Button
                         size="sm"
-                        variant="secondary"
-                        className="mt-2 h-9 w-full rounded-xl"
-                        disabled={!link}
-                        onClick={() => {
-                          if (!link) return;
-                          window.open(link, "_blank", "noopener,noreferrer");
-                          markBirthdayMessageSent.mutate(entry.ownerId);
-                        }}
+                        onClick={() =>
+                          openInAppChat({
+                            conversationId: conv.conversationId,
+                            tutorName: conv.tutorName,
+                            petName: conv.petName ?? undefined,
+                            contextTag: conv.contextTag ?? undefined,
+                          })
+                        }
+                        className="h-8 rounded-xl text-xs font-semibold gap-1.5 px-3 bg-primary text-primary-foreground hover:bg-primary/90 shrink-0"
                       >
-                        <MessageCircle className="h-4 w-4" />
-                        {link
-                          ? isToday
-                            ? isSentToday(entry.lastBirthdayMessageSentAt)
-                              ? "Enviar de novo pelo WhatsApp"
-                              : "Enviar parabéns + oferta no WhatsApp"
-                            : "Avisar + oferta no WhatsApp"
-                          : "Sem telefone cadastrado"}
+                        <MessageCircle className="h-3.5 w-3.5" />
+                        Responder
                       </Button>
                     </div>
                   );
-                })}
-              </div>
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                Revise a mensagem no WhatsApp antes de enviar — nada é enviado automaticamente.
-              </p>
-            </div>
-          )}
-
-          {returnsNext30Days.length > 0 && (
-            <div className="rounded-2xl bg-card p-3 shadow-card">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Vacinas e retornos (30 dias) · {returnsNext30Days.length}
-              </p>
-              <div className="mt-2 space-y-1.5">
-                {returnsNext30Days.slice(0, 8).map((item) => {
-                  const isHoje = item.days === 0;
-                  return (
-                    <div
-                      key={item.key}
-                      className={cn(
-                        "flex items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-xs transition-all",
-                        isHoje
-                          ? "border-2 border-emerald-500/80 bg-emerald-50/60 dark:border-emerald-500/60 dark:bg-emerald-950/30 text-emerald-950 dark:text-emerald-100 font-medium ring-1 ring-emerald-400/40"
-                          : "surface-paper",
-                      )}
-                    >
-                      <span className="min-w-0 truncate">
-                        <span className="font-semibold">{item.petName}</span>{" "}
-                        <span className="text-muted-foreground">· {item.title}</span>
-                      </span>
-                      <Badge
-                        variant="secondary"
-                        className={cn(
-                          "shrink-0 whitespace-nowrap",
-                          isHoje
-                            ? "bg-emerald-600 text-white font-bold"
-                            : item.days <= 1
-                              ? "bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300"
-                              : "bg-secondary text-secondary-foreground",
-                        )}
-                      >
-                        {item.days === 0
-                          ? "Retorno hoje"
-                          : item.days === 1
-                            ? "Amanhã"
-                            : `Em ${item.days} dias`}
-                      </Badge>
-                    </div>
-                  );
-                })}
-              </div>
-              {returnsNext30Days.length > 8 && (
-                <p className="mt-2 text-[11px] text-muted-foreground">
-                  + {returnsNext30Days.length - 8} na aba Retornos.
-                </p>
+                })
               )}
             </div>
-          )}
-
-          <div className="rounded-2xl bg-card p-3 shadow-card">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Agendamentos
-            </p>
-            <div className="mt-2 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-muted-foreground">
-                    <th className="py-1 pr-2 font-medium">Categoria</th>
-                    <th className="px-2 py-1 text-center font-medium">Hoje</th>
-                    <th className="px-2 py-1 text-center font-medium">Semana</th>
-                    <th className="px-2 py-1 text-center font-medium">Mês</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {serviceCategories.map((cat) => (
-                    <tr key={cat} className="border-t border-border/60">
-                      <td className="py-1.5 pr-2">{serviceCategoryLabels[cat]}</td>
-                      <td className="px-2 py-1.5 text-center font-semibold">
-                        {dashboardStats.apptByCategory[cat]?.day ?? 0}
-                      </td>
-                      <td className="px-2 py-1.5 text-center font-semibold">
-                        {dashboardStats.apptByCategory[cat]?.week ?? 0}
-                      </td>
-                      <td className="px-2 py-1.5 text-center font-semibold">
-                        {dashboardStats.apptByCategory[cat]?.month ?? 0}
-                      </td>
-                    </tr>
-                  ))}
-                  <tr className="border-t border-border/60 font-semibold text-primary">
-                    <td className="py-1.5 pr-2">Total</td>
-                    <td className="px-2 py-1.5 text-center">{dashboardStats.apptTotal.day}</td>
-                    <td className="px-2 py-1.5 text-center">{dashboardStats.apptTotal.week}</td>
-                    <td className="px-2 py-1.5 text-center">{dashboardStats.apptTotal.month}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              Não inclui agendamentos cancelados.
-            </p>
           </div>
 
-          <div className="rounded-2xl bg-card p-3 shadow-card">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Serviços executados
-            </p>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {(
-                [
-                  ["Hoje", dashboardStats.serviceCounts.day, dashboardStats.serviceRevenue.day],
-                  ["Semana", dashboardStats.serviceCounts.week, dashboardStats.serviceRevenue.week],
-                  ["Mês", dashboardStats.serviceCounts.month, dashboardStats.serviceRevenue.month],
-                ] as const
-              ).map(([label, count, cents]) => (
-                <div key={label} className="rounded-xl surface-paper p-2 text-center">
-                  <p className="text-[11px] text-muted-foreground">{label}</p>
-                  <p className="font-display text-lg text-primary">{formatBRL(cents)}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {count} serviço{count === 1 ? "" : "s"}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Executados hoje ({dashboardStats.executedToday.length})
-            </p>
-            {dashboardStats.executedToday.length > 0 ? (
-              <ul className="mt-1.5 space-y-1.5">
-                {dashboardStats.executedToday.map((item) => (
-                  <li
-                    key={item.id}
-                    className="flex items-start justify-between gap-2 rounded-xl surface-paper p-2"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-semibold">
-                        {item.services?.name ?? "Serviço"}
-                      </p>
-                      <p className="truncate text-[11px] text-muted-foreground">
-                        {formatDateTime(item.scheduled_at)}
-                        {item.pets?.name ? ` · ${item.pets.name}` : ""}
-                      </p>
-                    </div>
-                    <p className="shrink-0 text-xs font-semibold text-primary">
-                      {formatBRL(item.service_price_cents ?? 0)}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-1.5 text-[11px] text-muted-foreground">
-                Nenhum serviço concluído hoje ainda.
-              </p>
-            )}
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              Só entra aqui o que já foi executado: agendamento marcado como concluído ou que já
-              passou do atendimento no transporte. Ainda em aberto no mês:{" "}
-              {formatBRL(dashboardStats.serviceOpenRevenue.month)}. Não inclui a taxa de transporte.
-            </p>
-          </div>
-
-          <div className="rounded-2xl bg-card p-3 shadow-card">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Vendas de produtos
-            </p>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {(
-                [
-                  ["Hoje", dashboardStats.orderCounts.day, dashboardStats.orderRevenue.day],
-                  ["Semana", dashboardStats.orderCounts.week, dashboardStats.orderRevenue.week],
-                  ["Mês", dashboardStats.orderCounts.month, dashboardStats.orderRevenue.month],
-                ] as const
-              ).map(([label, count, cents]) => (
-                <div key={label} className="rounded-xl surface-paper p-2 text-center">
-                  <p className="text-[11px] text-muted-foreground">{label}</p>
-                  <p className="font-display text-lg text-primary">{formatBRL(cents)}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {count} pedido{count === 1 ? "" : "s"}
-                  </p>
-                </div>
-              ))}
-            </div>
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              Só conta pedidos já entregues. Ainda em aberto no mês (novos e em preparo):{" "}
-              {formatBRL(dashboardStats.orderOpenRevenue.month)}.
-            </p>
-          </div>
-
-          <div className="rounded-2xl bg-card p-3 shadow-card">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Clientes novos cadastrados
-            </p>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {(
-                [
-                  ["Hoje", "day", dashboardStats.newClients.day],
-                  ["Semana", "week", dashboardStats.newClients.week],
-                  ["Mês", "month", dashboardStats.newClients.month],
-                ] as const
-              ).map(([label, key, count]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setNewClientsFilter(key)}
-                  className={
-                    newClientsFilter === key
-                      ? "rounded-xl bg-primary p-2 text-center text-primary-foreground shadow-card"
-                      : "rounded-xl surface-paper p-2 text-center transition-colors"
-                  }
-                >
-                  <p
-                    className={
-                      newClientsFilter === key
-                        ? "text-[11px] text-primary-foreground/80"
-                        : "text-[11px] text-muted-foreground"
-                    }
-                  >
-                    {label}
-                  </p>
-                  <p
-                    className={
-                      newClientsFilter === key
-                        ? "font-display text-xl"
-                        : "font-display text-xl text-primary"
-                    }
-                  >
-                    {count}
-                  </p>
-                </button>
-              ))}
-            </div>
-            {filteredNewClients.length > 0 ? (
-              <ul className="mt-3 space-y-1.5">
-                {filteredNewClients.map((client) => (
-                  <li
-                    key={client.id}
-                    className="flex items-center justify-between gap-2 rounded-xl surface-paper px-2.5 py-2 text-xs"
-                  >
-                    <span className="min-w-0 truncate">
-                      <span className="font-semibold">{client.fullName}</span>
-                      {client.petNames.length > 0 && (
-                        <span className="text-muted-foreground">
-                          {" "}
-                          · {client.petNames.join(", ")}
-                        </span>
-                      )}
-                    </span>
-                    <span className="shrink-0 text-muted-foreground">
-                      {formatDate(client.createdAt.slice(0, 10))}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Nenhum cliente novo nesse período.
-              </p>
-            )}
-          </div>
-
-          <div className="rounded-2xl bg-card p-3 shadow-card">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Retorno da Campanha Niver
-            </p>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {(
-                [
-                  ["Hoje", dashboardStats.campaignNiver.day],
-                  ["Semana", dashboardStats.campaignNiver.week],
-                  ["Mês", dashboardStats.campaignNiver.month],
-                ] as const
-              ).map(([label, count]) => (
-                <div key={label} className="rounded-xl surface-paper p-2 text-center">
-                  <p className="text-[11px] text-muted-foreground">{label}</p>
-                  <p className="font-display text-xl text-primary">{count}</p>
-                </div>
-              ))}
-            </div>
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              Agendamentos marcados manualmente como "Campanha Niver" na aba Agendamentos.
-            </p>
+          <div id="tab-atendimentos-section">
+            <AdminChatLogs />
           </div>
         </TabsContent>
+
+        {/* ABA 3: SAÚDE & RETORNOS */}
+        <TabsContent value="saude" className="mt-4 space-y-4">
+          <AdminHealthAlertsGrouped
+            alerts={healthAlertItems}
+            onCompleteReminder={(reminderId) => completeReturnReminder.mutate(reminderId)}
+            onOpenPetRecord={(petId) => {
+              setRecordPetId(petId);
+              setCurrentTab("gestao");
+              setGestaoSubTab("clinica");
+            }}
+          />
+        </TabsContent>
+
+        {/* ABA 4: GESTÃO & CADASTROS */}
+        <TabsContent value="gestao" className="mt-4 space-y-4">
+          <Tabs value={gestaoSubTab} onValueChange={setGestaoSubTab}>
+            <TabsList className="flex w-full items-center justify-start gap-1 overflow-x-auto pb-1 bg-muted/60 p-1 rounded-2xl">
+              <TabsTrigger value="clientes" className="rounded-xl text-xs font-bold shrink-0">
+                Clientes
+              </TabsTrigger>
+              <TabsTrigger value="novo-cliente" className="rounded-xl text-xs font-bold shrink-0">
+                + Novo Cliente
+              </TabsTrigger>
+              <TabsTrigger value="relatorios" className="rounded-xl text-xs font-bold shrink-0">
+                Relatórios (Curva ABC)
+              </TabsTrigger>
+              <TabsTrigger value="pedidos" className="rounded-xl text-xs font-bold shrink-0">
+                Pedidos Loja
+              </TabsTrigger>
+              <TabsTrigger value="servicos" className="rounded-xl text-xs font-bold shrink-0">
+                Serviços
+              </TabsTrigger>
+              <TabsTrigger value="produtos" className="rounded-xl text-xs font-bold gap-1 shrink-0">
+                Produtos
+                {curveACriticalAlerts.length > 0 && (
+                  <Badge className="bg-amber-500 text-white text-[9px] py-0 px-1 font-bold">
+                    ⚠️ {curveACriticalAlerts.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="clinica" className="rounded-xl text-xs font-bold shrink-0">
+                Prontuários / Clínica
+              </TabsTrigger>
+              <TabsTrigger value="agenda" className="rounded-xl text-xs font-bold shrink-0">
+                Agendamentos Detalhados
+              </TabsTrigger>
+              <TabsTrigger value="retirada-entrega" className="rounded-xl text-xs font-bold shrink-0">
+                Logística Completa
+              </TabsTrigger>
+            </TabsList>
 
         <TabsContent value="novo-cliente" className="mt-4 space-y-3">
           {duplicateEmailNotice && (
@@ -4782,129 +4660,6 @@ function Admin() {
           )}
         </TabsContent>
 
-        <TabsContent value="retornos" className="mt-4 space-y-3">
-          <p className="text-xs text-muted-foreground">
-            Mensagens de retorno do dia. Escolha um tipo para liberar o calendário e ver outras
-            datas.
-          </p>
-
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              onClick={() => setReturnFilter("todos")}
-              className={
-                returnFilter === "todos"
-                  ? "rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground"
-                  : "rounded-lg bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground"
-              }
-            >
-              Todos (hoje)
-            </button>
-            {returnTypes.map((type) => (
-              <button
-                key={type}
-                onClick={() => setReturnFilter(type)}
-                className={
-                  returnFilter === type
-                    ? "rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground"
-                    : "rounded-lg bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground"
-                }
-              >
-                {returnTypeLabels[type]}
-              </button>
-            ))}
-          </div>
-
-          {returnFilter !== "todos" && (
-            <div className="rounded-2xl bg-card p-2 shadow-card">
-              <Calendar
-                mode="single"
-                selected={returnDate}
-                onSelect={(date) => date && setReturnDate(date)}
-                className="mx-auto"
-              />
-            </div>
-          )}
-
-          <ul className="space-y-2">
-            {filteredReturns.map((item) => {
-              const client = item.ownerId ? profileById.get(item.ownerId) : undefined;
-              const message = `Olá${client?.full_name ? `, ${client.full_name}` : ""}! Aqui é do ${CLINIC.name}. Passando para lembrar: ${item.title} do seu pet ${item.petName}, previsto para ${formatDate(item.dueDate)}. Podemos agendar?`;
-              const link = whatsappLinkTo(client?.phone, message);
-              const isHoje = item.dueDate === (returnFilter === "todos" ? todayISODate() : selectedReturnDateISO) && item.dueDate === todayISODate();
-              return (
-                <li
-                  key={item.key}
-                  className={cn(
-                    "rounded-2xl p-3 shadow-card transition-all",
-                    isHoje
-                      ? "border-2 border-emerald-500/80 bg-emerald-50/60 dark:border-emerald-500/60 dark:bg-emerald-950/30 ring-1 ring-emerald-400/40 shadow-md"
-                      : "bg-card",
-                  )}
-                >
-                  {isHoje && (
-                    <div className="mb-2 flex items-center justify-between gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:text-emerald-200">
-                      <span className="flex items-center gap-1.5">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
-                        </span>
-                        🟢 Retorno previsto para hoje
-                      </span>
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-                        Hoje
-                      </span>
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <Badge variant="outline" className="mb-1 text-[10px]">
-                      {returnTypeLabels[item.type]}
-                    </Badge>
-                    <p className="truncate text-sm font-semibold">
-                      <Syringe className="mr-1 inline h-3.5 w-3.5 text-primary" />
-                      {item.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.petName} · {formatDate(item.dueDate)}
-                    </p>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {link ? (
-                      <a
-                        href={link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground"
-                      >
-                        <MessageCircle className="h-3.5 w-3.5" />
-                        Enviar lembrete no WhatsApp
-                      </a>
-                    ) : (
-                      <span className="text-[11px] text-muted-foreground">
-                        Cliente sem telefone cadastrado
-                      </span>
-                    )}
-                    {item.reminderId && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-[11px]"
-                        onClick={() => completeReturnReminder.mutate(item.reminderId!)}
-                      >
-                        Concluir
-                      </Button>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-            {filteredReturns.length === 0 && (
-              <li className="text-sm text-muted-foreground">
-                Nenhum retorno para esse filtro/data.
-              </li>
-            )}
-          </ul>
-        </TabsContent>
-
         <TabsContent value="pedidos" className="mt-4 space-y-2">
           {sortedOrders.map((order) => {
             const clientInfo = getClientAbcInfo(order.user_id, order.phone);
@@ -5149,12 +4904,10 @@ function Admin() {
             />
           ))}
         </TabsContent>
-
-        <TabsContent id="tab-atendimentos-section" value="atendimentos" className="mt-4">
-          <AdminChatLogs />
-        </TabsContent>
       </Tabs>
-    </div>
+    </TabsContent>
+  </Tabs>
+</div>
   );
 }
 
