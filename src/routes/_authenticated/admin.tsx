@@ -87,6 +87,7 @@ import { CurvaAbcProdutos } from "@/components/CurvaAbcProdutos";
 import { CurvaAbcServicos } from "@/components/CurvaAbcServicos";
 import { CurvaAbcClientes } from "@/components/CurvaAbcClientes";
 import { RelatorioEntregasMotoristas } from "@/components/RelatorioEntregasMotoristas";
+import { RelatorioAtendimentosPeriodo } from "@/components/RelatorioAtendimentosPeriodo";
 import { openInAppChat } from "@/components/InAppChatDrawer";
 import { useChatQueue } from "@/lib/inAppChat";
 import { AdminChatLogs } from "@/components/AdminChatLogs";
@@ -1509,7 +1510,7 @@ function Admin() {
 
   // --- Aba "Relatórios": geração de Excel/PDF de vendas + serviços ---
   const [reportSubTab, setReportSubTab] = useState<
-    "financeiro" | "abc-produtos" | "abc-servicos" | "abc-clientes" | "entregas-motoristas"
+    "financeiro" | "abc-produtos" | "abc-servicos" | "abc-clientes" | "entregas-motoristas" | "atendimentos-periodo"
   >("financeiro");
   const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("mes");
   const [reportFrom, setReportFrom] = useState(todayISODate());
@@ -3677,6 +3678,18 @@ function Admin() {
             >
               🚚 Entregas & Motoristas
             </button>
+            <button
+              type="button"
+              onClick={() => setReportSubTab("atendimentos-periodo")}
+              className={cn(
+                "rounded-xl px-3 py-2 text-xs font-semibold whitespace-nowrap transition-colors",
+                reportSubTab === "atendimentos-periodo"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+              )}
+            >
+              📅 Atendimentos por Período
+            </button>
           </div>
 
           {reportSubTab === "financeiro" && (
@@ -3862,6 +3875,7 @@ function Admin() {
       {reportSubTab === "abc-clientes" && <CurvaAbcClientes />}
 
       {reportSubTab === "entregas-motoristas" && <RelatorioEntregasMotoristas />}
+      {reportSubTab === "atendimentos-periodo" && <RelatorioAtendimentosPeriodo />}
     </TabsContent>
 
         <TabsContent value="clinica" className="mt-4 space-y-3">
