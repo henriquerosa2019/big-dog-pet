@@ -53,6 +53,7 @@ import { playStatusSound } from "@/lib/soundAlerts";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/motorista")({
+  ssr: false,
   head: () => ({
     meta: [{ title: "Painel do motorista | Big Dog Pet" }],
   }),

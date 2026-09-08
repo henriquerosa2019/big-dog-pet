@@ -54,7 +54,9 @@ test.describe('Painel Administrativo', () => {
 
   test('Deve navegar para a aba "Novo Cliente" e exibir o formulário', async ({ page }) => {
     // Clica na aba Novo Cliente
-    await page.getByRole('tab', { name: 'Novo Cliente' }).click();
+    const novoClienteTab = page.getByRole('tab', { name: 'Novo Cliente' });
+    await novoClienteTab.scrollIntoViewIfNeeded();
+    await novoClienteTab.click();
 
     // Valida presença dos campos principais do formulário
     await expect(page.locator('#nc-name')).toBeVisible();
@@ -113,5 +115,18 @@ test.describe('Painel Administrativo', () => {
     // Clica na aba Produtos
     await page.getByRole('tab', { name: 'Produtos' }).click();
     await expect(page.getByRole('tabpanel', { name: 'Produtos' })).toBeVisible();
+  });
+
+  test('Deve navegar para a aba Atendimentos & Chat ao clicar em Ver todos no painel da loja', async ({ page }) => {
+    // Clica no botão "Ver todos" do bloco de mensagens do chat
+    const verTodosBtn = page.locator('button:has-text("Ver todos")').first();
+    await expect(verTodosBtn).toBeVisible();
+    await verTodosBtn.click();
+
+    // Valida que o painel de Atendimentos & Chat carregou com os logs
+    await expect(page.locator('text=Log e Histórico de Atendimentos do Chat')).toBeVisible();
+    await expect(page.locator('text=Total de Chamados')).toBeVisible();
+    await expect(page.locator('text=Aguardando Loja')).toBeVisible();
+    await expect(page.locator('text=Respondidos')).toBeVisible();
   });
 });

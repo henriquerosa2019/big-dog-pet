@@ -6,6 +6,9 @@ import { useAuth } from "@/hooks/useAuth";
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
+    if (typeof window === "undefined") {
+      return { user: null };
+    }
     const { data: sessionData } = await supabase.auth.getSession();
     if (!sessionData.session?.user) {
       throw redirect({ to: "/auth" });

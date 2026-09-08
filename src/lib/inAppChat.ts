@@ -728,17 +728,23 @@ export function useChatQueue() {
   };
 
   useEffect(() => {
+    let mounted = true;
     getSupabaseChatChannel();
-    refresh();
 
-    const handleEvent = () => refresh();
+    const handleEvent = () => {
+      if (!mounted) return;
+      setConversations(getAllChatConversations());
+      setTotalUnread(getUnreadCount("loja"));
+    };
+
     window.addEventListener("bigdog_chat_event", handleEvent);
-    window.addEventListener("storage", refresh);
+    window.addEventListener("storage", handleEvent);
     broadcastChannel?.addEventListener("message", handleEvent);
 
     return () => {
+      mounted = false;
       window.removeEventListener("bigdog_chat_event", handleEvent);
-      window.removeEventListener("storage", refresh);
+      window.removeEventListener("storage", handleEvent);
       broadcastChannel?.removeEventListener("message", handleEvent);
     };
   }, []);

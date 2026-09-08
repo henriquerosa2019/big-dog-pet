@@ -127,6 +127,12 @@ import {
 } from "@/lib/transport";
 
 export const Route = createFileRoute("/_authenticated/admin")({
+  ssr: false,
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { tab?: string } => ({
+    ...(typeof search["tab"] === "string" ? { tab: search["tab"] as string } : {}),
+  }),
   head: () => ({
     meta: [
       { title: "Painel administrativo | Big Dog Pet" },
@@ -234,11 +240,19 @@ function formatChatRelativeTime(isoString: string) {
 }
 
 function Admin() {
+  const search = Route.useSearch();
   const { user, loading: authLoading } = useAuth();
-  const { isAdmin, loading: adminLoading } = useIsAdminStatus(user?.id);
+  const { isAdmin, loading: adminLoading } = useIsAdminStatus(user?.id, user?.email);
   const queryClient = useQueryClient();
   const { getClientAbcInfo } = useClientAbcMap();
-  const [currentTab, setCurrentTab] = useState("dashboard");
+  const [currentTab, setCurrentTab] = useState(search?.tab || "dashboard");
+
+  useEffect(() => {
+    if (search?.tab) {
+      setCurrentTab(search.tab);
+    }
+  }, [search?.tab]);
+
   const { conversations: chatQueue, totalUnread: totalChatUnread } = useChatQueue();
   const [capacitySettings, setCapacitySettings] = useState<CapacitySettings>(getCapacitySettings);
 
@@ -1985,7 +1999,7 @@ function Admin() {
               </span>
             </div>
             <h1 className="font-display text-2xl sm:text-3xl font-bold mt-1 tracking-tight">
-              Painel Big Dog Pet
+              Painel Administrativo · Big Dog Pet
             </h1>
             <p className="text-xs sm:text-sm text-primary-foreground/85 mt-0.5">
               {CLINIC.unit} · Vila Bazú, Franco da Rocha
@@ -2065,8 +2079,14 @@ function Admin() {
 
           <button
             type="button"
-            onClick={() => setCurrentTab("atendimentos")}
-            className="text-xs font-semibold text-primary hover:underline"
+            onClick={() => {
+              setCurrentTab("atendimentos");
+              setTimeout(() => {
+                const el = document.getElementById("tab-atendimentos-section") || document.querySelector('[role="tablist"]');
+                el?.scrollIntoView({ behavior: "smooth" });
+              }, 50);
+            }}
+            className="text-xs font-semibold text-primary hover:underline cursor-pointer"
           >
             Ver todos ({chatQueue.length})
           </button>
@@ -5130,7 +5150,7 @@ function Admin() {
           ))}
         </TabsContent>
 
-        <TabsContent value="atendimentos" className="mt-4">
+        <TabsContent id="tab-atendimentos-section" value="atendimentos" className="mt-4">
           <AdminChatLogs />
         </TabsContent>
       </Tabs>

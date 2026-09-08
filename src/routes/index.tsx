@@ -542,14 +542,23 @@ function Home() {
                 </h3>
               </div>
 
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs font-semibold text-primary hover:bg-primary/10 h-7"
-                onClick={() => openInAppChat()}
-              >
-                Ver Fila ({chatQueue.length})
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs font-semibold text-primary hover:bg-primary/10 h-7 px-2.5"
+                  onClick={() => openInAppChat()}
+                >
+                  Abrir Chat
+                </Button>
+                <Link
+                  to="/admin"
+                  search={{ tab: "atendimentos" }}
+                  className="text-xs font-semibold text-primary underline hover:opacity-80 px-1"
+                >
+                  Ver todos ({chatQueue.length})
+                </Link>
+              </div>
             </div>
 
             <div className="mt-3 space-y-2.5">

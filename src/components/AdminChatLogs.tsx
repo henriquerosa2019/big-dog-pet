@@ -32,6 +32,7 @@ import {
   type ChatMessage,
   type ChatPeriodFilter,
 } from "@/lib/inAppChat";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatDate, formatDateTime } from "@/lib/format";
 
@@ -78,27 +79,33 @@ export function AdminChatLogs() {
   };
 
   const handleExportCsv = () => {
-    const headers = ["Data/Hora", "Tutor", "Telefone", "Pet", "Contexto", "Status", "Ultima Mensagem", "Qtd Mensagens"];
-    const rows = logs.map((l) => [
-      `"${new Date(l.lastMessageAt).toLocaleString("pt-BR")}"`,
-      `"${l.tutorName.replace(/"/g, '""')}"`,
-      `"${(l.tutorPhone || "").replace(/"/g, '""')}"`,
-      `"${(l.petName || "").replace(/"/g, '""')}"`,
-      `"${(l.contextTag || "").replace(/"/g, '""')}"`,
-      `"${l.status}"`,
-      `"${l.lastMessageText.replace(/"/g, '""').replace(/\n/g, ' ')}"`,
-      l.messageCount,
-    ]);
+    try {
+      const headers = ["Data/Hora", "Tutor", "Telefone", "Pet", "Contexto", "Status", "Ultima Mensagem", "Qtd Mensagens"];
+      const rows = logs.map((l) => [
+        `"${new Date(l.lastMessageAt || Date.now()).toLocaleString("pt-BR")}"`,
+        `"${(l.tutorName || "").replace(/"/g, '""')}"`,
+        `"${(l.tutorPhone || "").replace(/"/g, '""')}"`,
+        `"${(l.petName || "").replace(/"/g, '""')}"`,
+        `"${(l.contextTag || "").replace(/"/g, '""')}"`,
+        `"${l.status || ""}"`,
+        `"${(l.lastMessageText || l.lastMessage?.text || "").replace(/"/g, '""').replace(/\n/g, ' ')}"`,
+        l.messageCount || 0,
+      ]);
 
-    const csvContent = [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
-    const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `log_atendimentos_chat_${period}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      const csvContent = [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
+      const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `log_atendimentos_chat_${period}_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("Relatório de atendimentos exportado com sucesso!");
+    } catch (err) {
+      console.error("Erro ao exportar CSV:", err);
+      toast.error("Não foi possível exportar a planilha no momento.");
+    }
   };
 
   return (
@@ -285,7 +292,7 @@ export function AdminChatLogs() {
 
                   <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
                     <strong className="text-foreground/80">Última msg: </strong>
-                    {item.lastMessageText}
+                    {item.lastMessageText || item.lastMessage?.text || "(Mensagem iniciada)"}
                   </p>
 
                   <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 pt-0.5">

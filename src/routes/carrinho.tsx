@@ -23,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/carrinho")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Carrinho | Loja Big Dog Pet" },

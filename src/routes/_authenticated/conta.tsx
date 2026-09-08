@@ -60,6 +60,7 @@ import {
 } from "@/lib/transport";
 
 export const Route = createFileRoute("/_authenticated/conta")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Minha conta | Big Dog Pet" },

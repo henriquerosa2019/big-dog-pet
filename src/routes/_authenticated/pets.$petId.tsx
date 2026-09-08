@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/pets/$petId")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Ficha do pet | Big Dog Pet" },

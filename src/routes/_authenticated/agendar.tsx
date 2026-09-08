@@ -52,6 +52,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/agendar")({
+  ssr: false,
   validateSearch: (
     search: Record<string, unknown>,
   ): { campanha?: string; cupom?: string; tipo?: string } => ({
