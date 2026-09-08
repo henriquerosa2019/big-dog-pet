@@ -2104,20 +2104,21 @@ function Admin() {
     const active = kanbanItems.filter(
       (i) => i.status !== "cancelado" && i.opsStatus !== "cancelado",
     );
-    const inProgress = active.filter(
-      (i) =>
-        i.opsStatus === "em_atendimento" ||
-        i.opsStatus === "em_deslocamento_retirada" ||
-        i.opsStatus === "em_rota_devolucao" ||
-        i.opsStatus === "retirado_em_transito_loja" ||
-        i.opsStatus === "cheguei_retirada" ||
-        i.opsStatus === "pronto_para_devolucao",
-    );
     const completed = active.filter(
       (i) =>
         i.status === "concluido" ||
         i.opsStatus === "entregue" ||
         (i.opsStatus === "concluido" && (!i.logisticsType || i.logisticsType === "levar")),
+    );
+    const inProgress = active.filter(
+      (i) =>
+        !completed.includes(i) &&
+        (i.opsStatus === "em_atendimento" ||
+          i.opsStatus === "em_deslocamento_retirada" ||
+          i.opsStatus === "em_rota_devolucao" ||
+          i.opsStatus === "retirado_em_transito_loja" ||
+          i.opsStatus === "cheguei_retirada" ||
+          i.opsStatus === "pronto_para_devolucao"),
     );
     const waiting = active.filter(
       (i) => !inProgress.includes(i) && !completed.includes(i),

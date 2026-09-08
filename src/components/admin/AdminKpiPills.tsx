@@ -191,12 +191,17 @@ export function AdminKpiPills({
                 <span className="text-muted-foreground font-semibold">Sem atendimentos</span>
               )}
             </p>
+            {todayServicesCount > 0 && (
+              <p className="text-[10px] text-muted-foreground truncate font-medium">
+                {waitingServicesCount ?? 0} aguardando · {inProgressServicesCount} andamento · {completedServicesCount ?? 0} prontos
+              </p>
+            )}
           </div>
         </div>
 
         {inProgressServicesCount > 0 ? (
           <Badge className="bg-violet-600 text-white text-[10px] font-extrabold px-1.5 py-0.5 shrink-0 shadow-xs">
-            {inProgressServicesCount} ativo{inProgressServicesCount > 1 ? "s" : ""}
+            {inProgressServicesCount} em andamento
           </Badge>
         ) : waitingServicesCount && waitingServicesCount > 0 ? (
           <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.5 shrink-0 text-amber-600 border-amber-500/40">
