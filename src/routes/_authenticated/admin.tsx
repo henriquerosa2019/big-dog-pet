@@ -2270,61 +2270,61 @@ function Admin() {
         <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full h-auto p-1 bg-muted/70 rounded-2xl gap-1">
           <TabsTrigger
             value="hoje"
-            className="h-10 rounded-xl text-xs font-bold gap-1.5 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-border/60"
+            className="group h-11 rounded-xl text-xs font-bold gap-1.5 px-3 transition-all text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/40 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-md [&[data-state=active]>svg]:text-white [&[data-state=active]>span]:text-white cursor-pointer"
           >
-            <Scissors className="h-3.5 w-3.5 text-primary" />
+            <Scissors className="h-4 w-4 text-primary transition-colors shrink-0" />
             <span>Operacional (Hoje)</span>
             {todayServicesCount > 0 && (
-              <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px] font-bold">
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-800 group-data-[state=active]:bg-white group-data-[state=active]:text-primary transition-colors">
                 {todayServicesCount}
-              </Badge>
+              </span>
             )}
           </TabsTrigger>
 
           <TabsTrigger
             value="comunicacao"
-            className="h-10 rounded-xl text-xs font-bold gap-1.5 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-border/60"
+            className="group h-11 rounded-xl text-xs font-bold gap-1.5 px-3 transition-all text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/40 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-md [&[data-state=active]>svg]:text-white [&[data-state=active]>span]:text-white cursor-pointer"
           >
-            <MessageCircle className="h-3.5 w-3.5 text-primary" />
+            <MessageCircle className="h-4 w-4 text-primary transition-colors shrink-0" />
             <span>Atendimento & Chat</span>
             {totalChatUnread > 0 ? (
-              <Badge className="bg-emerald-600 text-white ml-0.5 px-1.5 py-0 text-[10px] font-bold animate-pulse">
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-white animate-pulse shadow-xs">
                 {totalChatUnread}
-              </Badge>
+              </span>
             ) : chatQueue.length > 0 ? (
-              <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px] font-bold">
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-800 group-data-[state=active]:bg-white group-data-[state=active]:text-primary transition-colors">
                 {chatQueue.length}
-              </Badge>
+              </span>
             ) : null}
           </TabsTrigger>
 
           <TabsTrigger
             value="saude"
-            className="h-10 rounded-xl text-xs font-bold gap-1.5 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-border/60"
+            className="group h-11 rounded-xl text-xs font-bold gap-1.5 px-3 transition-all text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/40 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-md [&[data-state=active]>svg]:text-white [&[data-state=active]>span]:text-white cursor-pointer"
           >
-            <Syringe className="h-3.5 w-3.5 text-primary" />
+            <Syringe className="h-4 w-4 text-primary transition-colors shrink-0" />
             <span>Saúde & Retornos</span>
             {urgentHealthAlertsCount > 0 ? (
-              <Badge className="bg-rose-600 text-white ml-0.5 px-1.5 py-0 text-[10px] font-bold">
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white shadow-xs">
                 {urgentHealthAlertsCount}
-              </Badge>
+              </span>
             ) : (
-              <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px] font-bold">
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-800 group-data-[state=active]:bg-white group-data-[state=active]:text-primary transition-colors">
                 {healthAlertItems.length}
-              </Badge>
+              </span>
             )}
           </TabsTrigger>
 
           <TabsTrigger
             value="gestao"
-            className="h-10 rounded-xl text-xs font-bold gap-1.5 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-border/60"
+            className="group h-11 rounded-xl text-xs font-bold gap-1.5 px-3 transition-all text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/40 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-md [&[data-state=active]>svg]:text-white [&[data-state=active]>span]:text-white cursor-pointer"
           >
-            <Settings className="h-3.5 w-3.5 text-primary" />
+            <Settings className="h-4 w-4 text-primary transition-colors shrink-0" />
             <span>Gestão & Cadastros</span>
             {curveACriticalAlerts.length > 0 && (
-              <Badge className="bg-amber-500 text-white ml-0.5 px-1.5 py-0 text-[10px] font-bold">
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-400 text-amber-950 shadow-xs">
                 ⚠️
-              </Badge>
+              </span>
             )}
           </TabsTrigger>
         </TabsList>
@@ -2666,36 +2666,36 @@ function Admin() {
         <TabsContent value="gestao" className="mt-4 space-y-4">
           <Tabs value={gestaoSubTab} onValueChange={setGestaoSubTab}>
             <TabsList className="flex w-full items-center justify-start gap-1 overflow-x-auto pb-1 bg-muted/60 p-1 rounded-2xl">
-              <TabsTrigger value="clientes" className="rounded-xl text-xs font-bold shrink-0 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm">
+              <TabsTrigger value="clientes" className="rounded-xl text-xs font-bold shrink-0 text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/50 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-sm cursor-pointer">
                 Clientes
               </TabsTrigger>
-              <TabsTrigger value="novo-cliente" className="rounded-xl text-xs font-bold shrink-0 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm">
+              <TabsTrigger value="novo-cliente" className="rounded-xl text-xs font-bold shrink-0 text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/50 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-sm cursor-pointer">
                 + Novo Cliente
               </TabsTrigger>
-              <TabsTrigger value="relatorios" className="rounded-xl text-xs font-bold shrink-0 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm">
+              <TabsTrigger value="relatorios" className="rounded-xl text-xs font-bold shrink-0 text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/50 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-sm cursor-pointer">
                 Relatórios (Curva ABC)
               </TabsTrigger>
-              <TabsTrigger value="pedidos" className="rounded-xl text-xs font-bold shrink-0 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm">
+              <TabsTrigger value="pedidos" className="rounded-xl text-xs font-bold shrink-0 text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/50 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-sm cursor-pointer">
                 Pedidos Loja
               </TabsTrigger>
-              <TabsTrigger value="servicos" className="rounded-xl text-xs font-bold shrink-0 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm">
+              <TabsTrigger value="servicos" className="rounded-xl text-xs font-bold shrink-0 text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/50 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-sm cursor-pointer">
                 Serviços
               </TabsTrigger>
-              <TabsTrigger value="produtos" className="rounded-xl text-xs font-bold gap-1 shrink-0 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm">
+              <TabsTrigger value="produtos" className="group rounded-xl text-xs font-bold gap-1 shrink-0 text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/50 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-sm cursor-pointer">
                 Produtos
                 {curveACriticalAlerts.length > 0 && (
-                  <Badge className="bg-amber-500 text-white text-[9px] py-0 px-1 font-bold">
+                  <Badge className="bg-amber-500 text-white text-[9px] py-0 px-1 font-bold group-data-[state=active]:bg-amber-300 group-data-[state=active]:text-amber-950">
                     ⚠️ {curveACriticalAlerts.length}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="clinica" className="rounded-xl text-xs font-bold shrink-0 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm">
+              <TabsTrigger value="clinica" className="rounded-xl text-xs font-bold shrink-0 text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/50 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-sm cursor-pointer">
                 Prontuários / Clínica
               </TabsTrigger>
-              <TabsTrigger value="agenda" className="rounded-xl text-xs font-bold shrink-0 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm">
+              <TabsTrigger value="agenda" className="rounded-xl text-xs font-bold shrink-0 text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/50 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-sm cursor-pointer">
                 Agendamentos Detalhados
               </TabsTrigger>
-              <TabsTrigger value="retirada-entrega" className="rounded-xl text-xs font-bold shrink-0 text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:font-extrabold data-[state=active]:shadow-sm">
+              <TabsTrigger value="retirada-entrega" className="rounded-xl text-xs font-bold shrink-0 text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/50 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-sm cursor-pointer">
                 Logística Completa
               </TabsTrigger>
             </TabsList>
