@@ -590,7 +590,7 @@ function Admin() {
       const { data, error } = await supabase
         .from("appointments")
         .select(
-          "id, scheduled_at, status, ops_status, origin, service_price_cents, services(category, name), pets(name)",
+          "id, scheduled_at, status, ops_status, origin, total_cents, service_price_cents, transport_price_cents, services(category, name, price_cents), pets(name)",
         )
         .gte("scheduled_at", dashboardBoundaries.earliest.toISOString())
         .neq("status", "cancelado");
@@ -676,10 +676,25 @@ function Admin() {
 
     const executedAppointments = (dashAppointments ?? []).filter(isServiceExecuted);
     const serviceCounts = bucketCounts(executedAppointments, (a) => a.scheduled_at);
+
+    function getApptRevenue(a: {
+      total_cents?: number | null;
+      service_price_cents?: number | null;
+      services?: { price_cents?: number | null } | null;
+    }) {
+      return (a.total_cents && a.total_cents > 0)
+        ? a.total_cents
+        : (a.service_price_cents && a.service_price_cents > 0)
+        ? a.service_price_cents
+        : (a.services?.price_cents && a.services.price_cents > 0)
+        ? a.services.price_cents
+        : 0;
+    }
+
     function sumServiceRevenue(since: Date) {
       return executedAppointments
         .filter((a) => new Date(a.scheduled_at) >= since)
-        .reduce((sum, a) => sum + (a.service_price_cents ?? 0), 0);
+        .reduce((sum, a) => sum + getApptRevenue(a as any), 0);
     }
     const serviceRevenue = {
       day: sumServiceRevenue(dayStart),
@@ -690,7 +705,7 @@ function Admin() {
     function sumOpenServiceRevenue(since: Date) {
       return openAppointments
         .filter((a) => new Date(a.scheduled_at) >= since)
-        .reduce((sum, a) => sum + (a.service_price_cents ?? 0), 0);
+        .reduce((sum, a) => sum + getApptRevenue(a as any), 0);
     }
     const serviceOpenRevenue = {
       day: sumOpenServiceRevenue(dayStart),
@@ -2042,21 +2057,45 @@ function Admin() {
     );
   }, [transportOrders]);
 
-  const todayServicesCount = useMemo(() => {
-    const today = todayISODate();
-    return kanbanItems.filter(
-      (i) => i.status !== "cancelado" && i.scheduledAt.startsWith(today)
-    ).length;
-  }, [kanbanItems]);
-
-  const inProgressServicesCount = useMemo(() => {
-    return kanbanItems.filter(
+  // Estatísticas e faturamento em tempo real sincronizados com o Kanban Operacional
+  const kanbanStats = useMemo(() => {
+    const active = kanbanItems.filter(
+      (i) => i.status !== "cancelado" && i.opsStatus !== "cancelado",
+    );
+    const inProgress = active.filter(
       (i) =>
         i.opsStatus === "em_atendimento" ||
         i.opsStatus === "em_deslocamento_retirada" ||
-        i.opsStatus === "em_rota_devolucao"
-    ).length;
+        i.opsStatus === "em_rota_devolucao" ||
+        i.opsStatus === "retirado_em_transito_loja" ||
+        i.opsStatus === "cheguei_retirada" ||
+        i.opsStatus === "pronto_para_devolucao",
+    );
+    const completed = active.filter(
+      (i) =>
+        i.status === "concluido" ||
+        i.opsStatus === "entregue" ||
+        (i.opsStatus === "concluido" && (!i.logisticsType || i.logisticsType === "levar")),
+    );
+    const waiting = active.filter(
+      (i) => !inProgress.includes(i) && !completed.includes(i),
+    );
+    const completedRevenueCents = completed.reduce(
+      (sum, i) => sum + (i.totalCents || 0),
+      0,
+    );
+
+    return {
+      totalActive: active.length,
+      inProgressCount: inProgress.length,
+      waitingCount: waiting.length,
+      completedCount: completed.length,
+      completedRevenueCents,
+    };
   }, [kanbanItems]);
+
+  const todayServicesCount = kanbanStats.totalActive;
+  const inProgressServicesCount = kanbanStats.inProgressCount;
 
   const cancelAppointment = useMutation({
     mutationFn: async (id: string) => {
@@ -2068,6 +2107,7 @@ function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-dash-appointments"] });
       queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
@@ -2115,6 +2155,7 @@ function Admin() {
           toast.error("Erro ao atualizar status do atendimento");
         } else {
           queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
+          queryClient.invalidateQueries({ queryKey: ["admin-dash-appointments"] });
           queryClient.invalidateQueries({ queryKey: ["appointments"] });
           queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
           if (nextStatus === "em_atendimento") {
@@ -2174,41 +2215,58 @@ function Admin() {
         <div className="flex flex-wrap items-center gap-2">
           <Button
             size="sm"
-            variant="outline"
             onClick={() => {
               setCurrentTab("comunicacao");
               openInAppChat();
             }}
-            className="h-9 px-3.5 rounded-xl text-xs font-bold gap-2 border-primary/30 text-primary hover:bg-primary/10"
+            className="h-9 px-3.5 rounded-xl text-xs font-bold gap-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
           >
             <MessageCircle className="h-4 w-4" />
-            Bate-papo da Loja
-            {totalChatUnread > 0 && (
-              <Badge className="bg-emerald-600 text-white animate-pulse text-[10px] py-0 px-1.5 h-5 font-bold">
-                {totalChatUnread}
+            Central de Chat
+            {totalChatUnread > 0 ? (
+              <Badge className="bg-emerald-600 text-white animate-pulse text-[10px] py-0 px-1.5 h-5 font-extrabold">
+                {totalChatUnread} nova{totalChatUnread > 1 ? "s" : ""}
               </Badge>
-            )}
+            ) : chatQueue.length > 0 ? (
+              <span className="text-[11px] font-semibold text-primary-foreground/80">
+                ({chatQueue.length})
+              </span>
+            ) : null}
           </Button>
         </div>
       </div>
 
-      {/* 2. KPIS RÁPIDOS NO TOPO (PÍLULAS OPERACIONAIS) */}
+      {/* 2. KPIS RÁPIDOS NO TOPO (PÍLULAS OPERACIONAIS SINCRONIZADAS) */}
       <AdminKpiPills
         unreadChatCount={totalChatUnread}
         totalChatConversations={chatQueue.length}
         activeDeliveriesCount={activeDeliveriesCount}
         todayServicesCount={todayServicesCount}
         inProgressServicesCount={inProgressServicesCount}
+        waitingServicesCount={kanbanStats.waitingCount}
+        completedServicesCount={kanbanStats.completedCount}
         pendingHealthAlertsCount={healthAlertItems.length}
         urgentHealthAlertsCount={urgentHealthAlertsCount}
         criticalStockCount={curveACriticalAlerts.length}
         currentTab={currentTab}
         onSelectTab={(tab) => {
           setCurrentTab(tab);
+          if (typeof window !== "undefined") {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
         }}
       />
 
-      <Tabs value={currentTab} onValueChange={setCurrentTab} className="mt-4">
+      <Tabs
+        value={currentTab}
+        onValueChange={(val) => {
+          setCurrentTab(val);
+          if (typeof window !== "undefined") {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+        }}
+        className="mt-4"
+      >
         <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full h-auto p-1 bg-muted/70 rounded-2xl gap-1">
           <TabsTrigger
             value="hoje"
@@ -2482,7 +2540,11 @@ function Admin() {
               <div className="mt-2 grid grid-cols-3 gap-2">
                 {(
                   [
-                    ["Hoje", dashboardStats.serviceCounts.day, dashboardStats.serviceRevenue.day],
+                    [
+                      "Hoje",
+                      Math.max(dashboardStats.serviceCounts.day, kanbanStats.completedCount),
+                      Math.max(dashboardStats.serviceRevenue.day, kanbanStats.completedRevenueCents),
+                    ],
                     ["Semana", dashboardStats.serviceCounts.week, dashboardStats.serviceRevenue.week],
                     ["Mês", dashboardStats.serviceCounts.month, dashboardStats.serviceRevenue.month],
                   ] as const
@@ -2497,7 +2559,7 @@ function Admin() {
                 ))}
               </div>
               <p className="mt-2.5 text-[11px] text-muted-foreground">
-                Concluídos hoje: <strong>{dashboardStats.executedToday.length}</strong> atendimento(s).
+                Concluídos hoje: <strong>{Math.max(dashboardStats.executedToday.length, kanbanStats.completedCount)}</strong> atendimento(s).
               </p>
             </div>
           </div>

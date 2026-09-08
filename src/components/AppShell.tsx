@@ -142,37 +142,40 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <InAppChatDrawer />
 
-      <main className="flex-1 pb-24">{children}</main>
+      <main className={cn("flex-1", (pathname === "/admin" || pathname.startsWith("/admin")) ? "pb-6" : "pb-24")}>{children}</main>
 
-      <nav className="fixed bottom-0 left-1/2 z-30 w-full max-w-md -translate-x-1/2 border-t border-border/60 bg-card/95 backdrop-blur md:max-w-3xl lg:max-w-5xl">
-        <ul className={cn("grid", gridColsClass(tabs.length))}>
-          {tabs.map((tab) => {
-            const active = pathname === tab.to;
-            return (
-              <li key={tab.to}>
-                <Link
-                  to={tab.to}
-                  className={cn(
-                    "relative flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors",
-                    active ? "text-primary" : "text-muted-foreground",
-                  )}
-                >
-                  <tab.icon className={cn("h-5 w-5", active && "stroke-[2.4]")} />
-                  {tab.label}
-                  {tab.to === "/carrinho" && count > 0 && (
-                    <span className="absolute right-3 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-gold px-1 text-[10px] font-bold text-gold-foreground">
-                      {count}
-                    </span>
-                  )}
-                  {active && (
-                    <span className="absolute inset-x-5 top-0 h-0.5 rounded-full bg-gold" />
-                  )}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+      {/* Barra de navegação inferior exclusiva do fluxo do cliente/tutor - oculta no painel admin para ganho de área útil */}
+      {!(pathname === "/admin" || pathname.startsWith("/admin")) && (
+        <nav className="fixed bottom-0 left-1/2 z-30 w-full max-w-md -translate-x-1/2 border-t border-border/60 bg-card/95 backdrop-blur md:max-w-3xl lg:max-w-5xl">
+          <ul className={cn("grid", gridColsClass(tabs.length))}>
+            {tabs.map((tab) => {
+              const active = pathname === tab.to;
+              return (
+                <li key={tab.to}>
+                  <Link
+                    to={tab.to}
+                    className={cn(
+                      "relative flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors",
+                      active ? "text-primary" : "text-muted-foreground",
+                    )}
+                  >
+                    <tab.icon className={cn("h-5 w-5", active && "stroke-[2.4]")} />
+                    {tab.label}
+                    {tab.to === "/carrinho" && count > 0 && (
+                      <span className="absolute right-3 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-gold px-1 text-[10px] font-bold text-gold-foreground">
+                        {count}
+                      </span>
+                    )}
+                    {active && (
+                      <span className="absolute inset-x-5 top-0 h-0.5 rounded-full bg-gold" />
+                    )}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+      )}
     </div>
   );
 }
