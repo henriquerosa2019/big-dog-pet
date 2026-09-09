@@ -267,7 +267,7 @@ export function AdminOperationalKanban({
             className={cn(
               "flex-1 py-1.5 px-2 rounded-xl text-xs font-bold text-center transition-all",
               activeMobileStage === "andamento"
-                ? "bg-violet-500/15 text-violet-950 dark:text-violet-300 ring-1 ring-violet-500/40"
+                ? "bg-sky-500/15 text-sky-950 dark:text-sky-300 ring-1 ring-sky-500/40"
                 : "text-muted-foreground hover:bg-muted/40",
             )}
           >
@@ -293,23 +293,23 @@ export function AdminOperationalKanban({
         ref={scrollContainerRef}
         className="flex md:grid md:grid-cols-3 gap-3.5 items-start overflow-x-auto snap-x snap-mandatory pb-3 pt-1 scroll-smooth"
       >
-        {/* COLUNA 1: AGUARDANDO */}
-        <div className="w-[86vw] max-w-[340px] shrink-0 snap-center md:w-auto md:max-w-none rounded-2xl border border-border/70 bg-card p-3 space-y-2.5 shadow-xs transition-all">
-          <div className="flex items-center justify-between pb-2 border-b border-border/50">
+        {/* COLUNA 1: AGUARDANDO (LARANJA / ÂMBAR) */}
+        <div className="w-[86vw] max-w-[340px] shrink-0 snap-center md:w-auto md:max-w-none rounded-2xl border border-amber-500/30 bg-card p-3 space-y-2.5 shadow-xs transition-all">
+          <div className="flex items-center justify-between pb-2 border-b border-amber-500/20">
             <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-500"></span>
-              <h3 className="font-display text-xs font-bold uppercase tracking-wider text-foreground">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500/15 text-amber-900 dark:text-amber-300 border border-amber-500/30">
+                <Clock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
                 Aguardando Início
-              </h3>
+              </span>
             </div>
-            <Badge variant="secondary" className="bg-amber-500/10 text-amber-900 dark:text-amber-300 font-bold text-[10px]">
+            <Badge variant="secondary" className="bg-amber-500/15 text-amber-900 dark:text-amber-300 border border-amber-500/30 font-bold text-[10px]">
               {stages.aguardandoRaw.length} {stages.aguardando.length !== stages.aguardandoRaw.length ? `(${stages.aguardando.length} pets)` : ""}
             </Badge>
           </div>
 
           <div className="space-y-2.5">
             {stages.aguardando.length === 0 ? (
-              <div className="p-4 rounded-xl border border-dashed border-border/80 text-center text-xs text-muted-foreground">
+              <div className="p-4 rounded-xl border border-dashed border-amber-500/30 text-center text-xs text-muted-foreground">
                 Nenhum pet aguardando no momento.
               </div>
             ) : (
@@ -330,26 +330,26 @@ export function AdminOperationalKanban({
           </div>
         </div>
 
-        {/* COLUNA 2: EM ANDAMENTO */}
-        <div className="w-[86vw] max-w-[340px] shrink-0 snap-center md:w-auto md:max-w-none rounded-2xl border border-border/70 bg-card p-3 space-y-2.5 shadow-xs transition-all">
-          <div className="flex items-center justify-between pb-2 border-b border-border/50">
+        {/* COLUNA 2: EM ANDAMENTO (AZUL) */}
+        <div className="w-[86vw] max-w-[340px] shrink-0 snap-center md:w-auto md:max-w-none rounded-2xl border border-sky-500/30 bg-card p-3 space-y-2.5 shadow-xs transition-all">
+          <div className="flex items-center justify-between pb-2 border-b border-sky-500/20">
             <div className="flex items-center gap-1.5">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-violet-500"></span>
-              </span>
-              <h3 className="font-display text-xs font-bold uppercase tracking-wider text-foreground">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-sky-500/15 text-sky-900 dark:text-sky-300 border border-sky-500/30">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+                </span>
                 Em Andamento / Rota
-              </h3>
+              </span>
             </div>
-            <Badge variant="secondary" className="bg-violet-500/10 text-violet-900 dark:text-violet-300 font-bold text-[10px]">
+            <Badge variant="secondary" className="bg-sky-500/15 text-sky-900 dark:text-sky-300 border border-sky-500/30 font-bold text-[10px]">
               {stages.andamentoRaw.length} {stages.andamento.length !== stages.andamentoRaw.length ? `(${stages.andamento.length} pets)` : ""}
             </Badge>
           </div>
 
           <div className="space-y-2.5">
             {stages.andamento.length === 0 ? (
-              <div className="p-4 rounded-xl border border-dashed border-border/80 text-center text-xs text-muted-foreground">
+              <div className="p-4 rounded-xl border border-dashed border-sky-500/30 text-center text-xs text-muted-foreground">
                 Nenhum atendimento em andamento no momento.
               </div>
             ) : (
@@ -370,23 +370,23 @@ export function AdminOperationalKanban({
           </div>
         </div>
 
-        {/* COLUNA 3: PRONTO / CONCLUÍDO */}
-        <div className="w-[86vw] max-w-[340px] shrink-0 snap-center md:w-auto md:max-w-none rounded-2xl border border-border/70 bg-card p-3 space-y-2.5 shadow-xs transition-all">
-          <div className="flex items-center justify-between pb-2 border-b border-border/50">
+        {/* COLUNA 3: PRONTO / CONCLUÍDO (VERDE) */}
+        <div className="w-[86vw] max-w-[340px] shrink-0 snap-center md:w-auto md:max-w-none rounded-2xl border border-emerald-500/30 bg-card p-3 space-y-2.5 shadow-xs transition-all">
+          <div className="flex items-center justify-between pb-2 border-b border-emerald-500/20">
             <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
-              <h3 className="font-display text-xs font-bold uppercase tracking-wider text-foreground">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-900 dark:text-emerald-300 border border-emerald-500/30">
+                <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
                 Pronto / Concluído
-              </h3>
+              </span>
             </div>
-            <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-900 dark:text-emerald-300 font-bold text-[10px]">
+            <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-900 dark:text-emerald-300 border border-emerald-500/30 font-bold text-[10px]">
               {stages.concluidoRaw.length} {stages.concluido.length !== stages.concluidoRaw.length ? `(${stages.concluido.length} pets)` : ""}
             </Badge>
           </div>
 
           <div className="space-y-2.5">
             {stages.concluido.length === 0 ? (
-              <div className="p-4 rounded-xl border border-dashed border-border/80 text-center text-xs text-muted-foreground">
+              <div className="p-4 rounded-xl border border-dashed border-emerald-500/30 text-center text-xs text-muted-foreground">
                 Nenhum serviço finalizado hoje ainda.
               </div>
             ) : (
@@ -487,7 +487,7 @@ function KanbanGroupCard({
           </div>
 
           <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-            {capitalizeWords(group.tutorName)} {group.tutorPhone ? `· ${group.tutorPhone}` : ""}
+            Tutor: <span className="font-semibold text-foreground/85">{capitalizeWords(group.tutorName)}</span>
           </p>
         </div>
 
@@ -502,7 +502,7 @@ function KanbanGroupCard({
               <MoreVertical className="h-3.5 w-3.5" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52 text-xs">
+          <DropdownMenuContent align="end" className="w-56 text-xs">
             <DropdownMenuItem onClick={() => onOpenChat(primaryItem)} className="gap-2 cursor-pointer">
               <MessageCircle className="h-3.5 w-3.5 text-primary" />
               <span>Abrir no Chat</span>
@@ -512,14 +512,14 @@ function KanbanGroupCard({
               <>
                 <DropdownMenuItem onClick={() => onWhatsApp(primaryItem)} className="gap-2 cursor-pointer">
                   <Phone className="h-3.5 w-3.5 text-emerald-600" />
-                  <span>Chamar no WhatsApp</span>
+                  <span>WhatsApp ({group.tutorPhone})</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => window.open(`tel:${digitsOnly(group.tutorPhone!)}`)}
                   className="gap-2 cursor-pointer"
                 >
                   <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>Ligar para Tutor</span>
+                  <span>Ligar ({group.tutorPhone})</span>
                 </DropdownMenuItem>
               </>
             )}
@@ -548,69 +548,60 @@ function KanbanGroupCard({
         </DropdownMenu>
       </div>
 
-      {/* Linha 2: Serviços (Único ou Linha do Tempo/Consolidado) */}
+      {/* Linha 2: Serviços (Único ou Indentado Compacto para Multi-serviços) */}
       {!isMultiple ? (
-        <div className="flex items-center justify-between text-[11px] text-muted-foreground bg-muted/40 px-2.5 py-1 rounded-lg">
-          <span className="font-medium truncate">{primaryItem.serviceName}</span>
+        <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-lg border border-border/40">
+          <span className="font-medium truncate text-foreground/90">{primaryItem.serviceName}</span>
           {group.totalCents > 0 && (
-            <span className="font-bold text-foreground/90 shrink-0 ml-1">
+            <span className="font-bold text-foreground shrink-0 ml-1 text-[11px]">
               {formatBRL(group.totalCents)}
             </span>
           )}
         </div>
       ) : (
-        <div className="space-y-1.5 rounded-lg bg-muted/30 p-2 border border-border/40">
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="font-bold text-foreground/90 flex items-center gap-1">
-              <Layers className="h-3 w-3 text-primary" />
-              Linha de Serviços ({group.items.length})
+        <div className="space-y-1 pl-2.5 border-l-2 border-primary/40 my-1 py-0.5">
+          <div className="flex items-center justify-between text-[10px] uppercase font-bold text-muted-foreground tracking-wider pb-0.5">
+            <span className="flex items-center gap-1">
+              <Layers className="h-2.5 w-2.5 text-primary" />
+              {group.items.length} Serviços Agendados
             </span>
-            <span className="font-extrabold text-foreground">
-              Total: {formatBRL(group.totalCents)}
-            </span>
-          </div>
-
-          <div className="space-y-1 pt-1">
-            {group.items.slice(0, expanded ? undefined : 2).map((item, idx) => {
-              let itemTime = "";
-              try {
-                itemTime = new Date(item.scheduledAt).toLocaleTimeString("pt-BR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                });
-              } catch {
-                itemTime = "";
-              }
-              return (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between text-[10px] sm:text-[11px] bg-card/80 px-2 py-1 rounded-md border border-border/50"
-                >
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-muted-foreground font-semibold shrink-0">
-                      {idx + 1}. {itemTime}
-                    </span>
-                    <span className="font-medium truncate text-foreground">{item.serviceName}</span>
-                  </div>
-                  {item.totalCents && item.totalCents > 0 ? (
-                    <span className="text-muted-foreground font-semibold shrink-0 ml-1">
-                      {formatBRL(item.totalCents)}
-                    </span>
-                  ) : null}
-                </div>
-              );
-            })}
-
-            {group.items.length > 2 && (
-              <button
-                type="button"
-                onClick={() => setExpanded(!expanded)}
-                className="w-full text-center text-[10px] font-bold text-primary hover:underline pt-0.5"
-              >
-                {expanded ? "Recolher serviços" : `Ver mais ${group.items.length - 2} serviço(s)...`}
-              </button>
+            {group.totalCents > 0 && (
+              <span className="font-extrabold text-foreground">
+                Total: {formatBRL(group.totalCents)}
+              </span>
             )}
           </div>
+          {group.items.map((item) => {
+            let itemTime = "";
+            try {
+              itemTime = new Date(item.scheduledAt).toLocaleTimeString("pt-BR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+            } catch {
+              itemTime = "";
+            }
+            return (
+              <div
+                key={item.id}
+                className="flex items-center justify-between text-xs py-0.5 group/item"
+              >
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-[10px] font-extrabold text-primary bg-primary/10 px-1.5 py-0.2 rounded shrink-0">
+                    {itemTime}
+                  </span>
+                  <span className="font-medium truncate text-foreground text-[11px]">
+                    {item.serviceName}
+                  </span>
+                </div>
+                {item.totalCents && item.totalCents > 0 ? (
+                  <span className="text-[11px] font-semibold text-muted-foreground shrink-0 ml-1">
+                    {formatBRL(item.totalCents)}
+                  </span>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -642,7 +633,7 @@ function KanbanGroupCard({
           <Button
             size="sm"
             onClick={() => onAdvance?.(primaryItem)}
-            className="w-full h-8 rounded-lg text-xs font-bold bg-violet-600 hover:bg-violet-700 text-white gap-1.5 shadow-xs"
+            className="w-full h-8 rounded-lg text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white gap-1.5 shadow-xs"
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
             ✓ Concluir {isMultiple ? `(${primaryItem.serviceName})` : "Atendimento"}

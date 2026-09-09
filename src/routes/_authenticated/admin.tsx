@@ -2140,6 +2140,28 @@ function Admin() {
   const todayServicesCount = kanbanStats.totalActive;
   const inProgressServicesCount = kanbanStats.inProgressCount;
 
+  // Contadores por categoria sincronizados com os itens operacionais do dia
+  const todayCategoryCounts = useMemo(() => {
+    const active = kanbanItems.filter((i) => i.status !== "cancelado" && i.opsStatus !== "cancelado");
+    const counts: Record<(typeof serviceCategories)[number], number> = {
+      banho: 0,
+      tosa: 0,
+      veterinario: 0,
+    };
+    for (const item of active) {
+      const cat = (item.serviceCategory || "").toLowerCase().trim();
+      const name = (item.serviceName || "").toLowerCase().trim();
+      if (cat === "tosa" || name.includes("tosa na tesoura") || name.includes("tosa geral")) {
+        counts.tosa += 1;
+      } else if (cat === "veterinario" || cat === "clinica" || name.includes("consulta") || name.includes("veterin")) {
+        counts.veterinario += 1;
+      } else {
+        counts.banho += 1;
+      }
+    }
+    return counts;
+  }, [kanbanItems]);
+
   const cancelAppointment = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -2377,6 +2399,85 @@ function Admin() {
 
         {/* ABA 1: OPERACIONAL (HOJE) */}
         <TabsContent value="hoje" className="mt-4 space-y-4">
+          {/* Resumo de Agendamentos e Faturamento do Dia (Posicionado no Topo) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="rounded-2xl bg-card p-3 shadow-card border border-border/70">
+              <p className="text-xs font-bold uppercase tracking-wide text-foreground">
+                Agendamentos por Categoria
+              </p>
+              <div className="mt-2 overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-muted-foreground border-b border-border/60">
+                      <th className="py-1 pr-2 font-medium">Categoria</th>
+                      <th className="px-2 py-1 text-center font-medium">Hoje</th>
+                      <th className="px-2 py-1 text-center font-medium">Semana</th>
+                      <th className="px-2 py-1 text-center font-medium">Mês</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {serviceCategories.map((cat) => (
+                      <tr key={cat} className="border-t border-border/40">
+                        <td className="py-1.5 pr-2">{serviceCategoryLabels[cat]}</td>
+                        <td className="px-2 py-1.5 text-center font-semibold text-foreground">
+                          {Math.max(dashboardStats.apptByCategory[cat]?.day ?? 0, todayCategoryCounts[cat] ?? 0)}
+                        </td>
+                        <td className="px-2 py-1.5 text-center font-semibold">
+                          {dashboardStats.apptByCategory[cat]?.week ?? 0}
+                        </td>
+                        <td className="px-2 py-1.5 text-center font-semibold">
+                          {dashboardStats.apptByCategory[cat]?.month ?? 0}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="border-t border-border font-bold text-primary">
+                      <td className="py-1.5 pr-2">Total</td>
+                      <td className="px-2 py-1.5 text-center">
+                        {Math.max(
+                          dashboardStats.apptTotal.day,
+                          kanbanStats.totalActive,
+                          todayCategoryCounts.banho + todayCategoryCounts.tosa + todayCategoryCounts.veterinario
+                        )}
+                      </td>
+                      <td className="px-2 py-1.5 text-center">{dashboardStats.apptTotal.week}</td>
+                      <td className="px-2 py-1.5 text-center">{dashboardStats.apptTotal.month}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-card p-3 shadow-card border border-border/70">
+              <p className="text-xs font-bold uppercase tracking-wide text-foreground">
+                Faturamento de Serviços Executados
+              </p>
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {(
+                  [
+                    [
+                      "Hoje",
+                      Math.max(dashboardStats.serviceCounts.day, kanbanStats.completedCount),
+                      Math.max(dashboardStats.serviceRevenue.day, kanbanStats.completedRevenueCents),
+                    ],
+                    ["Semana", dashboardStats.serviceCounts.week, dashboardStats.serviceRevenue.week],
+                    ["Mês", dashboardStats.serviceCounts.month, dashboardStats.serviceRevenue.month],
+                  ] as const
+                ).map(([label, count, cents]) => (
+                  <div key={label} className="rounded-xl surface-paper p-2 text-center border border-border/40">
+                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">{label}</p>
+                    <p className="font-display text-base sm:text-lg font-bold text-primary mt-0.5">{formatBRL(cents)}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {count} serviço{count === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2.5 text-[11px] text-muted-foreground">
+                Concluídos hoje: <strong>{Math.max(dashboardStats.executedToday.length, kanbanStats.completedCount)}</strong> atendimento(s).
+              </p>
+            </div>
+          </div>
+
           {/* Kanban Operacional do Dia (3 Etapas: Aguardando -> Em Andamento -> Pronto/Concluído) */}
           <AdminOperationalKanban
             items={kanbanItems}
@@ -2446,169 +2547,6 @@ function Admin() {
               </div>
             </div>
           )}
-
-          {/* Limites de Capacidade por Hora */}
-          <div className="rounded-2xl border border-border/80 bg-card p-3.5 shadow-xs">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-2 pb-2 border-b border-border/60">
-              <div className="flex items-center gap-1.5">
-                <Sliders className="h-4 w-4 text-primary" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
-                  Capacidade da Agenda por Hora
-                </h3>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs font-bold gap-1 text-primary hover:bg-primary/10"
-                onClick={() => testSoundAlert()}
-              >
-                <Volume2 className="h-3.5 w-3.5 text-primary" />
-                Testar Alerta Sonoro
-              </Button>
-            </div>
-
-            <p className="text-xs text-muted-foreground mb-3">
-              Define o número máximo de agendamentos simultâneos na mesma hora.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs font-semibold">Banhos por hora:</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={20}
-                  className="h-8 rounded-xl text-xs font-bold"
-                  value={capacitySettings.maxBanhosPerHour}
-                  onChange={(e) =>
-                    setCapacitySettings((prev) => ({
-                      ...prev,
-                      maxBanhosPerHour: Math.max(1, parseInt(e.target.value) || 1),
-                    }))
-                  }
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs font-semibold">Tosas por hora:</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={20}
-                  className="h-8 rounded-xl text-xs font-bold"
-                  value={capacitySettings.maxTosasPerHour}
-                  onChange={(e) =>
-                    setCapacitySettings((prev) => ({
-                      ...prev,
-                      maxTosasPerHour: Math.max(1, parseInt(e.target.value) || 1),
-                    }))
-                  }
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs font-semibold">Consultas/Geral por hora:</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={20}
-                  className="h-8 rounded-xl text-xs font-bold"
-                  value={capacitySettings.maxGeralPerHour}
-                  onChange={(e) =>
-                    setCapacitySettings((prev) => ({
-                      ...prev,
-                      maxGeralPerHour: Math.max(1, parseInt(e.target.value) || 1),
-                    }))
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="mt-3 flex justify-end">
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 rounded-xl text-xs font-semibold"
-                onClick={handleSaveCapacity}
-              >
-                Salvar Limites de Capacidade
-              </Button>
-            </div>
-          </div>
-
-          {/* Resumo de Agendamentos e Faturamento do Dia */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="rounded-2xl bg-card p-3 shadow-card border border-border/70">
-              <p className="text-xs font-bold uppercase tracking-wide text-foreground">
-                Agendamentos por Categoria
-              </p>
-              <div className="mt-2 overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="text-left text-muted-foreground border-b border-border/60">
-                      <th className="py-1 pr-2 font-medium">Categoria</th>
-                      <th className="px-2 py-1 text-center font-medium">Hoje</th>
-                      <th className="px-2 py-1 text-center font-medium">Semana</th>
-                      <th className="px-2 py-1 text-center font-medium">Mês</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {serviceCategories.map((cat) => (
-                      <tr key={cat} className="border-t border-border/40">
-                        <td className="py-1.5 pr-2">{serviceCategoryLabels[cat]}</td>
-                        <td className="px-2 py-1.5 text-center font-semibold">
-                          {dashboardStats.apptByCategory[cat]?.day ?? 0}
-                        </td>
-                        <td className="px-2 py-1.5 text-center font-semibold">
-                          {dashboardStats.apptByCategory[cat]?.week ?? 0}
-                        </td>
-                        <td className="px-2 py-1.5 text-center font-semibold">
-                          {dashboardStats.apptByCategory[cat]?.month ?? 0}
-                        </td>
-                      </tr>
-                    ))}
-                    <tr className="border-t border-border font-bold text-primary">
-                      <td className="py-1.5 pr-2">Total</td>
-                      <td className="px-2 py-1.5 text-center">{dashboardStats.apptTotal.day}</td>
-                      <td className="px-2 py-1.5 text-center">{dashboardStats.apptTotal.week}</td>
-                      <td className="px-2 py-1.5 text-center">{dashboardStats.apptTotal.month}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="rounded-2xl bg-card p-3 shadow-card border border-border/70">
-              <p className="text-xs font-bold uppercase tracking-wide text-foreground">
-                Faturamento de Serviços Executados
-              </p>
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                {(
-                  [
-                    [
-                      "Hoje",
-                      Math.max(dashboardStats.serviceCounts.day, kanbanStats.completedCount),
-                      Math.max(dashboardStats.serviceRevenue.day, kanbanStats.completedRevenueCents),
-                    ],
-                    ["Semana", dashboardStats.serviceCounts.week, dashboardStats.serviceRevenue.week],
-                    ["Mês", dashboardStats.serviceCounts.month, dashboardStats.serviceRevenue.month],
-                  ] as const
-                ).map(([label, count, cents]) => (
-                  <div key={label} className="rounded-xl surface-paper p-2 text-center border border-border/40">
-                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">{label}</p>
-                    <p className="font-display text-base sm:text-lg font-bold text-primary mt-0.5">{formatBRL(cents)}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {count} serviço{count === 1 ? "" : "s"}
-                    </p>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-2.5 text-[11px] text-muted-foreground">
-                Concluídos hoje: <strong>{Math.max(dashboardStats.executedToday.length, kanbanStats.completedCount)}</strong> atendimento(s).
-              </p>
-            </div>
-          </div>
         </TabsContent>
 
         {/* ABA 2: ATENDIMENTO & CHAT */}

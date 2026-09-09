@@ -193,7 +193,7 @@ export function AdminKpiPills({
             </p>
             {todayServicesCount > 0 && (
               <p className="text-[10px] text-muted-foreground truncate font-medium">
-                {waitingServicesCount ?? 0} aguardando · {inProgressServicesCount} andamento · {completedServicesCount ?? 0} prontos
+                {waitingServicesCount ?? 0} aguardando · {completedServicesCount ?? 0} prontos
               </p>
             )}
           </div>
