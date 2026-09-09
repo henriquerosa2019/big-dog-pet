@@ -30,6 +30,7 @@ import {
   Settings,
   ChevronDown,
   ChevronUp,
+  ExternalLink,
 } from "lucide-react";
 import { getCapacitySettings, saveCapacitySettings, type CapacitySettings } from "@/lib/schedulingCapacity";
 import { playStatusSound, testSoundAlert } from "@/lib/soundAlerts";
