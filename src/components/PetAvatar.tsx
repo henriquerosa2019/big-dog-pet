@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 interface PetAvatarProps {
@@ -27,6 +27,10 @@ export function PetAvatar({
   badge,
 }: PetAvatarProps) {
   const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [photoUrl]);
 
   const isCat = (species || "").toLowerCase().includes("gato") || (species || "").toLowerCase().includes("felin");
   const fallbackEmoji = isCat ? "🐱" : "🐶";

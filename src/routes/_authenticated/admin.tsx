@@ -3878,13 +3878,20 @@ function Admin() {
                 <button
                   key={pet.id}
                   onClick={() => setRecordPetId(pet.id)}
-                  className={
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold transition-all",
                     recordPetId === pet.id
-                      ? "rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground"
-                      : "rounded-lg bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground"
-                  }
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  )}
                 >
-                  {pet.name}
+                  <PetAvatar
+                    photoUrl={pet.photo_url}
+                    name={pet.name}
+                    species={pet.species}
+                    size="xs"
+                  />
+                  <span>{capitalizeWords(pet.name)}</span>
                 </button>
               ))}
               {(allPets ?? []).length === 0 && (
@@ -3894,17 +3901,43 @@ function Admin() {
           </div>
 
           {selectedPet && (
-            <div className="rounded-2xl bg-card p-3 shadow-card">
-              <p className="text-sm font-semibold">
-                {selectedPet.name} · {selectedPet.species}
-                {selectedPet.breed ? ` · ${selectedPet.breed}` : ""}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Temperamento: {selectedPet.temperament ?? "não informado"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Alergias: {selectedPet.allergies ?? "não informadas"}
-              </p>
+            <div className="rounded-2xl bg-card p-3.5 shadow-card border border-border/60 flex items-center gap-3.5">
+              <PetAvatar
+                photoUrl={selectedPet.photo_url}
+                name={selectedPet.name}
+                species={selectedPet.species}
+                size="lg"
+                className="ring-2 ring-primary/20 shadow-xs"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-base font-bold text-foreground truncate">
+                    {capitalizeWords(selectedPet.name)}
+                  </p>
+                  <Link
+                    to="/pets/$petId"
+                    params={{ petId: selectedPet.id }}
+                    className="text-xs font-semibold text-primary underline flex items-center gap-1 hover:opacity-80"
+                  >
+                    <span>Ver Prontuário / Ficha</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </Link>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {capitalizeWords(selectedPet.species)}
+                  {selectedPet.breed ? ` · ${selectedPet.breed}` : ""}
+                  {selectedPet.size ? ` · Porte ${petSizeLabels[selectedPet.size as PetSize]}` : ""}
+                  {selectedPet.weight_kg != null ? ` · ${selectedPet.weight_kg} kg` : ""}
+                </p>
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground mt-1.5">
+                  <span className="bg-secondary px-2 py-0.5 rounded-md text-[11px]">
+                    Temperamento: <strong className="text-foreground">{selectedPet.temperament ?? "não informado"}</strong>
+                  </span>
+                  <span className="bg-secondary px-2 py-0.5 rounded-md text-[11px]">
+                    Alergias: <strong className="text-foreground">{selectedPet.allergies ?? "não informadas"}</strong>
+                  </span>
+                </div>
+              </div>
             </div>
           )}
 

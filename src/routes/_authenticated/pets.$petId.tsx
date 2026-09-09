@@ -282,6 +282,27 @@ function PetFicha() {
     },
   });
 
+  const updatePetPhoto = useMutation({
+    mutationFn: async (photoUrl: string | null) => {
+      setForm((prev) => ({ ...prev, photo_url: photoUrl }));
+      const { error } = await supabase
+        .from("pets")
+        .update({ photo_url: photoUrl })
+        .eq("id", petId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pet", petId] });
+      queryClient.invalidateQueries({ queryKey: ["pets"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-pets"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
+      toast.success("Foto do pet salva com sucesso!");
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar foto");
+    },
+  });
+
   const [vaccine, setVaccine] = useState({
     vaccine_name: "",
     dose: "",
@@ -543,10 +564,10 @@ function PetFicha() {
             <div className="rounded-2xl bg-card p-3.5 shadow-card space-y-3">
               {/* Seção de Upload da Foto do Pet */}
               <PetPhotoUpload
-                value={form.photo_url}
-                onChange={(photo_url) => setForm({ ...form, photo_url })}
-                petName={form.name}
-                species={form.species}
+                value={form.photo_url || pet?.photo_url}
+                onChange={(photo_url) => updatePetPhoto.mutate(photo_url)}
+                petName={form.name || pet?.name}
+                species={form.species || pet?.species}
               />
 
               <div className="grid grid-cols-2 gap-2">
@@ -1122,6 +1143,42 @@ function PetFicha() {
                 <Printer className="h-3.5 w-3.5" />
                 Imprimir / PDF
               </Button>
+            </div>
+
+            {/* Resumo do Pet no Prontuário com Foto */}
+            <div className="rounded-2xl bg-card p-3.5 shadow-card border border-border/70 flex items-center gap-3.5">
+              <PetAvatar
+                photoUrl={pet?.photo_url || form.photo_url}
+                name={pet?.name}
+                species={pet?.species}
+                size="lg"
+                className="ring-2 ring-primary/20 shrink-0"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-sm text-foreground truncate">
+                  {pet?.name ? capitalizeWords(pet.name) : "Pet"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {pet?.species ? capitalizeWords(pet.species) : "Pet"}
+                  {pet?.breed ? ` · ${pet.breed}` : ""}
+                  {pet?.size ? ` · Porte ${petSizeLabels[pet.size as PetSize]}` : ""}
+                  {pet?.weight_kg != null ? ` · ${pet.weight_kg} kg` : ""}
+                </p>
+                {(pet?.allergies || pet?.temperament) && (
+                  <div className="flex flex-wrap gap-1.5 mt-1 text-[11px]">
+                    {pet?.allergies && (
+                      <span className="bg-destructive/10 text-destructive font-medium px-2 py-0.5 rounded-md">
+                        Alergias: {pet.allergies}
+                      </span>
+                    )}
+                    {pet?.temperament && (
+                      <span className="bg-secondary text-secondary-foreground font-medium px-2 py-0.5 rounded-md">
+                        {pet.temperament}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <WeightChart points={weightPoints} />
