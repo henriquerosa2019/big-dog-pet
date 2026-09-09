@@ -38,6 +38,8 @@ import {
 } from "@/components/ui/sheet";
 import { fetchAddressByCep, maskCep } from "@/lib/navigation";
 import { AlertTriangle, Clock, CheckCircle2, Check, Truck } from "lucide-react";
+import { PetAvatar } from "@/components/PetAvatar";
+import { PetPhotoUpload } from "@/components/PetPhotoUpload";
 import { dispatchStatusAlert } from "@/components/StatusAlertNotifier";
 import { calculateTripDistanceAndFuel } from "@/lib/distanceCalculator";
 import {
@@ -209,6 +211,7 @@ function Agendar() {
     breed: "",
     temperament: "",
     allergies: "",
+    photo_url: null as string | null,
   });
   const [petSheetOpen, setPetSheetOpen] = useState(false);
 
@@ -274,7 +277,7 @@ function Agendar() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pets")
-        .select("id, name, species, breed, size")
+        .select("id, name, species, breed, size, photo_url")
         .order("created_at");
       if (error) throw error;
       return data;
@@ -392,6 +395,7 @@ function Agendar() {
           breed: parsed.breed || null,
           temperament: parsed.temperament || null,
           allergies: parsed.allergies || null,
+          photo_url: newPet.photo_url || null,
         })
         .select("id")
         .single();
@@ -408,6 +412,7 @@ function Agendar() {
         breed: "",
         temperament: "",
         allergies: "",
+        photo_url: null,
       });
       setPetSheetOpen(false);
       toast.success("Pet cadastrado");
@@ -732,9 +737,9 @@ function Agendar() {
       </Tabs>
 
       <section className="mt-6">
-        <h2 className="font-display text-lg">Pet</h2>
+        <h2 className="font-display text-lg font-bold">Pet</h2>
         {(pets ?? []).length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="mt-2 flex flex-wrap gap-2.5">
             {(pets ?? []).map((pet) => {
               const isSelected = petId === pet.id;
               return (
@@ -743,13 +748,22 @@ function Agendar() {
                   type="button"
                   onClick={() => setPetId(pet.id)}
                   className={cn(
-                    "rounded-full px-4 py-2 text-xs font-semibold transition-all",
+                    "flex items-center gap-2.5 rounded-2xl p-2 pr-4 text-xs font-semibold transition-all border",
                     isSelected
-                      ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30 font-bold"
-                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+                      ? "bg-primary text-primary-foreground border-primary shadow-md ring-2 ring-primary/25 font-bold"
+                      : "bg-card text-foreground border-border hover:bg-muted/30",
                   )}
                 >
-                  {capitalizeWords(pet.name)}
+                  <PetAvatar
+                    photoUrl={(pet as { photo_url?: string | null })?.photo_url}
+                    name={pet.name}
+                    species={pet.species}
+                    size="sm"
+                  />
+                  <div className="text-left">
+                    <p className="leading-tight">{capitalizeWords(pet.name)}</p>
+                    <p className="text-[10px] opacity-75">{pet.breed || pet.species || "Pet"}</p>
+                  </div>
                 </button>
               );
             })}
@@ -759,7 +773,7 @@ function Agendar() {
           <SheetTrigger asChild>
             <button
               type="button"
-              className="mt-3 w-full rounded-2xl border-2 border-dashed border-muted-foreground/30 p-3 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+              className="mt-3 w-full rounded-2xl border-2 border-dashed border-muted-foreground/30 p-3 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:bg-muted/20 transition"
             >
               + Adicionar novo pet
             </button>
@@ -768,7 +782,14 @@ function Agendar() {
             <SheetHeader>
               <SheetTitle>Cadastrar novo pet</SheetTitle>
             </SheetHeader>
-            <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="mt-2 space-y-3">
+              <PetPhotoUpload
+                value={newPet.photo_url}
+                onChange={(photo_url) => setNewPet({ ...newPet, photo_url })}
+                petName={newPet.name}
+                species={newPet.species}
+              />
+              <div className="grid grid-cols-2 gap-2">
               <Input
                 placeholder="Nome"
                 value={newPet.name}
@@ -836,7 +857,8 @@ function Agendar() {
             >
               Salvar pet
             </Button>
-          </SheetContent>
+          </div>
+        </SheetContent>
         </Sheet>
       </section>
 

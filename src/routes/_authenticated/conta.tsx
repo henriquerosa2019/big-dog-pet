@@ -48,6 +48,9 @@ import { Badge } from "@/components/ui/badge";
 import { TransportHistoryList } from "@/components/TransportHistoryList";
 import { DriverContact } from "@/components/DriverContact";
 import { DriverLiveMap } from "@/components/DriverLiveMap";
+import { PetAvatar } from "@/components/PetAvatar";
+import { PetPhotoUpload } from "@/components/PetPhotoUpload";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
   formatOpsStatusWithPet,
@@ -55,8 +58,10 @@ import {
   logisticsTypeLabels,
   opsStatusLabels,
   opsStatusTone,
+  petSizeLabels,
   type LogisticsType,
   type OpsStatus,
+  type PetSize,
 } from "@/lib/transport";
 
 export const Route = createFileRoute("/_authenticated/conta")({
@@ -111,7 +116,7 @@ function Conta() {
       const { data, error } = await supabase
         .from("appointments")
         .select(
-          "id, scheduled_at, status, notes, logistics_type, ops_status, transport_price_cents, services(name, price_cents), pets(name)",
+          "id, scheduled_at, status, notes, logistics_type, ops_status, transport_price_cents, services(name, price_cents), pets(name, photo_url, species)",
         )
         .eq("user_id", user!.id)
         .order("scheduled_at", { ascending: false });
@@ -381,7 +386,7 @@ function Conta() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pets")
-        .select("id, name, species, breed, allergies, birth_date")
+        .select("id, name, species, breed, allergies, birth_date, size, photo_url")
         .eq("owner_id", user!.id);
       if (error) throw error;
       return data;
@@ -503,6 +508,52 @@ function Conta() {
 
     return items.sort((a, b) => a.days - b.days);
   }, [vaccineAlerts, returnAlerts, profile?.birth_date, pets]);
+
+  const [newPetOpen, setNewPetOpen] = useState(false);
+  const [newPet, setNewPet] = useState({
+    name: "",
+    species: "cachorro",
+    size: "medio" as PetSize,
+    breed: "",
+    birth_date: "",
+    allergies: "",
+    photo_url: null as string | null,
+  });
+
+  const createPetMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.id) throw new Error("Usuário não autenticado");
+      if (!newPet.name.trim()) throw new Error("Informe o nome do pet");
+      const { error } = await supabase.from("pets").insert({
+        owner_id: user.id,
+        name: newPet.name.trim(),
+        species: newPet.species.trim() || "Cachorro",
+        size: newPet.size,
+        breed: newPet.breed.trim() || null,
+        birth_date: newPet.birth_date.trim() || null,
+        allergies: newPet.allergies.trim() || null,
+        photo_url: newPet.photo_url || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pets"] });
+      toast.success("Pet cadastrado com sucesso!");
+      setNewPetOpen(false);
+      setNewPet({
+        name: "",
+        species: "cachorro",
+        size: "medio",
+        breed: "",
+        birth_date: "",
+        allergies: "",
+        photo_url: null,
+      });
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Erro ao cadastrar pet");
+    },
+  });
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -728,15 +779,20 @@ function Conta() {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                  <div className="min-w-0">
+                <div className="flex items-start gap-2.5">
+                  <PetAvatar
+                    photoUrl={(item.pets as { photo_url?: string | null })?.photo_url}
+                    name={petNameFormatted}
+                    species={(item.pets as { species?: string | null })?.species}
+                    size="sm"
+                  />
+                  <div className="min-w-0 flex-1">
                     <p className={cn("truncate text-sm font-bold", display.titleColorClass)}>
                       {item.services?.name ?? "Serviço"}
                       {petNameFormatted ? ` · 🐾 ${petNameFormatted}` : ""}
                     </p>
                     <p className={cn("text-xs font-medium", display.timeColorClass)}>
                       {formatDateTime(item.scheduled_at)}
-                      {petNameFormatted ? ` · ${petNameFormatted}` : ""}
                     </p>
                   </div>
                   <Badge
@@ -1007,21 +1063,124 @@ function Conta() {
       </section>
 
       <section className="mt-6">
-        <h2 className="font-display text-lg">Meus pets</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Toque no pet para ver a ficha, vacinas e prontuário.
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-display text-lg font-bold">Meus pets</h2>
+            <p className="text-xs text-muted-foreground">
+              Toque no pet para ver a ficha, vacinas e prontuário.
+            </p>
+          </div>
+          <Dialog open={newPetOpen} onOpenChange={setNewPetOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="h-8 rounded-xl font-bold text-xs gap-1.5 shadow-xs bg-primary text-primary-foreground">
+                <Plus className="h-3.5 w-3.5" />
+                Novo Pet
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[90vh] overflow-y-auto rounded-3xl">
+              <DialogHeader>
+                <DialogTitle>Cadastrar Novo Pet</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 mt-2">
+                <PetPhotoUpload
+                  value={newPet.photo_url}
+                  onChange={(photo_url) => setNewPet({ ...newPet, photo_url })}
+                  petName={newPet.name}
+                  species={newPet.species}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="col-span-2">
+                    <Label>Nome do Pet *</Label>
+                    <Input
+                      placeholder="Ex: Apolo"
+                      value={newPet.name}
+                      onChange={(e) => setNewPet({ ...newPet, name: e.target.value })}
+                      className="h-10 rounded-xl mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Espécie *</Label>
+                    <Input
+                      placeholder="Cachorro / Gato"
+                      value={newPet.species}
+                      onChange={(e) => setNewPet({ ...newPet, species: e.target.value })}
+                      className="h-10 rounded-xl mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Raça</Label>
+                    <Input
+                      placeholder="Ex: Golden Retriever"
+                      value={newPet.breed}
+                      onChange={(e) => setNewPet({ ...newPet, breed: e.target.value })}
+                      className="h-10 rounded-xl mt-1"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Porte</Label>
+                    <div className="flex gap-2 mt-1">
+                      {(["pequeno", "medio", "grande"] as PetSize[]).map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setNewPet({ ...newPet, size: s })}
+                          className={cn(
+                            "flex-1 rounded-xl py-2 text-xs font-semibold border transition",
+                            newPet.size === s
+                              ? "bg-primary text-primary-foreground border-primary font-bold shadow-xs"
+                              : "bg-muted/50 border-border hover:bg-muted"
+                          )}
+                        >
+                          {petSizeLabels[s]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Data de Nascimento</Label>
+                    <Input
+                      type="date"
+                      value={newPet.birth_date}
+                      onChange={(e) => setNewPet({ ...newPet, birth_date: e.target.value })}
+                      className="h-10 rounded-xl mt-1"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Alergias ou Cuidados Especiais</Label>
+                    <Input
+                      placeholder="Ex: Alergia a frango, pele sensível"
+                      value={newPet.allergies}
+                      onChange={(e) => setNewPet({ ...newPet, allergies: e.target.value })}
+                      className="h-10 rounded-xl mt-1"
+                    />
+                  </div>
+                </div>
+                <Button
+                  onClick={() => createPetMutation.mutate()}
+                  disabled={createPetMutation.isPending}
+                  className="w-full h-11 rounded-xl font-bold mt-2 shadow-sm"
+                >
+                  {createPetMutation.isPending ? "Cadastrando..." : "Salvar Pet"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+
         <ul className="mt-3 space-y-2">
           {(pets ?? []).map((pet) => (
             <li key={pet.id}>
               <Link
                 to="/pets/$petId"
                 params={{ petId: pet.id }}
-                className="flex items-center gap-3 rounded-2xl bg-card p-3 shadow-card"
+                className="flex items-center gap-3 rounded-2xl bg-card p-3 shadow-card hover:bg-muted/20 transition"
               >
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-secondary text-secondary-foreground">
-                  <PawPrint className="h-4 w-4" />
-                </span>
+                <PetAvatar
+                  photoUrl={pet.photo_url}
+                  name={pet.name}
+                  species={pet.species}
+                  size="md"
+                />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{capitalizeWords(pet.name)}</p>
                   <p className="truncate text-xs text-muted-foreground">
@@ -1035,8 +1194,8 @@ function Conta() {
             </li>
           ))}
           {(pets ?? []).length === 0 && (
-            <li className="text-sm text-muted-foreground">
-              Cadastre seu pet ao fazer o primeiro agendamento.
+            <li className="text-sm text-muted-foreground p-3 border border-dashed rounded-2xl text-center">
+              Nenhum pet cadastrado ainda. Toque em "Novo Pet" acima para começar!
             </li>
           )}
         </ul>

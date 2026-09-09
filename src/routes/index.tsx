@@ -58,6 +58,7 @@ import { DriverContact } from "@/components/DriverContact";
 import { DriverLiveMap } from "@/components/DriverLiveMap";
 import { TransportHistoryList } from "@/components/TransportHistoryList";
 import { openInAppChat } from "@/components/InAppChatDrawer";
+import { PetAvatar } from "@/components/PetAvatar";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -149,7 +150,7 @@ function Home() {
       const { data, error } = await supabase
         .from("appointments")
         .select(
-          "id, scheduled_at, status, ops_status, logistics_type, transport_price_cents, notes, created_at, updated_at, services(name), pets(name), addresses(street, number, district)",
+          "id, scheduled_at, status, ops_status, logistics_type, transport_price_cents, notes, created_at, updated_at, services(name), pets(name, photo_url, species), addresses(street, number, district)",
         )
         .eq("user_id", user!.id)
         .order("scheduled_at", { ascending: true });
@@ -643,8 +644,14 @@ function Home() {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-                    <div className="min-w-0">
+                  <div className="flex items-start gap-3">
+                    <PetAvatar
+                      photoUrl={(item.pets as { photo_url?: string | null })?.photo_url}
+                      name={petNameFormatted}
+                      species={(item.pets as { species?: string | null })?.species}
+                      size="md"
+                    />
+                    <div className="min-w-0 flex-1">
                       <p className={cn("truncate text-base font-bold", display.titleColorClass)}>
                         {item.services?.name ?? "Serviço"}
                         {petNameFormatted ? ` · 🐾 ${petNameFormatted}` : ""}

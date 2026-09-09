@@ -15,6 +15,8 @@ import {
   Syringe,
 } from "lucide-react";
 import { openInAppChat } from "@/components/InAppChatDrawer";
+import { PetAvatar } from "@/components/PetAvatar";
+import { PetPhotoUpload } from "@/components/PetPhotoUpload";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,6 +78,7 @@ const fichaSchema = z.object({
   temperament: z.string().trim().max(300),
   allergies: z.string().trim().max(300),
   notes: z.string().trim().max(500),
+  photo_url: z.string().nullable().optional(),
 });
 
 const petSizeOptions: PetSize[] = ["pequeno", "medio", "grande"];
@@ -165,7 +168,7 @@ function PetFicha() {
       const { data, error } = await supabase
         .from("pets")
         .select(
-          "id, name, species, size, breed, sex, birth_date, weight_kg, temperament, allergies, notes",
+          "id, name, species, size, breed, sex, birth_date, weight_kg, temperament, allergies, notes, photo_url",
         )
         .eq("id", petId)
         .maybeSingle();
@@ -226,6 +229,7 @@ function PetFicha() {
     temperament: "",
     allergies: "",
     notes: "",
+    photo_url: "" as string | null,
   });
 
   useEffect(() => {
@@ -241,6 +245,7 @@ function PetFicha() {
       temperament: pet.temperament ?? "",
       allergies: pet.allergies ?? "",
       notes: pet.notes ?? "",
+      photo_url: (pet.photo_url as string) || null,
     });
   }, [pet]);
 
@@ -260,6 +265,7 @@ function PetFicha() {
           temperament: parsed.temperament || null,
           allergies: parsed.allergies || null,
           notes: parsed.notes || null,
+          photo_url: parsed.photo_url || null,
         })
         .eq("id", petId);
       if (error) throw error;
@@ -457,10 +463,25 @@ function PetFicha() {
         <ArrowLeft className="h-3.5 w-3.5" />
         Voltar para a conta
       </Link>
-      <h1 className="mt-2 font-display text-2xl">{pet?.name ? capitalizeWords(pet.name) : "Ficha do pet"}</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Temperamento, alergias, vacinas, retornos e histórico clínico.
-      </p>
+      <div className="mt-3 flex items-center gap-3.5 bg-card p-4 rounded-3xl border border-border/70 shadow-card">
+        <PetAvatar
+          photoUrl={form.photo_url || pet?.photo_url}
+          name={pet?.name}
+          species={pet?.species}
+          size="xl"
+          className="ring-2 ring-primary/20"
+        />
+        <div className="min-w-0 flex-1">
+          <h1 className="font-display text-2xl font-black text-foreground truncate">
+            {pet?.name ? capitalizeWords(pet.name) : "Ficha do pet"}
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {pet?.species ? capitalizeWords(pet.species) : "Pet"}
+            {pet?.breed ? ` · ${pet.breed}` : ""}
+            {pet?.size ? ` · Porte ${petSizeLabels[pet.size as PetSize]}` : ""}
+          </p>
+        </div>
+      </div>
 
       {allAlerts.length > 0 && (
         <div className="mt-4 space-y-2">
@@ -519,7 +540,15 @@ function PetFicha() {
           </TabsList>
 
           <TabsContent value="ficha" className="mt-3">
-            <div className="rounded-2xl bg-card p-3 shadow-card">
+            <div className="rounded-2xl bg-card p-3.5 shadow-card space-y-3">
+              {/* Seção de Upload da Foto do Pet */}
+              <PetPhotoUpload
+                value={form.photo_url}
+                onChange={(photo_url) => setForm({ ...form, photo_url })}
+                petName={form.name}
+                species={form.species}
+              />
+
               <div className="grid grid-cols-2 gap-2">
                 <div className="col-span-2">
                   <Label htmlFor="name">Nome</Label>

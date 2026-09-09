@@ -94,6 +94,8 @@ import { AdminChatLogs } from "@/components/AdminChatLogs";
 import { AdminKpiPills } from "@/components/admin/AdminKpiPills";
 import { AdminOperationalKanban, type KanbanItem } from "@/components/admin/AdminOperationalKanban";
 import { AdminHealthAlertsGrouped, type HealthAlertItem } from "@/components/admin/AdminHealthAlertsGrouped";
+import { PetAvatar } from "@/components/PetAvatar";
+import { PetPhotoUpload } from "@/components/PetPhotoUpload";
 import { getCriticalStock, setCriticalStock, findCurveACriticalProducts } from "@/lib/stockSettings";
 import { calculateProductAbc } from "@/lib/curvaAbc";
 import { useClientAbcMap } from "@/hooks/useClientAbcMap";
@@ -198,6 +200,7 @@ const newClientPetSchema = z.object({
   birthDate: z.string().trim().max(10).optional(),
   size: z.enum(["pequeno", "medio", "grande"]).default("medio"),
   weightKg: z.string().trim().max(10).optional(),
+  photoUrl: z.string().trim().optional().nullable(),
 });
 
 const recordTypes = ["consulta", "exame", "cirurgia", "retorno", "emergencia", "vacina"] as const;
@@ -802,6 +805,7 @@ function Admin() {
     birthDate: string;
     size: PetSize;
     weightKg: string;
+    photoUrl: string | null;
   }>({
     name: "",
     species: "cachorro",
@@ -811,6 +815,7 @@ function Admin() {
     birthDate: "",
     size: "medio",
     weightKg: "",
+    photoUrl: null,
   });
   const [newClientAddress, setNewClientAddress] = useState({
     cep: "",
@@ -898,6 +903,7 @@ function Admin() {
           birth_date: pet.birthDate || null,
           size: pet.size,
           weight_kg: Number.isFinite(parsedWeight) ? parsedWeight : null,
+          photo_url: pet.photoUrl || null,
         });
         if (petError) throw petError;
       }
@@ -945,6 +951,7 @@ function Admin() {
         birthDate: "",
         size: "medio",
         weightKg: "",
+        photoUrl: null,
       });
       setNewClientAddress({
         cep: "",
@@ -1415,7 +1422,8 @@ function Admin() {
     breed: string;
     size: PetSize;
     weightKg: string;
-  }>({ name: "", breed: "", size: "medio", weightKg: "" });
+    photoUrl: string | null;
+  }>({ name: "", breed: "", size: "medio", weightKg: "", photoUrl: null });
 
   const updateDirectoryClient = useMutation({
     mutationFn: async () => {
@@ -1494,6 +1502,7 @@ function Admin() {
           breed: directoryPetForm.breed.trim() || null,
           size: directoryPetForm.size,
           weight_kg: Number.isFinite(parsedWeight) ? parsedWeight : null,
+          photo_url: directoryPetForm.photoUrl || null,
         })
         .eq("id", editingDirectoryPetId);
       if (error) throw error;
@@ -1678,7 +1687,7 @@ function Admin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pets")
-        .select("id, name, species, breed, temperament, allergies, owner_id, birth_date, size, weight_kg")
+        .select("id, name, species, breed, temperament, allergies, owner_id, birth_date, size, weight_kg, photo_url")
         .order("name");
       if (error) throw error;
       return data;
@@ -2998,9 +3007,16 @@ function Admin() {
               </div>
 
               <div className="rounded-2xl bg-card p-3 shadow-card">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                   Pet (opcional)
                 </p>
+                <div className="mb-3">
+                  <PetPhotoUpload
+                    value={newClientPet.photoUrl}
+                    onChange={(photoUrl) => setNewClientPet({ ...newClientPet, photoUrl })}
+                    petName={newClientPet.name || "Pet"}
+                  />
+                </div>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <Input
                     placeholder="Nome"
@@ -3428,6 +3444,13 @@ function Admin() {
                         const editingPet = editingDirectoryPetId === pet.id;
                         return editingPet ? (
                           <div key={pet.id} className="rounded-xl surface-paper p-2.5 space-y-2">
+                            <PetPhotoUpload
+                              value={directoryPetForm.photoUrl}
+                              onChange={(photoUrl) =>
+                                setDirectoryPetForm({ ...directoryPetForm, photoUrl })
+                              }
+                              petName={directoryPetForm.name || pet.name}
+                            />
                             <div className="grid grid-cols-2 gap-2">
                               <Input
                                 value={directoryPetForm.name}
@@ -3519,28 +3542,36 @@ function Admin() {
                             key={pet.id}
                             className="flex items-center justify-between gap-2 rounded-xl surface-paper px-2.5 py-1.5 text-xs"
                           >
-                            <span className="min-w-0 truncate">
-                              <span className="font-semibold">{capitalizeWords(pet.name)}</span>
-                              {pet.breed && (
-                                <span className="text-muted-foreground"> · {pet.breed}</span>
-                              )}
-                              {pet.size && (
-                                <span className="ml-1.5 inline-flex items-center rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-secondary-foreground">
-                                  Porte {petSizeLabels[pet.size as PetSize]?.toLowerCase() || pet.size}
-                                </span>
-                              )}
-                              {pet.weight_kg != null && (
-                                <span className="ml-1 inline-flex items-center rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                                  {Number(pet.weight_kg).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg
-                                </span>
-                              )}
-                              {pet.birth_date && (
-                                <span className="text-muted-foreground">
-                                  {" "}
-                                  · {formatDate(pet.birth_date)}
-                                </span>
-                              )}
-                            </span>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <PetAvatar
+                                photoUrl={pet.photo_url}
+                                name={pet.name}
+                                species={pet.species}
+                                size="sm"
+                              />
+                              <span className="min-w-0 truncate">
+                                <span className="font-semibold">{capitalizeWords(pet.name)}</span>
+                                {pet.breed && (
+                                  <span className="text-muted-foreground"> · {pet.breed}</span>
+                                )}
+                                {pet.size && (
+                                  <span className="ml-1.5 inline-flex items-center rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-secondary-foreground">
+                                    Porte {petSizeLabels[pet.size as PetSize]?.toLowerCase() || pet.size}
+                                  </span>
+                                )}
+                                {pet.weight_kg != null && (
+                                  <span className="ml-1 inline-flex items-center rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                                    {Number(pet.weight_kg).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg
+                                  </span>
+                                )}
+                                {pet.birth_date && (
+                                  <span className="text-muted-foreground">
+                                    {" "}
+                                    · {formatDate(pet.birth_date)}
+                                  </span>
+                                )}
+                              </span>
+                            </div>
                             <button
                               type="button"
                               aria-label={`Editar ${pet.name}`}
@@ -3551,6 +3582,7 @@ function Admin() {
                                   breed: pet.breed ?? "",
                                   size: (pet.size as PetSize) || "medio",
                                   weightKg: pet.weight_kg != null ? String(pet.weight_kg).replace(".", ",") : "",
+                                  photoUrl: pet.photo_url || null,
                                 });
                               }}
                               className="shrink-0 rounded-lg p-1 text-muted-foreground hover:text-primary"
