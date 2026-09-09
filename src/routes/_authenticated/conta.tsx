@@ -1363,6 +1363,37 @@ function Conta() {
               </div>
             </div>
 
+            <div className="grid grid-cols-3 gap-2">
+              <div className="col-span-2">
+                <Label htmlFor="tutor-city" className="text-[11px] text-muted-foreground">
+                  Cidade
+                </Label>
+                <Input
+                  id="tutor-city"
+                  placeholder="Ex: Franco da Rocha"
+                  maxLength={100}
+                  value={addressForm.city}
+                  onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })}
+                  className="mt-1 h-9 rounded-lg text-xs"
+                />
+              </div>
+              <div>
+                <Label htmlFor="tutor-state" className="text-[11px] text-muted-foreground">
+                  UF
+                </Label>
+                <Input
+                  id="tutor-state"
+                  placeholder="SP"
+                  maxLength={2}
+                  value={addressForm.state}
+                  onChange={(e) =>
+                    setAddressForm({ ...addressForm, state: e.target.value.toUpperCase() })
+                  }
+                  className="mt-1 h-9 rounded-lg text-xs uppercase"
+                />
+              </div>
+            </div>
+
             <div className="mt-3 flex gap-2">
               <Button
                 size="sm"
@@ -1404,7 +1435,11 @@ function Conta() {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {addr.complement ? `${addr.complement} — ` : ""}{addr.district}, Franco da Rocha
+                    {addr.complement ? `${addr.complement} — ` : ""}
+                    {addr.district && addr.city && addr.district.toLowerCase() === addr.city.toLowerCase()
+                      ? addr.district
+                      : `${addr.district ? `${addr.district}, ` : ""}${addr.city || "Franco da Rocha"}`}
+                    {addr.state ? ` - ${addr.state}` : ""}
                     {addr.cep ? ` · CEP ${addr.cep}` : ""}
                   </p>
                   {addr.reference && (

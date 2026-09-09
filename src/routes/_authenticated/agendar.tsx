@@ -106,6 +106,8 @@ const addressSchema = z.object({
   number: z.string().trim().max(20).optional(),
   complement: z.string().trim().max(60).optional(),
   district: z.string().trim().min(2, "Informe o bairro"),
+  city: z.string().trim().max(100).optional(),
+  state: z.string().trim().max(10).optional(),
   reference: z.string().trim().max(120).optional(),
 });
 
@@ -226,6 +228,8 @@ function Agendar() {
     number: "",
     complement: "",
     district: "",
+    city: "Franco da Rocha",
+    state: "SP",
     reference: "",
   });
   const [isAgendarCepLoading, setIsAgendarCepLoading] = useState(false);
@@ -244,6 +248,8 @@ function Agendar() {
             cep: masked,
             street: info.logradouro || prev.street,
             district: info.bairro || prev.district,
+            city: info.localidade || prev.city,
+            state: info.uf || prev.state,
           }));
           toast.success("Endereço preenchido pelo CEP!");
         }
@@ -438,6 +444,8 @@ function Agendar() {
           number: parsed.number || null,
           complement: parsed.complement || null,
           district: parsed.district,
+          city: parsed.city || "Franco da Rocha",
+          state: parsed.state || "SP",
           reference: parsed.reference || null,
         })
         .select("id")
@@ -455,6 +463,8 @@ function Agendar() {
         number: "",
         complement: "",
         district: "",
+        city: "Franco da Rocha",
+        state: "SP",
         reference: "",
       });
       toast.success("Endereço cadastrado");
@@ -1093,6 +1103,7 @@ function Agendar() {
                     >
                       {address.label}: {address.street}
                       {address.number ? `, ${address.number}` : ""} — {address.district}
+                      {address.city ? `, ${address.city}` : ""}{address.state ? ` - ${address.state}` : ""}
                     </button>
                   );
                 })}
@@ -1173,6 +1184,21 @@ function Agendar() {
                   value={newAddress.district}
                   onChange={(e) => setNewAddress({ ...newAddress, district: e.target.value })}
                   className="col-span-2 h-10 rounded-xl"
+                />
+                <Input
+                  placeholder="Cidade"
+                  value={newAddress.city}
+                  onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
+                  className="h-10 rounded-xl"
+                />
+                <Input
+                  placeholder="UF (ex: SP)"
+                  maxLength={2}
+                  value={newAddress.state}
+                  onChange={(e) =>
+                    setNewAddress({ ...newAddress, state: e.target.value.toUpperCase() })
+                  }
+                  className="h-10 rounded-xl uppercase"
                 />
                 <Input
                   placeholder="Ponto de referência (opcional)"

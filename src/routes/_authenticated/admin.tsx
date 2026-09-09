@@ -3017,6 +3017,35 @@ function Admin() {
                       />
                     </div>
                   </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <Label htmlFor="nc-city">Cidade</Label>
+                      <Input
+                        id="nc-city"
+                        placeholder="Ex: Franco da Rocha"
+                        value={newClientAddress.city}
+                        maxLength={100}
+                        onChange={(e) =>
+                          setNewClientAddress({ ...newClientAddress, city: e.target.value })
+                        }
+                        className="mt-1 h-10 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="nc-state">UF</Label>
+                      <Input
+                        id="nc-state"
+                        placeholder="SP"
+                        value={newClientAddress.state}
+                        maxLength={2}
+                        onChange={(e) =>
+                          setNewClientAddress({ ...newClientAddress, state: e.target.value.toUpperCase() })
+                        }
+                        className="mt-1 h-10 rounded-xl uppercase"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -3329,6 +3358,45 @@ function Admin() {
                             />
                           </div>
                         </div>
+
+                        <div className="grid grid-cols-3 gap-2 mt-2">
+                          <div className="col-span-2">
+                            <Label htmlFor={`dc-city-${client.id}`} className="text-[11px] text-muted-foreground">
+                              Cidade
+                            </Label>
+                            <Input
+                              id={`dc-city-${client.id}`}
+                              value={directoryClientForm.city}
+                              placeholder="Cidade"
+                              maxLength={100}
+                              onChange={(e) =>
+                                setDirectoryClientForm({
+                                  ...directoryClientForm,
+                                  city: e.target.value,
+                                })
+                              }
+                              className="mt-1 h-9 rounded-lg text-xs"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`dc-state-${client.id}`} className="text-[11px] text-muted-foreground">
+                              UF
+                            </Label>
+                            <Input
+                              id={`dc-state-${client.id}`}
+                              value={directoryClientForm.state}
+                              placeholder="SP"
+                              maxLength={2}
+                              onChange={(e) =>
+                                setDirectoryClientForm({
+                                  ...directoryClientForm,
+                                  state: e.target.value.toUpperCase(),
+                                })
+                              }
+                              className="mt-1 h-9 rounded-lg text-xs uppercase"
+                            />
+                          </div>
+                        </div>
                       </div>
 
                       <div className="flex gap-2">
@@ -3397,6 +3465,10 @@ function Admin() {
                               {defaultAddr.number ? `, ${defaultAddr.number}` : ""}
                               {defaultAddr.complement ? ` - ${defaultAddr.complement}` : ""} —{" "}
                               {defaultAddr.district}
+                              {defaultAddr.city && defaultAddr.city.toLowerCase() !== defaultAddr.district?.toLowerCase()
+                                ? `, ${defaultAddr.city}`
+                                : ""}
+                              {defaultAddr.state ? ` - ${defaultAddr.state}` : ""}
                               {defaultAddr.cep ? ` (${defaultAddr.cep})` : ""}
                             </span>
                           </p>
@@ -4645,6 +4717,10 @@ function Admin() {
                     {address.street}
                     {address.number ? `, ${address.number}` : ""}
                     {address.complement ? ` - ${address.complement}` : ""} — {address.district}
+                    {address.city && address.city.toLowerCase() !== address.district?.toLowerCase()
+                      ? `, ${address.city}`
+                      : ""}
+                    {address.state ? ` - ${address.state}` : ""}
                     {address.reference ? ` (${address.reference})` : ""}
                   </p>
                 )}

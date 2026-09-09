@@ -161,7 +161,7 @@ function Carrinho() {
         deliveryMethod === "receber_em_casa"
           ? `\nEntrega: Receber em casa — ${
               user && selectedAddress
-                ? `${selectedAddress.street}${selectedAddress.number ? `, ${selectedAddress.number}` : ""} - ${selectedAddress.district}`
+                ? `${selectedAddress.street}${selectedAddress.number ? `, ${selectedAddress.number}` : ""} - ${selectedAddress.district}${selectedAddress.city && selectedAddress.city.toLowerCase() !== selectedAddress.district?.toLowerCase() ? `, ${selectedAddress.city}` : ""}${selectedAddress.state ? ` - ${selectedAddress.state}` : ""}`
                 : manualAddress.trim()
             }`
           : `\nEntrega: Retirar na loja (${CLINIC.unit})`;
@@ -357,6 +357,8 @@ function Carrinho() {
                           >
                             {address.label}: {address.street}
                             {address.number ? `, ${address.number}` : ""} — {address.district}
+                            {address.city && address.city.toLowerCase() !== address.district?.toLowerCase() ? `, ${address.city}` : ""}
+                            {address.state ? ` - ${address.state}` : ""}
                           </button>
                         );
                       })}

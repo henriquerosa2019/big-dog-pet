@@ -294,6 +294,10 @@ function Motorista() {
                     {item.addresses.street}
                     {item.addresses.number ? `, ${item.addresses.number}` : ""} —{" "}
                     {item.addresses.district}
+                    {item.addresses.city && item.addresses.city.toLowerCase() !== item.addresses.district?.toLowerCase()
+                      ? `, ${item.addresses.city}`
+                      : ""}
+                    {item.addresses.state ? ` - ${item.addresses.state}` : ""}
                   </p>
                 )}
                 {blocked && (
@@ -475,6 +479,10 @@ function RouteCard({
           {item.addresses.number ? `, ${item.addresses.number}` : ""}
           {item.addresses.complement ? ` - ${item.addresses.complement}` : ""} —{" "}
           {item.addresses.district}
+          {item.addresses.city && item.addresses.city.toLowerCase() !== item.addresses.district?.toLowerCase()
+            ? `, ${item.addresses.city}`
+            : ""}
+          {item.addresses.state ? ` - ${item.addresses.state}` : ""}
           {item.addresses.reference ? ` (${item.addresses.reference})` : ""}
         </p>
       )}
