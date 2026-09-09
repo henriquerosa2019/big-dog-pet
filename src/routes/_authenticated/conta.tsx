@@ -87,15 +87,9 @@ function Conta() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (isAdmin) {
-      navigate({ to: "/admin", replace: true });
-    }
-  }, [isAdmin, navigate]);
-
   const { data: profile } = useQuery({
     queryKey: ["profile", user?.id],
-    enabled: Boolean(user?.id && !isAdmin),
+    enabled: Boolean(user?.id),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
@@ -109,7 +103,7 @@ function Conta() {
 
   const { data: appointments } = useQuery({
     queryKey: ["appointments", user?.id],
-    enabled: Boolean(user?.id && !isAdmin),
+    enabled: Boolean(user?.id),
     refetchInterval: 3000,
     refetchOnWindowFocus: true,
     queryFn: async () => {
@@ -127,7 +121,7 @@ function Conta() {
 
   const { data: orders } = useQuery({
     queryKey: ["orders", user?.id],
-    enabled: Boolean(user?.id && !isAdmin),
+    enabled: Boolean(user?.id),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orders")
@@ -382,7 +376,7 @@ function Conta() {
 
   const { data: pets } = useQuery({
     queryKey: ["pets", user?.id],
-    enabled: Boolean(user?.id && !isAdmin),
+    enabled: Boolean(user?.id),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pets")
@@ -563,16 +557,22 @@ function Conta() {
     navigate({ to: "/auth", replace: true });
   }
 
-  if (isAdmin) {
-    return (
-      <div className="p-8 text-center text-sm text-muted-foreground">
-        Redirecionando para a Central Administrativa da Loja...
-      </div>
-    );
-  }
-
   return (
     <div className="p-4">
+      {isAdmin && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-amber-500/10 border border-amber-500/30 p-3 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-amber-900 dark:text-amber-300">Modo Tutor / Homologação</span>
+            <span className="text-muted-foreground text-[11px]">(Acesso Administrativo Ativo)</span>
+          </div>
+          <Link
+            to="/admin"
+            className="rounded-lg bg-primary px-3 py-1 font-semibold text-primary-foreground hover:bg-primary/90 transition text-xs shadow-xs"
+          >
+            Ir para Painel Loja →
+          </Link>
+        </div>
+      )}
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <div className="min-w-0">
           <h1 className="truncate font-display text-2xl">

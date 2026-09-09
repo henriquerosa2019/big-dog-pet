@@ -48,13 +48,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { count } = useCart();
   const { user } = useAuth();
   const isAdmin = useIsAdmin(user?.id, user?.email);
-  const isDriver = useIsDriver(user?.id);
+  const isDriver = useIsDriver(user?.id, user?.email);
   const tabs = isAdmin
     ? [
-        { to: "/", label: "Início", icon: Home },
+        { to: "/admin", label: "Admin", icon: ShieldCheck },
+        { to: "/conta", label: "Conta", icon: User },
+        { to: "/agendar", label: "Agendar", icon: CalendarPlus },
+        { to: "/motorista", label: "Motorista", icon: Truck },
         { to: "/loja", label: "Loja", icon: ShoppingBag },
-        { to: "/admin", label: "Painel Loja", icon: ShieldCheck },
-        ...(isDriver ? [driverTab] : []),
       ]
     : [...baseTabs, ...(isDriver ? [driverTab] : [])];
   const { hasNewMessage } = useInAppChat({ role: isAdmin ? "loja" : "tutor" });

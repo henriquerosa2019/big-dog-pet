@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, LogOut, ShieldCheck, Sparkles, Store, Truck, User } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { lovable } from "@/integrations/lovable/index";
@@ -10,7 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+const authSearchSchema = z.object({
+  redirect: z.string().optional(),
+});
+
 export const Route = createFileRoute("/auth")({
+  validateSearch: (search) => authSearchSchema.parse(search),
   head: () => ({
     meta: [
       { title: "Entrar | Big Dog Pet" },
@@ -35,6 +40,7 @@ const credentialsSchema = z.object({
 });
 
 function Auth() {
+  const { redirect } = Route.useSearch();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [form, setForm] = useState({
     email: "",
@@ -55,14 +61,33 @@ function Auth() {
   }, []);
 
   useEffect(() => {
-    if (user) {
-      if (user.email?.toLowerCase() === "bigdog@gmail.com") {
-        navigate({ to: "/admin", replace: true });
-      } else {
-        navigate({ to: "/conta", replace: true });
-      }
+    if (user && redirect) {
+      navigate({ to: redirect as any, replace: true });
     }
-  }, [user, navigate]);
+  }, [user, redirect, navigate]);
+
+  async function handleQuickLogin(targetRoute: "/admin" | "/conta" | "/motorista") {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: "bigdog@gmail.com",
+        password: "bigdog",
+      });
+      if (error) throw error;
+      toast.success("Login de homologação realizado!");
+      navigate({ to: targetRoute, replace: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao entrar";
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    toast.success("Desconectado com sucesso");
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -98,7 +123,9 @@ function Auth() {
         });
         if (error) throw error;
       }
-      if (parsed.data.email.toLowerCase() === "bigdog@gmail.com") {
+      if (redirect) {
+        navigate({ to: redirect as any, replace: true });
+      } else if (parsed.data.email.toLowerCase() === "bigdog@gmail.com") {
         navigate({ to: "/admin", replace: true });
       } else {
         navigate({ to: "/conta" });
@@ -145,8 +172,107 @@ function Auth() {
     }
   }
 
+  if (user) {
+    return (
+      <div className="mx-auto max-w-md p-5 py-8">
+        <div className="rounded-3xl border border-border/80 bg-card p-6 shadow-sm text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <ShieldCheck className="h-6 w-6" />
+          </div>
+          <h1 className="font-display text-xl font-bold">Você já está conectado</h1>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Sessão ativa como <strong className="text-foreground">{user.email}</strong>
+          </p>
+
+          <div className="mt-6 flex flex-col gap-2.5">
+            <Button
+              onClick={() => navigate({ to: "/admin" })}
+              className="h-11 w-full rounded-xl font-semibold gap-2"
+            >
+              <Store className="h-4 w-4" />
+              Painel Loja (Admin / Fila)
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate({ to: "/conta" })}
+              className="h-11 w-full rounded-xl font-semibold gap-2 border-border/80"
+            >
+              <User className="h-4 w-4 text-primary" />
+              Minha Conta (Tutor / Pets)
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate({ to: "/motorista" })}
+              className="h-11 w-full rounded-xl font-semibold gap-2 border-border/80"
+            >
+              <Truck className="h-4 w-4 text-amber-500" />
+              Painel Motorista (Táxi Pet)
+            </Button>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-border/60">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="text-xs text-muted-foreground hover:text-destructive gap-1.5"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sair desta conta
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-5">
+      {/* Atalhos para Homologação e Matriz de Testes */}
+      <div className="mb-6 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+        <div className="flex items-center gap-2 text-xs font-bold text-primary mb-1.5">
+          <Sparkles className="h-4 w-4" />
+          Acesso Rápido para Homologação (Matriz de Testes)
+        </div>
+        <p className="text-[11px] text-muted-foreground leading-relaxed mb-3">
+          Conta homologada (<strong className="text-foreground">bigdog@gmail.com</strong>) com acesso direto a todos os papéis:
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <Button
+            type="button"
+            size="sm"
+            disabled={loading}
+            onClick={() => handleQuickLogin("/conta")}
+            className="h-9 text-xs rounded-xl bg-primary/90 hover:bg-primary font-semibold gap-1.5"
+          >
+            <User className="h-3.5 w-3.5" />
+            Tutor (Pets)
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={loading}
+            onClick={() => handleQuickLogin("/admin")}
+            variant="outline"
+            className="h-9 text-xs rounded-xl border-primary/30 text-primary hover:bg-primary/10 font-semibold gap-1.5"
+          >
+            <Store className="h-3.5 w-3.5" />
+            Loja (Admin)
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={loading}
+            onClick={() => handleQuickLogin("/motorista")}
+            variant="outline"
+            className="h-9 text-xs rounded-xl border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 font-semibold gap-1.5"
+          >
+            <Truck className="h-3.5 w-3.5" />
+            Motorista
+          </Button>
+        </div>
+      </div>
+
       <h1 className="font-display text-2xl">
         {mode === "login" ? "Entrar na sua conta" : "Criar sua conta"}
       </h1>

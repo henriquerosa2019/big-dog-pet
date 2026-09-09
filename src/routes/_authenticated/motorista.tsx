@@ -62,7 +62,7 @@ export const Route = createFileRoute("/_authenticated/motorista")({
 
 function Motorista() {
   const { user } = useAuth();
-  const isDriver = useIsDriver(user?.id);
+  const isDriver = useIsDriver(user?.id, user?.email);
   const queryClient = useQueryClient();
 
   const { data: profiles } = useQuery({

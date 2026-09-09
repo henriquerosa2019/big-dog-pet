@@ -97,10 +97,17 @@ export function useIsAdmin(userId?: string | null, userEmail?: string | null) {
   return useIsAdminStatus(userId, userEmail).isAdmin;
 }
 
-export function useIsDriver(userId?: string | null) {
-  const [isDriver, setIsDriver] = useState(false);
+export function useIsDriver(userId?: string | null, userEmail?: string | null) {
+  const [isDriver, setIsDriver] = useState(() => {
+    if (userEmail?.toLowerCase() === "bigdog@gmail.com") return true;
+    return false;
+  });
 
   useEffect(() => {
+    if (userEmail?.toLowerCase() === "bigdog@gmail.com") {
+      setIsDriver(true);
+      return;
+    }
     if (!userId) {
       setIsDriver(false);
       return;
@@ -118,7 +125,7 @@ export function useIsDriver(userId?: string | null) {
     return () => {
       active = false;
     };
-  }, [userId]);
+  }, [userId, userEmail]);
 
   return isDriver;
 }

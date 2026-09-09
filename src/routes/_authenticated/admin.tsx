@@ -31,6 +31,7 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  User,
 } from "lucide-react";
 import { getCapacitySettings, saveCapacitySettings, type CapacitySettings } from "@/lib/schedulingCapacity";
 import { playStatusSound, testSoundAlert } from "@/lib/soundAlerts";
@@ -2295,6 +2296,18 @@ function Admin() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="h-9 px-3.5 rounded-xl text-xs font-semibold gap-2 border-border/80 hover:bg-muted"
+          >
+            <Link to="/conta">
+              <User className="h-4 w-4 text-muted-foreground" />
+              Minha Conta (Tutor)
+            </Link>
+          </Button>
+
           <Button
             asChild
             variant="outline"
