@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -25,7 +25,9 @@ import {
 import heroImage from "@/assets/hero-pets.jpg";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useIsAdminStatus } from "@/hooks/useAuth";
+import { playStatusSound } from "@/lib/soundAlerts";
 import {
+  alertBadgeLabel,
   alertTone,
   appointmentStatusTone,
   BIRTHDAY_DISCOUNT_PERCENT,
@@ -431,6 +433,22 @@ function Home() {
       return a.days - b.days;
     });
   }, [vaccineAlerts, careReminders, medicalRecordReturns]);
+
+  const hasPlayedHomeAlertRef = useRef(false);
+
+  useEffect(() => {
+    const hasTodayAlert = homeAlerts.some((a) => a.isHoje);
+    if (hasTodayAlert && !hasPlayedHomeAlertRef.current) {
+      hasPlayedHomeAlertRef.current = true;
+      playStatusSound("alerta", 2);
+      setTimeout(() => {
+        const el = document.getElementById("aviso-hoje");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 400);
+    }
+  }, [homeAlerts]);
 
   // Checagem de Aniversário (Pet ou Tutor)
   const birthdayPet = (ownPets ?? []).find((p) => isBirthdayToday(p.birth_date));
@@ -914,17 +932,17 @@ function Home() {
           </div>
           <div className="space-y-2">
             {homeAlerts.map((item) => {
-              const isRetornoHoje = item.isHoje;
-              const tone = isRetornoHoje ? "success" : alertTone(item.days);
+              const isHoje = item.isHoje;
+              const tone = alertTone(item.days);
               const isVaccine = item.kind === "vacina";
               return (
                 <div
                   key={item.key}
+                  id={isHoje ? "aviso-hoje" : undefined}
                   className={cn(
-                    "rounded-2xl border-2 p-3 shadow-card transition-all",
+                    "rounded-2xl border-2 p-3.5 shadow-card transition-all",
                     statusToneCardClass(tone),
-                    isRetornoHoje &&
-                      "border-emerald-500/80 bg-emerald-50/70 dark:border-emerald-500/60 dark:bg-emerald-950/40 ring-1 ring-emerald-400/40 shadow-emerald-500/10",
+                    isHoje && "ring-2 ring-red-500/50 shadow-md",
                   )}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -942,24 +960,20 @@ function Home() {
                           {item.isOverdue
                             ? `Atrasado há ${Math.abs(item.days)} dia(s)! (${formatDate(item.dueDate)})`
                             : item.isHoje
-                              ? "🟢 Retorno previsto para hoje!"
+                              ? "🔔 Retorno previsto para HOJE!"
                               : item.days === 1
-                                ? `Vence amanhã (${formatDate(item.dueDate)})`
-                                : `Previsto para ${formatDate(item.dueDate)} (em ${item.days} dias)`}
+                                ? `⚠️ Vence amanhã (${formatDate(item.dueDate)})`
+                                : item.days === 2
+                                  ? `🟡 Vence em 2 dias (${formatDate(item.dueDate)})`
+                                  : `Previsto para ${formatDate(item.dueDate)} (em ${item.days} dias)`}
                         </p>
                       </div>
                     </div>
                     <Badge
                       variant="secondary"
-                      className={cn("shrink-0 whitespace-nowrap text-[10px] font-semibold", statusToneClass(tone))}
+                      className={cn("shrink-0 whitespace-nowrap text-[10px] font-bold", statusToneClass(tone))}
                     >
-                      {item.isOverdue
-                        ? "Atrasado"
-                        : item.isHoje
-                          ? "Retorno hoje"
-                          : item.days === 1
-                            ? "Amanhã"
-                            : `Em ${item.days} dias`}
+                      {alertBadgeLabel(item.days)}
                     </Badge>
                   </div>
 
@@ -968,22 +982,23 @@ function Home() {
                       asChild
                       size="sm"
                       variant="outline"
-                      className="h-7 rounded-xl text-xs font-medium border-primary/30 hover:bg-primary/5"
+                      className="h-8 rounded-xl text-xs font-medium border-primary/30 hover:bg-primary/5"
                     >
                       <Link to="/agendar">Agendar</Link>
                     </Button>
                     <Button
                       size="sm"
-                      className="h-7 rounded-xl text-xs font-semibold gap-1.5 px-3 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
+                      className="h-8 rounded-xl text-xs font-bold gap-1.5 px-3.5 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
                       onClick={() =>
                         openInAppChat({
+                          petName: item.petName,
                           contextTag: item.title,
                           defaultText: item.whatsappMessage,
                         })
                       }
                     >
                       <MessageCircle className="h-3.5 w-3.5" />
-                      Chat
+                      💬 Chat - Falar com Petshop agora!!!
                     </Button>
                   </div>
                 </div>

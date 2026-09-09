@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -15,12 +15,14 @@ import {
   Syringe,
 } from "lucide-react";
 import { openInAppChat } from "@/components/InAppChatDrawer";
+import { playStatusSound } from "@/lib/soundAlerts";
 import { PetAvatar } from "@/components/PetAvatar";
 import { PetPhotoUpload } from "@/components/PetPhotoUpload";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  alertBadgeLabel,
   alertTone,
   capitalizeWords,
   CLINIC,
@@ -28,6 +30,7 @@ import {
   formatDate,
   formatDateTime,
   statusToneCardClass,
+  statusToneClass,
   statusToneIconClass,
   whatsappLink,
 } from "@/lib/format";
@@ -447,31 +450,100 @@ function PetFicha() {
 
   const vaccineAlerts = (vaccines ?? [])
     .filter((v) => v.next_due_at && daysUntil(v.next_due_at) <= 30)
-    .map((v) => ({
-      key: `vaccine-${v.id}`,
-      days: daysUntil(v.next_due_at!),
-      dueDate: v.next_due_at!,
-      title:
-        daysUntil(v.next_due_at!) < 0
-          ? `Reforço de ${v.vaccine_name} atrasado`
-          : `Reforço de ${v.vaccine_name} em ${daysUntil(v.next_due_at!)} dia(s)`,
-      whatsappMsg: `Olá, ${CLINIC.name}! Gostaria de agendar o reforço da vacina ${v.vaccine_name} do meu pet ${pet?.name ? capitalizeWords(pet.name) : ""} (retorno previsto para ${formatDate(v.next_due_at!)}).`,
-    }));
+    .map((v) => {
+      const days = daysUntil(v.next_due_at!);
+      return {
+        key: `vaccine-${v.id}`,
+        kind: "vacina" as const,
+        days,
+        dueDate: v.next_due_at!,
+        title:
+          days < 0
+            ? `Reforço de ${v.vaccine_name} atrasado`
+            : days === 0
+            ? `Reforço de ${v.vaccine_name} vence HOJE!`
+            : days === 1
+            ? `Reforço de ${v.vaccine_name} vence AMANHÃ!`
+            : days === 2
+            ? `Reforço de ${v.vaccine_name} em 2 dias`
+            : `Reforço de ${v.vaccine_name} em ${days} dias`,
+        whatsappMsg: `Olá, ${CLINIC.name}! Gostaria de agendar o reforço da vacina ${v.vaccine_name} do meu pet ${pet?.name ? capitalizeWords(pet.name) : ""} (retorno previsto para ${formatDate(v.next_due_at!)}).`,
+      };
+    });
 
   const reminderAlerts = (reminders ?? [])
     .filter((r) => !r.completed && daysUntil(r.due_date) <= 30)
-    .map((r) => ({
-      key: `reminder-${r.id}`,
-      days: daysUntil(r.due_date),
-      dueDate: r.due_date,
-      title:
-        daysUntil(r.due_date) < 0
-          ? `${r.title} atrasado(a)`
-          : `${r.title} em ${daysUntil(r.due_date)} dia(s)`,
-      whatsappMsg: `Olá, ${CLINIC.name}! Gostaria de agendar "${r.title}" (${reminderTypeLabels[r.reminder_type as (typeof reminderTypes)[number]]}) do meu pet ${pet?.name ? capitalizeWords(pet.name) : ""} (previsto para ${formatDate(r.due_date)}).`,
-    }));
+    .map((r) => {
+      const days = daysUntil(r.due_date);
+      return {
+        key: `reminder-${r.id}`,
+        kind: "retorno" as const,
+        days,
+        dueDate: r.due_date,
+        title:
+          days < 0
+            ? `${r.title} atrasado(a)`
+            : days === 0
+            ? `${r.title} é HOJE!`
+            : days === 1
+            ? `${r.title} é AMANHÃ!`
+            : days === 2
+            ? `${r.title} em 2 dias`
+            : `${r.title} em ${days} dias`,
+        whatsappMsg: `Olá, ${CLINIC.name}! Gostaria de agendar "${r.title}" (${reminderTypeLabels[r.reminder_type as (typeof reminderTypes)[number]] ?? "Retorno"}) do meu pet ${pet?.name ? capitalizeWords(pet.name) : ""} (previsto para ${formatDate(r.due_date)}).`,
+      };
+    });
 
-  const allAlerts = [...vaccineAlerts, ...reminderAlerts].sort((a, b) => a.days - b.days);
+  const medicalAlerts = (records ?? [])
+    .filter((r) => r.next_return_date && daysUntil(r.next_return_date) <= 30)
+    .filter((r) => {
+      return !(reminders ?? []).some((cr) => !cr.completed && cr.due_date === r.next_return_date);
+    })
+    .map((r) => {
+      const days = daysUntil(r.next_return_date!);
+      const motivo = r.reason ? ` (${r.reason})` : "";
+      return {
+        key: `medical-${r.id}`,
+        kind: "retorno" as const,
+        days,
+        dueDate: r.next_return_date!,
+        title:
+          days < 0
+            ? `Retorno médico atrasado${motivo}`
+            : days === 0
+            ? `Retorno médico HOJE!${motivo}`
+            : days === 1
+            ? `Retorno médico AMANHÃ!${motivo}`
+            : days === 2
+            ? `Retorno médico em 2 dias${motivo}`
+            : `Retorno médico em ${days} dias${motivo}`,
+        whatsappMsg: `Olá, ${CLINIC.name}! Gostaria de agendar o retorno médico do meu pet ${pet?.name ? capitalizeWords(pet.name) : ""} referente a "${r.reason || "Consulta"}" (previsto para ${formatDate(r.next_return_date!)}).`,
+      };
+    });
+
+  const allAlerts = [...vaccineAlerts, ...reminderAlerts, ...medicalAlerts].sort((a, b) => {
+    if (a.days === 0 && b.days !== 0) return -1;
+    if (a.days !== 0 && b.days === 0) return 1;
+    if (a.days < 0 && b.days >= 0) return -1;
+    if (a.days >= 0 && b.days < 0) return 1;
+    return a.days - b.days;
+  });
+
+  const hasPlayedSoundRef = useRef(false);
+
+  useEffect(() => {
+    const hasTodayAlert = allAlerts.some((a) => a.days === 0);
+    if (hasTodayAlert && !hasPlayedSoundRef.current) {
+      hasPlayedSoundRef.current = true;
+      playStatusSound("alerta", 2);
+      setTimeout(() => {
+        const el = document.getElementById("aviso-hoje");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 400);
+    }
+  }, [allAlerts]);
 
   const selectedReminderLabel = reminderTypeLabels[reminder.reminder_type];
 
@@ -505,40 +577,66 @@ function PetFicha() {
       </div>
 
       {allAlerts.length > 0 && (
-        <div className="mt-4 space-y-2">
-          {allAlerts.map((a) => (
-            <div
-              key={a.key}
-              className={cn(
-                "flex items-start gap-2 rounded-2xl border-2 p-3",
-                statusToneCardClass(alertTone(a.days)),
-              )}
-            >
-              <AlertTriangle className={cn("mt-0.5 h-4 w-4 shrink-0", statusToneIconClass(alertTone(a.days)))} />
-              <div className="min-w-0 text-xs">
-                <p className="font-semibold">{a.title}</p>
-                <p className="text-muted-foreground">Retorno: {formatDate(a.dueDate)}</p>
-                <div className="mt-1.5 flex items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="h-7 px-2.5 text-[11px] font-semibold gap-1 rounded-lg text-primary bg-primary/10 hover:bg-primary/20"
-                    onClick={() =>
-                      openInAppChat({
-                        petId: pet?.id,
-                        petName: pet?.name,
-                        contextTag: a.title,
-                        defaultText: a.whatsappMsg,
-                      })
-                    }
-                  >
-                    <MessageCircle className="h-3 w-3" />
-                    Falar no Chat do App (1 toque)
-                  </Button>
+        <div className="mt-4 space-y-2.5">
+          {allAlerts.map((a) => {
+            const isHoje = a.days === 0;
+            const tone = alertTone(a.days);
+            return (
+              <div
+                key={a.key}
+                id={isHoje ? "aviso-hoje" : undefined}
+                className={cn(
+                  "flex items-start gap-3 rounded-2xl border-2 p-3.5 shadow-card transition-all",
+                  statusToneCardClass(tone),
+                  isHoje && "ring-2 ring-red-500/50 shadow-md",
+                )}
+              >
+                {a.kind === "vacina" ? (
+                  <Syringe className={cn("mt-0.5 h-4 w-4 shrink-0", statusToneIconClass(tone))} />
+                ) : (
+                  <Stethoscope className={cn("mt-0.5 h-4 w-4 shrink-0", statusToneIconClass(tone))} />
+                )}
+                <div className="min-w-0 flex-1 text-xs">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-bold text-foreground">{a.title}</p>
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        "shrink-0 whitespace-nowrap text-[10px] font-bold",
+                        statusToneClass(tone),
+                      )}
+                    >
+                      {alertBadgeLabel(a.days)}
+                    </Badge>
+                  </div>
+                  <p className="text-muted-foreground mt-0.5">
+                    Data prevista: {formatDate(a.dueDate)}
+                    {a.days < 0 && ` · Atrasado há ${Math.abs(a.days)} dia(s)`}
+                    {a.days === 0 && ` · 🔔 Vence HOJE!`}
+                    {a.days === 1 && ` · ⚠️ Vence amanhã!`}
+                    {a.days === 2 && ` · 🟡 Vence em 2 dias!`}
+                  </p>
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      className="h-8 px-3 text-xs font-bold gap-1.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+                      onClick={() =>
+                        openInAppChat({
+                          petId: pet?.id,
+                          petName: pet?.name,
+                          contextTag: a.title,
+                          defaultText: a.whatsappMsg,
+                        })
+                      }
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      💬 Chat - Falar com Petshop agora!!!
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -735,8 +833,12 @@ function PetFicha() {
                       <div
                         className={cn(
                           "absolute -left-[27px] top-1.5 flex h-6 w-6 items-center justify-center rounded-full text-xs shadow-sm ring-4 ring-background",
-                          isOverdue
-                            ? "bg-amber-500 text-white"
+                          v.next_due_at
+                            ? alertTone(daysUntil(v.next_due_at)) === "danger"
+                              ? "bg-rose-600 text-white"
+                              : alertTone(daysUntil(v.next_due_at)) === "pending"
+                                ? "bg-amber-500 text-white"
+                                : "bg-sky-500 text-white"
                             : "bg-primary text-primary-foreground",
                         )}
                       >
@@ -760,18 +862,13 @@ function PetFicha() {
                               )}
                               {v.next_due_at && (
                                 <Badge
-                                  variant={
-                                    isOverdue
-                                      ? "destructive"
-                                      : isUpcoming
-                                        ? "secondary"
-                                        : "outline"
-                                  }
-                                  className="text-[10px]"
+                                  variant="secondary"
+                                  className={cn(
+                                    "text-[10px] font-bold",
+                                    statusToneClass(alertTone(daysUntil(v.next_due_at))),
+                                  )}
                                 >
-                                  {isOverdue
-                                    ? `Reforço atrasado (${Math.abs(daysUntil(v.next_due_at))}d)`
-                                    : `Reforço: ${formatDate(v.next_due_at)}`}
+                                  Reforço: {alertBadgeLabel(daysUntil(v.next_due_at))} ({formatDate(v.next_due_at)})
                                 </Badge>
                               )}
                             </div>
@@ -945,9 +1042,11 @@ function PetFicha() {
                           "absolute -left-[27px] top-1.5 flex h-6 w-6 items-center justify-center rounded-full text-xs shadow-sm ring-4 ring-background",
                           isDone
                             ? "bg-emerald-600 text-white"
-                            : isLate
-                              ? "bg-destructive text-white"
-                              : "bg-primary text-primary-foreground",
+                            : alertTone(days) === "danger"
+                              ? "bg-rose-600 text-white"
+                              : alertTone(days) === "pending"
+                                ? "bg-amber-500 text-white"
+                                : "bg-sky-500 text-white",
                         )}
                       >
                         {isDone ? (
@@ -982,14 +1081,17 @@ function PetFicha() {
                                 ] ?? r.reminder_type}
                               </Badge>
                               <Badge
-                                variant={isDone ? "secondary" : isLate ? "destructive" : "outline"}
-                                className="text-[10px]"
+                                variant="secondary"
+                                className={cn(
+                                  "text-[10px] font-bold",
+                                  isDone
+                                    ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-300"
+                                    : statusToneClass(alertTone(days)),
+                                )}
                               >
                                 {isDone
                                   ? "Concluído"
-                                  : isLate
-                                    ? `Atrasado (${Math.abs(days)}d)`
-                                    : `Previsto: ${formatDate(r.due_date)}`}
+                                  : `${alertBadgeLabel(days)} (${formatDate(r.due_date)})`}
                               </Badge>
                             </div>
                             <p className="text-xs text-muted-foreground mt-0.5">

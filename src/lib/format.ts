@@ -171,10 +171,10 @@ export function statusToneClass(tone: StatusTone): string {
 }
 
 const STATUS_TONE_CARD_CLASSES: Record<StatusTone, string> = {
-  pending: "border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-500/10",
-  info: "border-sky-300 bg-sky-50 dark:border-sky-500/40 dark:bg-sky-500/10",
-  success: "border-emerald-300 bg-emerald-50 dark:border-emerald-500/40 dark:bg-emerald-500/10",
-  danger: "border-red-300 bg-red-50 dark:border-red-500/40 dark:bg-red-500/10",
+  pending: "border-amber-400 bg-amber-50/90 dark:border-amber-500/50 dark:bg-amber-950/30",
+  info: "border-sky-300 bg-sky-50/90 dark:border-sky-500/40 dark:bg-sky-950/30",
+  success: "border-emerald-400 bg-emerald-50/90 dark:border-emerald-500/50 dark:bg-emerald-950/30",
+  danger: "border-red-400 bg-red-50/90 dark:border-red-500/50 dark:bg-red-950/30",
   neutral: "border-primary/30 bg-secondary",
 };
 
@@ -422,9 +422,25 @@ export function sortInServiceFirst<T>(
   });
 }
 
-/** Tom de um alerta (vacina/retorno) conforme já esteja atrasado (days < 0) ou só se aproximando. */
+/** 
+ * Tom de um alerta (vacina/retorno) conforme proximidade do evento:
+ * - days <= 1 (atrasado, hoje ou 1 dia/amanhã): "danger" (vermelho)
+ * - days === 2 (em 2 dias): "pending" (amarelo)
+ * - days > 2 (mais de 2 dias até 30 dias): "info" (azul/informativo)
+ */
 export function alertTone(days: number): StatusTone {
-  return days < 0 ? "danger" : "pending";
+  if (days <= 1) return "danger";
+  if (days === 2) return "pending";
+  return "info";
+}
+
+/** Rótulo padronizado do badge de proximidade de um alerta */
+export function alertBadgeLabel(days: number): string {
+  if (days < 0) return `Atrasado há ${Math.abs(days)}d`;
+  if (days === 0) return "HOJE!";
+  if (days === 1) return "Amanhã";
+  if (days === 2) return "Em 2 dias";
+  return `Em ${days} dias`;
 }
 
 /**
