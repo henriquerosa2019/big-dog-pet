@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -309,7 +309,7 @@ function Admin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("appointments")
-        .select("id, user_id, pet_id, scheduled_at, status, ops_status, logistics_type, notes, origin, total_cents, service_price_cents, transport_price_cents, payment_status, payment_method, paid_at, services(name, category), pets(name, species, size)")
+        .select("id, user_id, pet_id, scheduled_at, status, ops_status, logistics_type, notes, origin, total_cents, service_price_cents, transport_price_cents, payment_status, payment_method, paid_at, services(name, category), pets(name, species, size, photo_url, breed)")
         .order("scheduled_at", { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -1983,7 +1983,12 @@ function Admin() {
       const client = profileById.get(appt.user_id);
       const tutorName = client?.full_name || clientInfo?.name || "Tutor";
       const tutorPhone = client?.phone || clientInfo?.phone || null;
-      const pet = appt.pets as { name?: string | null; species?: string | null } | null;
+      const pet = appt.pets as {
+        name?: string | null;
+        species?: string | null;
+        photo_url?: string | null;
+        breed?: string | null;
+      } | null;
       const svc = appt.services as { name?: string | null; category?: string | null } | null;
       const tOrder = (transportOrders ?? []).find((t) => t.appointment_id === appt.id);
 
@@ -1995,6 +2000,8 @@ function Admin() {
         petId: appt.pet_id,
         petName: pet?.name || "Pet",
         petSpecies: pet?.species || null,
+        petPhotoUrl: pet?.photo_url || null,
+        petBreed: pet?.breed || null,
         serviceName: svc?.name || "Serviço",
         serviceCategory: svc?.category || null,
         scheduledAt: appt.scheduled_at,
@@ -2278,6 +2285,18 @@ function Admin() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="h-9 px-3.5 rounded-xl text-xs font-semibold gap-2 border-border/80 hover:bg-muted"
+          >
+            <Link to="/" search={{ preview: "cliente" }}>
+              <Eye className="h-4 w-4 text-muted-foreground" />
+              Ver como Cliente
+            </Link>
+          </Button>
+
           <Button
             size="sm"
             onClick={() => {

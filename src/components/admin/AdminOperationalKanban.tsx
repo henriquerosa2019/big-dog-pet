@@ -43,6 +43,8 @@ export interface KanbanItem {
   petId?: string | null;
   petName: string;
   petSpecies?: string | null;
+  petPhotoUrl?: string | null;
+  petBreed?: string | null;
   serviceName: string;
   serviceCategory?: string | null;
   scheduledAt: string;
@@ -59,6 +61,8 @@ export interface KanbanPetGroup {
   petId?: string | null | undefined;
   petName: string;
   petSpecies?: string | null | undefined;
+  petPhotoUrl?: string | null | undefined;
+  petBreed?: string | null | undefined;
   tutorName: string;
   tutorPhone?: string | null | undefined;
   userId: string;
@@ -84,6 +88,8 @@ function groupItemsByPet(items: KanbanItem[]): KanbanPetGroup[] {
         petId: item.petId,
         petName: item.petName,
         petSpecies: item.petSpecies,
+        petPhotoUrl: item.petPhotoUrl || null,
+        petBreed: item.petBreed || null,
         tutorName: item.tutorName,
         tutorPhone: item.tutorPhone,
         userId: item.userId,
@@ -96,6 +102,8 @@ function groupItemsByPet(items: KanbanItem[]): KanbanPetGroup[] {
       existing.totalCents += (item.totalCents || 0);
       if (hasTaxi) existing.hasTaxi = true;
       if (!existing.tutorPhone && item.tutorPhone) existing.tutorPhone = item.tutorPhone;
+      if (!existing.petPhotoUrl && item.petPhotoUrl) existing.petPhotoUrl = item.petPhotoUrl;
+      if (!existing.petBreed && item.petBreed) existing.petBreed = item.petBreed;
     }
   }
 
@@ -459,36 +467,59 @@ function KanbanGroupCard({
 
   return (
     <div className="rounded-xl border border-border/70 bg-card p-3 shadow-xs hover:shadow-sm transition-all space-y-2">
-      {/* Linha 1: Horário, Nome do Pet, Badges e Menu ⋮ */}
-      <div className="flex items-start justify-between gap-1.5">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-display font-extrabold text-xs text-primary bg-primary/10 px-1.5 py-0.5 rounded-md shrink-0">
-              {firstTime}
-            </span>
-            <span className="font-bold text-xs text-foreground truncate">
-              {petEmoji} {capitalizeWords(group.petName)}
-            </span>
-            {group.hasTaxi && (
-              <Badge
-                variant="outline"
-                className="text-[9px] py-0 px-1 font-semibold border-sky-500/40 text-sky-600 dark:text-sky-400"
-              >
-                Táxi Pet 🚗
-              </Badge>
-            )}
-            {isMultiple && (
-              <Badge
-                className="text-[9px] py-0 px-1.5 font-bold bg-amber-500/20 text-amber-900 dark:text-amber-300 border-amber-500/30"
-              >
-                {group.items.length} serviços
-              </Badge>
+      {/* Linha 1: Foto/Avatar do Pet (40x40px), Horário, Nome do Pet, Raça, Badges e Menu ⋮ */}
+      <div className="flex items-start justify-between gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          {/* Avatar com foto real do pet (40x40px) */}
+          <div className="relative h-10 w-10 shrink-0">
+            {group.petPhotoUrl ? (
+              <img
+                src={group.petPhotoUrl}
+                alt={group.petName}
+                className="h-10 w-10 rounded-full object-cover border-2 border-primary/25 shadow-xs"
+                loading="lazy"
+              />
+            ) : (
+              <div className="grid h-10 w-10 place-items-center rounded-full bg-primary/10 border-2 border-primary/20 text-base font-bold shadow-xs">
+                {petEmoji}
+              </div>
             )}
           </div>
 
-          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-            Tutor: <span className="font-semibold text-foreground/85">{capitalizeWords(group.tutorName)}</span>
-          </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-display font-extrabold text-xs text-primary bg-primary/10 px-1.5 py-0.5 rounded-md shrink-0">
+                {firstTime}
+              </span>
+              <span className="font-bold text-xs text-foreground truncate">
+                {capitalizeWords(group.petName)}
+              </span>
+              {group.petBreed && (
+                <span className="text-[10px] text-muted-foreground font-medium truncate">
+                  ({capitalizeWords(group.petBreed)})
+                </span>
+              )}
+              {group.hasTaxi && (
+                <Badge
+                  variant="outline"
+                  className="text-[9px] py-0 px-1 font-semibold border-sky-500/40 text-sky-600 dark:text-sky-400"
+                >
+                  Táxi 🚗
+                </Badge>
+              )}
+              {isMultiple && (
+                <Badge
+                  className="text-[9px] py-0 px-1.5 font-bold bg-amber-500/20 text-amber-900 dark:text-amber-300 border-amber-500/30"
+                >
+                  {group.items.length} serviços
+                </Badge>
+              )}
+            </div>
+
+            <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+              Tutor: <span className="font-semibold text-foreground/85">{capitalizeWords(group.tutorName)}</span>
+            </p>
+          </div>
         </div>
 
         {/* Menu de Ações Secundárias (⋮) */}

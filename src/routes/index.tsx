@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -14,6 +14,8 @@ import {
   Gift,
   MapPin,
   MessageCircle,
+  Scissors,
+  ShoppingBag,
   Sparkles,
   Stethoscope,
   Syringe,
@@ -23,7 +25,6 @@ import {
 import heroImage from "@/assets/hero-pets.jpg";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useIsAdminStatus } from "@/hooks/useAuth";
-import { useChatQueue } from "@/lib/inAppChat";
 import {
   alertTone,
   appointmentStatusTone,
@@ -60,6 +61,9 @@ import { openInAppChat } from "@/components/InAppChatDrawer";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
+  validateSearch: (search: Record<string, unknown>): { preview?: string } => ({
+    ...(typeof search["preview"] === "string" ? { preview: search["preview"] as string } : {}),
+  }),
   head: () => ({
     meta: [
       { title: "Big Dog Pet | Banho, Tosa e Acessórios em Franco da Rocha" },
@@ -79,10 +83,18 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
+  const search = Route.useSearch();
+  const isClientPreview = search.preview === "cliente";
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { isAdmin } = useIsAdminStatus(user?.id, user?.email);
-  const { conversations: chatQueue, totalUnread: totalChatUnread } = useChatQueue();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (isAdmin && !isClientPreview) {
+      navigate({ to: "/admin", replace: true });
+    }
+  }, [isAdmin, isClientPreview, navigate]);
 
   // 1. Dados de aniversário do tutor e dos seus pets
   const { data: ownProfile } = useQuery({
@@ -450,211 +462,113 @@ function Home() {
     }
   }
 
+  if (isAdmin && !isClientPreview) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <p className="mt-3 text-sm font-semibold text-muted-foreground">
+          Acessando Painel Administrativo...
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div>
-      {/* 0. DESTAQUE DA LOJA / ADMIN NO TOPO DA TELA PRINCIPAL */}
-      {isAdmin && (
-        <section className="px-4 pt-4 pb-2 animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="rounded-3xl bg-gradient-to-r from-primary to-primary/85 p-4 text-primary-foreground shadow-lg mb-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="grid h-10 w-10 place-items-center rounded-2xl bg-white/15 text-xl font-bold backdrop-blur-xs">
-                  🏪
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
-                    </span>
-                    <h2 className="font-display text-sm font-bold text-white leading-tight">
-                      Central da Loja · Vila Bazú
-                    </h2>
-                  </div>
-                  <p className="text-[11px] text-primary-foreground/80 mt-0.5">
-                    Conta Loja: <strong className="text-white">{user?.email || "bigdog@gmail.com"}</strong>
-                  </p>
-                </div>
-              </div>
-
-              <Link
-                to="/admin"
-                className="flex items-center gap-1 rounded-xl bg-white/20 hover:bg-white/30 px-3 py-1.5 text-xs font-bold text-white transition backdrop-blur-xs shrink-0"
-              >
-                <span>Painel Completo</span>
-                <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-
-            {/* Contadores Rápidos da Operação */}
-            <div className="mt-3 pt-2.5 border-t border-white/20 grid grid-cols-2 gap-2 text-left">
-              <div className="bg-black/15 rounded-xl p-2 px-3">
-                <p className="text-[10px] uppercase font-semibold text-primary-foreground/75">
-                  Mensagens no Chat
-                </p>
-                <p className="text-base font-bold font-display text-white mt-0.5 flex items-center gap-1.5">
-                  {totalChatUnread > 0 ? (
-                    <span className="inline-flex items-center gap-1 text-emerald-300">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                      {totalChatUnread} nova(s)
-                    </span>
-                  ) : (
-                    <span>{chatQueue.length} chamados</span>
-                  )}
-                </p>
-              </div>
-              <div className="bg-black/15 rounded-xl p-2 px-3">
-                <p className="text-[10px] uppercase font-semibold text-primary-foreground/75">
-                  Fila de Atendimento
-                </p>
-                <button
-                  type="button"
-                  onClick={() => openInAppChat()}
-                  className="text-xs font-bold text-white underline hover:opacity-80 mt-1 block text-left"
-                >
-                  Abrir Fila da Loja ➔
-                </button>
-              </div>
-            </div>
+      {/* 0. Barra de controle: Modo de Visualização do Cliente para Admin */}
+      {isClientPreview && (
+        <div className="sticky top-0 z-50 flex items-center justify-between bg-slate-900 px-4 py-2.5 text-white text-xs shadow-md">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+            </span>
+            <span className="font-bold">Modo Visualização do Tutor (Cliente)</span>
           </div>
-
-          {/* Destaque das Mensagens do Chat que Chegam dos Tutores */}
-          <div className="rounded-3xl border-2 border-primary/30 bg-card p-4 shadow-card">
-            <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-border/60">
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-3 w-3">
-                  <span className={cn(
-                    "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
-                    totalChatUnread > 0 ? "bg-emerald-400" : "bg-primary/50"
-                  )}></span>
-                  <span className={cn(
-                    "relative inline-flex rounded-full h-3 w-3",
-                    totalChatUnread > 0 ? "bg-emerald-500" : "bg-primary"
-                  )}></span>
-                </span>
-                <h3 className="font-display text-sm sm:text-base font-bold text-foreground flex items-center gap-1.5">
-                  Mensagens do Chat dos Tutores
-                  {totalChatUnread > 0 && (
-                    <Badge className="bg-emerald-600 text-white font-bold text-[10px] py-0 px-2 animate-pulse">
-                      {totalChatUnread} Nova(s)
-                    </Badge>
-                  )}
-                </h3>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs font-semibold text-primary hover:bg-primary/10 h-7 px-2.5"
-                  onClick={() => openInAppChat()}
-                >
-                  Abrir Chat
-                </Button>
-                <Link
-                  to="/admin"
-                  search={{ tab: "atendimentos" }}
-                  className="text-xs font-semibold text-primary underline hover:opacity-80 px-1"
-                >
-                  Ver todos ({chatQueue.length})
-                </Link>
-              </div>
-            </div>
-
-            <div className="mt-3 space-y-2.5">
-              {chatQueue.length === 0 ? (
-                <div className="p-4 rounded-2xl border border-dashed border-border/80 text-center text-xs text-muted-foreground">
-                  Nenhuma mensagem no chat no momento. Todas as conversas estão respondidas!
-                </div>
-              ) : (
-                chatQueue.slice(0, 3).map((conv) => {
-                  const hasUnread = conv.unreadCountStore > 0;
-                  return (
-                    <div
-                      key={conv.conversationId}
-                      className={cn(
-                        "rounded-2xl border p-3 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs",
-                        hasUnread
-                          ? "border-emerald-500/50 bg-emerald-50/50 dark:bg-emerald-950/20 ring-1 ring-emerald-500/20"
-                          : "border-border/80 bg-card hover:bg-muted/20"
-                      )}
-                    >
-                      <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                        <div className={cn(
-                          "grid h-9 w-9 shrink-0 place-items-center rounded-xl font-bold text-xs",
-                          hasUnread ? "bg-emerald-600 text-white" : "bg-primary/10 text-primary"
-                        )}>
-                          {conv.tutorName.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="font-bold text-xs text-foreground">{conv.tutorName}</span>
-                            {conv.petName && (
-                              <Badge variant="secondary" className="text-[9px] py-0 font-bold">
-                                🐾 {conv.petName}
-                              </Badge>
-                            )}
-                            {conv.contextTag && (
-                              <Badge variant="outline" className="text-[9px] py-0 text-primary border-primary/30">
-                                🏷️ {conv.contextTag}
-                              </Badge>
-                            )}
-                            {conv.status === "aberto" || conv.unreadCountStore > 0 ? (
-                              <Badge className="bg-amber-500 text-amber-950 text-[9px] py-0 font-bold">
-                                Aguardando Loja
-                              </Badge>
-                            ) : conv.status === "fechado" ? (
-                              <Badge variant="outline" className="text-[9px] py-0 text-slate-500 border-slate-300 dark:border-slate-700">
-                                Finalizado
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-[9px] py-0 text-emerald-600 border-emerald-500/30">
-                                Respondido
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
-                            "{conv.lastMessageText}"
-                          </p>
-                        </div>
-                      </div>
-
-                      <Button
-                        size="sm"
-                        className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shrink-0 h-8 rounded-xl"
-                        onClick={() => openInAppChat({ conversationId: conv.conversationId, tutorName: conv.tutorName, petName: conv.petName ?? undefined })}
-                      >
-                        {conv.status === "fechado" ? "💬 Abrir Chat" : "💬 Responder Tutor"}
-                      </Button>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </section>
+          <Button
+            asChild
+            size="sm"
+            className="h-7 rounded-lg bg-primary hover:bg-primary/90 text-white font-bold text-xs"
+          >
+            <Link to="/admin">Voltar ao Painel Admin</Link>
+          </Button>
+        </div>
       )}
 
-      {/* 1. Hero Seção Principal */}
-      <section className="relative">
+      {/* 1. Hero Seção Principal (Compacto para visualização above-the-fold) */}
+      <section className="relative overflow-hidden">
         <img
           src={heroImage}
           alt="Profissional cuidando de um cão e um gato na Big Dog Pet"
           width={1200}
           height={912}
-          className="h-56 sm:h-64 w-full object-cover"
+          className="h-36 sm:h-44 md:h-48 w-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-primary/90 via-primary/45 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 p-5">
-          <h1 className="font-display text-2xl sm:text-3xl leading-tight text-primary-foreground">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/90 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-black shadow-xs mb-1">
+            ⭐ {CLINIC.unit} · Franco da Rocha
+          </span>
+          <h1 className="font-display text-xl sm:text-2xl md:text-3xl font-extrabold leading-tight text-white drop-shadow-sm">
             A vida do seu pet em boas mãos
           </h1>
-          <p className="mt-1.5 text-xs sm:text-sm text-primary-foreground/90">
+          <p className="mt-0.5 text-xs sm:text-sm text-white/90 line-clamp-1">
             {CLINIC.tagline}.
           </p>
-          <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-gold">
-            {CLINIC.unit} · Vila Bazú, Franco da Rocha
-          </p>
+        </div>
+      </section>
+
+      {/* 2. Ações Rápidas: Banho & Tosa, Táxi Pet, Loja Online (Visíveis Imediatamente Acima da Dobra) */}
+      <section className="px-4 -mt-3 sm:-mt-4 relative z-10 mb-2">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          {/* 1. Agendar Banho & Tosa */}
+          <Link
+            to="/agendar"
+            className="flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl bg-primary text-primary-foreground shadow-md hover:bg-primary/90 transition active:scale-[0.98] text-center group"
+          >
+            <div className="h-9 w-9 rounded-xl bg-white/20 flex items-center justify-center mb-1 group-hover:scale-105 transition">
+              <Scissors className="h-5 w-5 text-white" />
+            </div>
+            <span className="font-bold text-xs sm:text-sm leading-tight text-white">
+              Banho & Tosa
+            </span>
+            <span className="text-[10px] text-white/80 mt-0.5 hidden sm:inline">
+              Agendar serviço
+            </span>
+          </Link>
+
+          {/* 2. Táxi Pet */}
+          <Link
+            to="/agendar"
+            search={{ tipo: "buscar_e_devolver" }}
+            className="flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl bg-card border-2 border-primary/20 shadow-md hover:border-primary hover:bg-primary/5 transition active:scale-[0.98] text-center group"
+          >
+            <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center mb-1 group-hover:scale-105 transition">
+              <Truck className="h-5 w-5 text-primary" />
+            </div>
+            <span className="font-bold text-xs sm:text-sm leading-tight text-foreground">
+              Táxi Pet
+            </span>
+            <span className="text-[10px] text-muted-foreground mt-0.5 hidden sm:inline">
+              Busca em casa
+            </span>
+          </Link>
+
+          {/* 3. Loja Online */}
+          <Link
+            to="/loja"
+            className="flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl bg-card border border-border shadow-md hover:border-primary hover:bg-primary/5 transition active:scale-[0.98] text-center group"
+          >
+            <div className="h-9 w-9 rounded-xl bg-amber-500/10 flex items-center justify-center mb-1 group-hover:scale-105 transition">
+              <ShoppingBag className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <span className="font-bold text-xs sm:text-sm leading-tight text-foreground">
+              Loja Online
+            </span>
+            <span className="text-[10px] text-muted-foreground mt-0.5 hidden sm:inline">
+              Rações & mimos
+            </span>
+          </Link>
         </div>
       </section>
 
@@ -846,15 +760,6 @@ function Home() {
         </section>
       )}
 
-      {/* 3. Botões Rápidos: Agendar Serviço e Ir para a Loja */}
-      <section className="grid grid-cols-2 gap-3 p-4">
-        <Button asChild size="lg" className="h-12 rounded-2xl font-bold shadow-sm">
-          <Link to="/agendar">Agendar serviço</Link>
-        </Button>
-        <Button asChild size="lg" variant="secondary" className="h-12 rounded-2xl font-bold shadow-sm">
-          <Link to="/loja">Ir para a loja</Link>
-        </Button>
-      </section>
 
       {/* 3. Destaque Táxi Pet: Busca e Devolução em Casa */}
       <section className="px-4 pb-3">
