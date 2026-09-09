@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesUpdate } from "@/integrations/supabase/types";
-import { useAuth, useIsAdmin, useIsDriver } from "@/hooks/useAuth";
+import { useAuth, useIsAdminStatus, useIsDriver } from "@/hooks/useAuth";
 import { getAllManagedDrivers } from "@/lib/driversManager";
 import {
   Select,
@@ -74,10 +74,11 @@ export const Route = createFileRoute("/_authenticated/motorista")({
 
 function Motorista() {
   const search = Route.useSearch();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { isAdmin, loading: adminLoading } = useIsAdminStatus(user?.id, user?.email);
   const isDriver = useIsDriver(user?.id, user?.email);
-  const isAdmin = useIsAdmin(user?.id, user?.email);
   const hasAccess = isDriver || isAdmin;
+  const isCheckingAccess = authLoading || (Boolean(user?.id) && adminLoading && !isDriver);
   const queryClient = useQueryClient();
 
   const [selectedDriverId, setSelectedDriverId] = useState<string>(
@@ -277,6 +278,39 @@ function Motorista() {
     onError: () => toast.error("Não foi possível atualizar o status"),
   });
 
+  const myRoutes = useMemo(() => {
+    const list = (routes ?? []).filter((r) => {
+      if (isAdmin) {
+        if (selectedDriverId === "todos") return r.driver_id !== null;
+        return r.driver_id === selectedDriverId;
+      }
+      return r.driver_id === user?.id;
+    });
+    return sortInServiceFirst(list, (r) => isAppointmentInService(r.appointments));
+  }, [routes, user?.id, isAdmin, selectedDriverId]);
+
+  const available = useMemo(() => (routes ?? []).filter((r) => r.driver_id === null), [routes]);
+
+  const activeDriver = allDrivers.find((d) => d.id === selectedDriverId);
+  const myVehicleType = (
+    activeDriver?.vehicle_type ||
+    (user?.id ? profileById.get(user.id)?.vehicle_type : null) ||
+    "carro"
+  ) as VehicleType;
+
+  if (isCheckingAccess) {
+    return (
+      <div className="p-12 text-center max-w-md mx-auto space-y-4">
+        <div className="flex justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+        <p className="text-sm font-medium text-muted-foreground">
+          Carregando permissões do painel do motorista...
+        </p>
+      </div>
+    );
+  }
+
   if (!hasAccess) {
     return (
       <div className="p-8 text-center max-w-md mx-auto space-y-3">
@@ -295,26 +329,6 @@ function Motorista() {
       </div>
     );
   }
-
-  const myRoutes = useMemo(() => {
-    const list = (routes ?? []).filter((r) => {
-      if (isAdmin) {
-        if (selectedDriverId === "todos") return r.driver_id !== null;
-        return r.driver_id === selectedDriverId;
-      }
-      return r.driver_id === user?.id;
-    });
-    return sortInServiceFirst(list, (r) => isAppointmentInService(r.appointments));
-  }, [routes, user?.id, isAdmin, selectedDriverId]);
-
-  const available = (routes ?? []).filter((r) => r.driver_id === null);
-
-  const activeDriver = allDrivers.find((d) => d.id === selectedDriverId);
-  const myVehicleType = (
-    activeDriver?.vehicle_type ||
-    (user?.id ? profileById.get(user.id)?.vehicle_type : null) ||
-    "carro"
-  ) as VehicleType;
 
   return (
     <div className="p-4 max-w-4xl mx-auto space-y-5">
