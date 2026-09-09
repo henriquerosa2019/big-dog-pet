@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { isRegisteredDriverUser } from "@/lib/driversManager";
 
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
@@ -99,12 +100,12 @@ export function useIsAdmin(userId?: string | null, userEmail?: string | null) {
 
 export function useIsDriver(userId?: string | null, userEmail?: string | null) {
   const [isDriver, setIsDriver] = useState(() => {
-    if (userEmail?.toLowerCase() === "bigdog@gmail.com") return true;
+    if (isRegisteredDriverUser(userId, userEmail)) return true;
     return false;
   });
 
   useEffect(() => {
-    if (userEmail?.toLowerCase() === "bigdog@gmail.com") {
+    if (isRegisteredDriverUser(userId, userEmail)) {
       setIsDriver(true);
       return;
     }
@@ -120,7 +121,9 @@ export function useIsDriver(userId?: string | null, userEmail?: string | null) {
       .eq("role", "motorista")
       .maybeSingle()
       .then(({ data }) => {
-        if (active) setIsDriver(Boolean(data));
+        if (active) {
+          setIsDriver(Boolean(data) || isRegisteredDriverUser(userId, userEmail));
+        }
       });
     return () => {
       active = false;

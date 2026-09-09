@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
+  ArrowLeft,
   CheckCircle2,
   Compass,
   CreditCard,
@@ -16,7 +17,15 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesUpdate } from "@/integrations/supabase/types";
-import { useAuth, useIsDriver } from "@/hooks/useAuth";
+import { useAuth, useIsAdmin, useIsDriver } from "@/hooks/useAuth";
+import { getAllManagedDrivers } from "@/lib/driversManager";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AVISO_AUTOMATICO_WHATSAPP,
   capitalizeWords,
@@ -53,6 +62,9 @@ import { playStatusSound } from "@/lib/soundAlerts";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/motorista")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    driverId: typeof search.driverId === "string" ? search.driverId : undefined,
+  }),
   ssr: false,
   head: () => ({
     meta: [{ title: "Painel do motorista | Big Dog Pet" }],
@@ -61,13 +73,26 @@ export const Route = createFileRoute("/_authenticated/motorista")({
 });
 
 function Motorista() {
+  const search = Route.useSearch();
   const { user } = useAuth();
   const isDriver = useIsDriver(user?.id, user?.email);
+  const isAdmin = useIsAdmin(user?.id, user?.email);
+  const hasAccess = isDriver || isAdmin;
   const queryClient = useQueryClient();
+
+  const [selectedDriverId, setSelectedDriverId] = useState<string>(
+    search.driverId || (isAdmin ? "todos" : user?.id ?? "todos"),
+  );
+
+  useEffect(() => {
+    if (search.driverId) {
+      setSelectedDriverId(search.driverId);
+    }
+  }, [search.driverId]);
 
   const { data: profiles } = useQuery({
     queryKey: ["driver-profiles"],
-    enabled: isDriver,
+    enabled: hasAccess,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
@@ -76,6 +101,10 @@ function Motorista() {
       return data;
     },
   });
+
+  const allDrivers = useMemo(() => {
+    return getAllManagedDrivers(profiles ?? []);
+  }, [profiles]);
 
   const profileById = useMemo(() => {
     const map = new Map<
@@ -89,7 +118,9 @@ function Motorista() {
 
   const { data: routes } = useQuery({
     queryKey: ["driver-routes"],
-    enabled: isDriver,
+    enabled: hasAccess,
+    refetchInterval: 3000,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transport_orders")
@@ -101,6 +132,31 @@ function Motorista() {
       return data;
     },
   });
+
+  // Atualização em tempo real de novas rotas ou avanços de status
+  useEffect(() => {
+    if (!hasAccess) return;
+    const channel = supabase
+      .channel("driver-routes-live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "transport_orders" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["driver-routes"] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "appointments" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["driver-routes"] });
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [hasAccess, queryClient]);
 
   const registerPayment = useMutation({
     mutationFn: async ({
@@ -124,6 +180,7 @@ function Motorista() {
     onSuccess: (method) => {
       queryClient.invalidateQueries({ queryKey: ["driver-routes"] });
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
       toast.success(`Pagamento registrado via ${method.toUpperCase()} com sucesso!`);
       playStatusSound("confirmado", 1);
     },
@@ -132,14 +189,18 @@ function Motorista() {
 
   const claimRoute = useMutation({
     mutationFn: async (transportOrderId: string) => {
+      const assignedId =
+        isAdmin && selectedDriverId !== "todos" ? selectedDriverId : user!.id;
       const { error } = await supabase
         .from("transport_orders")
-        .update({ driver_id: user!.id, assigned_at: new Date().toISOString() })
+        .update({ driver_id: assignedId, assigned_at: new Date().toISOString() })
         .eq("id", transportOrderId);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["driver-routes"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
       toast.success("Rota aceita! Avance o status conforme for buscando o pet.");
     },
     onError: () => toast.error("Não foi possível aceitar essa rota"),
@@ -185,6 +246,9 @@ function Motorista() {
       queryClient.invalidateQueries({ queryKey: ["driver-routes"] });
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-dash-appointments"] });
       toast.success("Status atualizado");
 
       // Alerta sonoro correspondente à etapa da viagem
@@ -201,8 +265,7 @@ function Motorista() {
         playStatusSound("concluido");
       }
 
-      // Pedido do Henrique 2026-08-29: o tutor só recebe WhatsApp na entrega final,
-      // pra não receber mensagem a cada etapa do transporte.
+      // Notificação ao tutor na entrega final
       const notifyOn: OpsStatus[] = ["pet_entregue"];
       if (AVISO_AUTOMATICO_WHATSAPP && notifyOn.includes(vars.status)) {
         const client = profileById.get(vars.userId);
@@ -214,83 +277,214 @@ function Motorista() {
     onError: () => toast.error("Não foi possível atualizar o status"),
   });
 
-  if (!isDriver) {
+  if (!hasAccess) {
     return (
-      <div className="p-4">
-        <h1 className="font-display text-2xl">Acesso restrito</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Esta área é exclusiva para motoristas do Big Dog Pet.
+      <div className="p-8 text-center max-w-md mx-auto space-y-3">
+        <h1 className="font-display text-2xl font-bold">Acesso restrito</h1>
+        <p className="text-sm text-muted-foreground">
+          Esta área é exclusiva para motoristas e administradores do Big Dog Pet.
         </p>
+        <div className="flex justify-center gap-2 pt-2">
+          <Button asChild variant="outline" className="rounded-xl">
+            <Link to="/">Voltar ao Início</Link>
+          </Button>
+          <Button asChild className="rounded-xl">
+            <Link to="/admin">Painel Admin</Link>
+          </Button>
+        </div>
       </div>
     );
   }
 
   const myRoutes = useMemo(() => {
-    const list = (routes ?? []).filter((r) => r.driver_id === user?.id);
+    const list = (routes ?? []).filter((r) => {
+      if (isAdmin) {
+        if (selectedDriverId === "todos") return r.driver_id !== null;
+        return r.driver_id === selectedDriverId;
+      }
+      return r.driver_id === user?.id;
+    });
     return sortInServiceFirst(list, (r) => isAppointmentInService(r.appointments));
-  }, [routes, user?.id]);
+  }, [routes, user?.id, isAdmin, selectedDriverId]);
+
   const available = (routes ?? []).filter((r) => r.driver_id === null);
-  const myVehicleType = (user?.id ? profileById.get(user.id)?.vehicle_type : null) as
-    VehicleType | null | undefined;
+
+  const activeDriver = allDrivers.find((d) => d.id === selectedDriverId);
+  const myVehicleType = (
+    activeDriver?.vehicle_type ||
+    (user?.id ? profileById.get(user.id)?.vehicle_type : null) ||
+    "carro"
+  ) as VehicleType;
 
   return (
-    <div className="p-4">
-      <h1 className="font-display text-2xl">Painel do motorista</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Suas rotas de retirada e devolução de pets.
-      </p>
+    <div className="p-4 max-w-4xl mx-auto space-y-5">
+      {/* 1. SELETOR DE SIMULAÇÃO PARA ADMIN */}
+      {isAdmin && (
+        <div className="rounded-2xl border-2 border-amber-500/80 bg-amber-500/10 p-3.5 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-slate-950 font-bold shadow-xs">
+                <Truck className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-amber-950 dark:text-amber-200">
+                  Modo Administrador & Simulação
+                </p>
+                <p className="text-[11px] text-amber-900/80 dark:text-amber-300/80">
+                  Você pode visualizar e avançar o status das rotas de qualquer motorista para testar os reflexos na tela do tutor e do admin.
+                </p>
+              </div>
+            </div>
 
-      <section className="mt-5">
-        <h2 className="font-display text-lg">Minhas rotas</h2>
-        <div className="mt-2 space-y-2">
-          {myRoutes.map((item) => (
-            <RouteCard
-              key={item.id}
-              item={item}
-              client={item.appointments ? profileById.get(item.appointments.user_id) : undefined}
-              onAdvance={(status) =>
-                item.appointments &&
-                advanceStatus.mutate({
-                  appointmentId: item.appointment_id,
-                  transportOrderId: item.id,
-                  status,
-                  userId: item.appointments.user_id,
-                  petName: item.appointments.pets?.name ?? null,
-                })
-              }
-              isPending={advanceStatus.isPending}
-              onRegisterPayment={(appointmentId, method) =>
-                registerPayment.mutate({ appointmentId, method })
-              }
-              isPaying={registerPayment.isPending}
-            />
-          ))}
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <Select value={selectedDriverId} onValueChange={setSelectedDriverId}>
+                <SelectTrigger className="h-9 w-52 rounded-xl text-xs bg-card font-bold border-amber-500/40">
+                  <SelectValue placeholder="Visualizar como..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">👁️ Todos os Motoristas</SelectItem>
+                  {allDrivers.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.vehicle_type === "moto" ? "🏍️" : "🚗"} {d.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button asChild variant="outline" size="sm" className="h-9 rounded-xl text-xs font-bold gap-1 bg-card">
+                <Link to="/admin">
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Voltar ao Admin
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. CABEÇALHO DA TELA */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card p-4 rounded-3xl border border-border/70 shadow-card">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Táxi Pet & Logística
+            </span>
+          </div>
+          <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight mt-0.5 text-foreground">
+            Painel do Motorista
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {isAdmin && selectedDriverId !== "todos"
+              ? `Visualizando rotas de: ${activeDriver?.full_name ?? "Motorista"}`
+              : "Suas rotas de retirada e devolução de pets."}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-xs py-1 px-2.5 rounded-xl gap-1.5 font-bold">
+            <Truck className="h-3.5 w-3.5 text-primary" />
+            {myVehicleType === "moto" ? "🏍️ Veículo Moto" : "🚗 Veículo Carro"}
+          </Badge>
+        </div>
+      </div>
+
+      {/* 3. ROTAS ATRIBUÍDAS */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-base sm:text-lg font-bold flex items-center gap-2">
+            <span>Rotas Atribuídas</span>
+            <Badge className="text-xs font-black px-2 py-0.5 bg-primary text-primary-foreground">
+              {myRoutes.length}
+            </Badge>
+          </h2>
+          {myRoutes.length > 0 && (
+            <span className="text-xs text-muted-foreground">
+              Avance o status para refletir em tempo real para o tutor e a loja.
+            </span>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          {myRoutes.map((item) => {
+            const assignedDriver = allDrivers.find((d) => d.id === item.driver_id);
+            return (
+              <RouteCard
+                key={item.id}
+                item={item}
+                driverName={assignedDriver?.full_name || (item.driver_id ? profileById.get(item.driver_id)?.full_name : null)}
+                client={item.appointments ? profileById.get(item.appointments.user_id) : undefined}
+                onAdvance={(status) =>
+                  item.appointments &&
+                  advanceStatus.mutate({
+                    appointmentId: item.appointment_id,
+                    transportOrderId: item.id,
+                    status,
+                    userId: item.appointments.user_id,
+                    petName: item.appointments.pets?.name ?? null,
+                  })
+                }
+                isPending={advanceStatus.isPending}
+                onRegisterPayment={(appointmentId, method) =>
+                  registerPayment.mutate({ appointmentId, method })
+                }
+                isPaying={registerPayment.isPending}
+              />
+            );
+          })}
           {myRoutes.length === 0 && (
-            <p className="text-sm text-muted-foreground">Nenhuma rota atribuída a você ainda.</p>
+            <div className="p-6 text-center rounded-2xl border border-dashed border-border bg-card/60">
+              <p className="text-sm font-semibold text-muted-foreground">
+                Nenhuma rota atribuída no momento.
+              </p>
+              <p className="text-xs text-muted-foreground/80 mt-1">
+                Aceite uma rota disponível abaixo ou peça para a recepção designar no Admin.
+              </p>
+            </div>
           )}
         </div>
       </section>
 
-      <section className="mt-6">
-        <h2 className="font-display text-lg">Disponíveis para aceitar</h2>
-        <div className="mt-2 space-y-2">
+      {/* 4. ROTAS DISPONÍVEIS PARA ACEITAR */}
+      <section className="space-y-3 pt-2">
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-base sm:text-lg font-bold flex items-center gap-2">
+            <span>Rotas Disponíveis para Pegar</span>
+            <Badge variant="outline" className="text-xs font-black px-2 py-0.5">
+              {available.length}
+            </Badge>
+          </h2>
+        </div>
+
+        <div className="space-y-2.5">
           {available.map((item) => {
             const petSize = (item.appointments?.pets?.size as PetSize | undefined) ?? "medio";
             const blocked =
               myVehicleType != null && !isVehicleAllowedForPet(myVehicleType, petSize);
             return (
-              <div key={item.id} className="rounded-2xl bg-card p-3 shadow-card">
-                <p className="text-sm font-semibold">
-                  #{item.code} · {item.appointments?.services?.name ?? "Serviço"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {item.appointments ? formatDateTime(item.appointments.scheduled_at) : ""}
-                  {item.appointments?.pets?.name ? ` · ${item.appointments.pets.name}` : ""}
-                  {` · Porte ${petSizeLabels[petSize].toLowerCase()}`}
-                </p>
+              <div key={item.id} className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-bold text-foreground">
+                      #{item.code} · {item.appointments?.services?.name ?? "Serviço"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {item.appointments ? formatDateTime(item.appointments.scheduled_at) : ""}
+                      {item.appointments?.pets?.name ? ` · 🐾 ${item.appointments.pets.name}` : ""}
+                      {` · Porte ${petSizeLabels[petSize].toLowerCase()}`}
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-[10px] font-bold">
+                    Aguardando Motorista
+                  </Badge>
+                </div>
+
                 {item.addresses && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    <MapPin className="mr-1 inline h-3.5 w-3.5" />
+                  <p className="text-xs text-muted-foreground">
+                    <MapPin className="mr-1 inline h-3.5 w-3.5 text-primary" />
                     {item.addresses.street}
                     {item.addresses.number ? `, ${item.addresses.number}` : ""} —{" "}
                     {item.addresses.district}
@@ -300,24 +494,31 @@ function Motorista() {
                     {item.addresses.state ? ` - ${item.addresses.state}` : ""}
                   </p>
                 )}
+
                 {blocked && (
-                  <p className="mt-1 text-xs font-semibold text-destructive">
-                    Seu veículo é moto — esse pet exige carro.
+                  <p className="text-xs font-semibold text-destructive">
+                    ⚠️ Seu veículo selecionado é moto — esse pet exige carro.
                   </p>
                 )}
+
                 <Button
                   size="sm"
-                  className="mt-2 h-9 w-full rounded-xl"
+                  className="mt-2 h-9 w-full rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90"
                   disabled={claimRoute.isPending || blocked}
                   onClick={() => claimRoute.mutate(item.id)}
                 >
-                  Aceitar rota
+                  <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                  {isAdmin && selectedDriverId !== "todos"
+                    ? `Atribuir a ${activeDriver?.full_name ?? "Motorista"}`
+                    : "Aceitar Esta Rota"}
                 </Button>
               </div>
             );
           })}
           {available.length === 0 && (
-            <p className="text-sm text-muted-foreground">Nenhuma rota disponível no momento.</p>
+            <div className="p-4 text-center rounded-2xl border border-border/60 bg-muted/30">
+              <p className="text-xs text-muted-foreground">Nenhuma rota sem motorista no momento.</p>
+            </div>
           )}
         </div>
       </section>
@@ -327,6 +528,7 @@ function Motorista() {
 
 function RouteCard({
   item,
+  driverName,
   client,
   onAdvance,
   isPending,
@@ -368,6 +570,7 @@ function RouteCard({
       reference: string | null;
     } | null;
   };
+  driverName?: string | null;
   client?: { full_name: string | null; phone: string | null } | undefined;
   onAdvance: (status: OpsStatus) => void;
   isPending: boolean;
@@ -444,6 +647,14 @@ function RouteCard({
             {item.appointments?.pets?.name ? ` · ${capitalizeWords(item.appointments.pets.name)}` : ""}
             {client?.full_name ? ` · ${client.full_name}` : ""}
           </p>
+          {driverName && (
+            <div className="mt-1 flex items-center gap-1.5">
+              <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.5 bg-secondary/80 gap-1 border-primary/20">
+                <Truck className="h-3 w-3 text-primary" />
+                Motorista: {driverName}
+              </Badge>
+            </div>
+          )}
         </div>
         <Badge
           variant="secondary"

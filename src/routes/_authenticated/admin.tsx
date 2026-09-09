@@ -33,6 +33,10 @@ import {
   ChevronUp,
   ExternalLink,
   User,
+  Plus,
+  Trash2,
+  ShieldCheck,
+  UserCheck,
 } from "lucide-react";
 import { getCapacitySettings, saveCapacitySettings, type CapacitySettings } from "@/lib/schedulingCapacity";
 import { playStatusSound, testSoundAlert } from "@/lib/soundAlerts";
@@ -74,6 +78,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  getAllManagedDrivers,
+  registerNewDriver,
+  updateManagedDriver,
+  removeManagedDriver,
+  type ManagedDriver,
+} from "@/lib/driversManager";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Select,
@@ -588,16 +606,33 @@ function Admin() {
     onError: () => toast.error("Não foi possível atualizar o cupom"),
   });
 
-  const drivers = useMemo(
-    () =>
-      (driverRoles ?? []).map((r) => ({
-        id: r.user_id,
-        full_name: profileById.get(r.user_id)?.full_name ?? null,
-        phone: profileById.get(r.user_id)?.phone ?? null,
-        vehicle_type: profileById.get(r.user_id)?.vehicle_type ?? null,
-      })),
-    [driverRoles, profileById],
-  );
+  const [customDriversRevision, setCustomDriversRevision] = useState(0);
+
+  useEffect(() => {
+    const handleDriversUpdated = () => setCustomDriversRevision((prev) => prev + 1);
+    window.addEventListener("bigdog_drivers_updated", handleDriversUpdated);
+    return () => window.removeEventListener("bigdog_drivers_updated", handleDriversUpdated);
+  }, []);
+
+  const drivers = useMemo(() => {
+    const dbMapped = (driverRoles ?? []).map((r) => ({
+      id: r.user_id,
+      full_name: profileById.get(r.user_id)?.full_name ?? null,
+      phone: profileById.get(r.user_id)?.phone ?? null,
+      vehicle_type: profileById.get(r.user_id)?.vehicle_type ?? null,
+    }));
+    return getAllManagedDrivers(dbMapped);
+  }, [driverRoles, profileById, customDriversRevision]);
+
+  const [isNewDriverDialogOpen, setIsNewDriverDialogOpen] = useState(false);
+  const [newDriverMode, setNewDriverMode] = useState<"novo" | "existente">("novo");
+  const [newDriverForm, setNewDriverForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    vehicleType: "carro" as VehicleType,
+    existingUserId: "",
+  });
 
   const dashboardBoundaries = useMemo(() => {
     const now = new Date();
@@ -1386,14 +1421,20 @@ function Admin() {
 
   const updateDriverVehicle = useMutation({
     mutationFn: async (vars: { driverId: string; vehicleType: VehicleType }) => {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ vehicle_type: vars.vehicleType })
-        .eq("id", vars.driverId);
-      if (error) throw error;
+      updateManagedDriver(vars.driverId, { vehicle_type: vars.vehicleType });
+      try {
+        await supabase
+          .from("profiles")
+          .update({ vehicle_type: vars.vehicleType })
+          .eq("id", vars.driverId);
+      } catch (err) {
+        console.warn("Supabase update notice:", err);
+      }
     },
     onSuccess: () => {
+      setCustomDriversRevision((prev) => prev + 1);
       queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-drivers"] });
       toast.success("Veículo do motorista atualizado");
     },
     onError: () => toast.error("Não foi possível atualizar o veículo"),
@@ -2370,6 +2411,18 @@ function Admin() {
             <Link to="/" search={{ preview: "cliente" }}>
               <Eye className="h-4 w-4 text-muted-foreground" />
               Ver como Cliente
+            </Link>
+          </Button>
+
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="h-9 px-3.5 rounded-xl text-xs font-semibold gap-2 border-border/80 hover:bg-muted bg-amber-500/10 text-amber-950 dark:text-amber-200 border-amber-500/30 hover:bg-amber-500/20"
+          >
+            <Link to="/motorista">
+              <Truck className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              Painel do Motorista
             </Link>
           </Button>
 
@@ -4648,42 +4701,274 @@ function Admin() {
             </div>
           </div>
 
-          <div className="rounded-2xl bg-card p-3 shadow-card">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Motoristas e veículos
-            </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Moto só pode ser designada para pets de porte pequeno. Pets médios/grandes exigem
-              carro.
-            </p>
-            <div className="mt-2 space-y-2">
+          <div className="rounded-2xl bg-card p-4 shadow-card">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+              <div>
+                <h3 className="font-display text-sm font-bold flex items-center gap-2">
+                  <Truck className="h-4 w-4 text-primary" />
+                  Motoristas e Veículos de Transporte
+                </h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Designe motoristas para rotas de leva e traz. Moto atende apenas pets de pequeno porte; médio/grande exigem carro.
+                </p>
+              </div>
+
+              <Dialog open={isNewDriverDialogOpen} onOpenChange={setIsNewDriverDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="h-8 rounded-xl text-xs font-bold gap-1.5 bg-primary text-primary-foreground">
+                    <Plus className="h-3.5 w-3.5" />
+                    + Novo Motorista
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md rounded-2xl p-5">
+                  <DialogHeader>
+                    <DialogTitle className="font-display text-base font-bold flex items-center gap-2">
+                      <Truck className="h-5 w-5 text-primary" />
+                      Cadastrar / Designar Motorista
+                    </DialogTitle>
+                  </DialogHeader>
+
+                  <div className="mt-3 space-y-3">
+                    <div className="grid grid-cols-2 gap-1.5 p-1 bg-muted rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => setNewDriverMode("novo")}
+                        className={cn(
+                          "py-1.5 text-xs font-bold rounded-lg transition-all",
+                          newDriverMode === "novo" ? "bg-card shadow-xs text-primary" : "text-muted-foreground",
+                        )}
+                      >
+                        + Cadastrar Novo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewDriverMode("existente")}
+                        className={cn(
+                          "py-1.5 text-xs font-bold rounded-lg transition-all",
+                          newDriverMode === "existente" ? "bg-card shadow-xs text-primary" : "text-muted-foreground",
+                        )}
+                      >
+                        Promover Usuário
+                      </button>
+                    </div>
+
+                    {newDriverMode === "novo" ? (
+                      <div className="space-y-2.5">
+                        <div>
+                          <Label className="text-xs font-semibold">Nome Completo do Motorista *</Label>
+                          <Input
+                            placeholder="Ex: Carlos Motorista"
+                            value={newDriverForm.name}
+                            onChange={(e) => setNewDriverForm({ ...newDriverForm, name: e.target.value })}
+                            className="mt-1 h-9 rounded-xl text-xs"
+                          />
+                        </div>
+
+                        <div>
+                          <Label className="text-xs font-semibold">Telefone / WhatsApp *</Label>
+                          <Input
+                            placeholder="Ex: (11) 99999-9999"
+                            value={newDriverForm.phone}
+                            onChange={(e) => setNewDriverForm({ ...newDriverForm, phone: maskPhoneBR(e.target.value) })}
+                            className="mt-1 h-9 rounded-xl text-xs"
+                          />
+                        </div>
+
+                        <div>
+                          <Label className="text-xs font-semibold">E-mail (opcional para login)</Label>
+                          <Input
+                            type="email"
+                            placeholder="Ex: motorista@bigdog.com"
+                            value={newDriverForm.email}
+                            onChange={(e) => setNewDriverForm({ ...newDriverForm, email: e.target.value })}
+                            className="mt-1 h-9 rounded-xl text-xs"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        <Label className="text-xs font-semibold">Selecione o Usuário Cadastrado *</Label>
+                        <Select
+                          value={newDriverForm.existingUserId}
+                          onValueChange={(val) => {
+                            const foundProfile = profiles?.find((p) => p.id === val);
+                            setNewDriverForm({
+                              ...newDriverForm,
+                              existingUserId: val,
+                              name: foundProfile?.full_name || "Motorista",
+                              phone: foundProfile?.phone || "",
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="h-9 rounded-xl text-xs">
+                            <SelectValue placeholder="Escolha um cliente/usuário" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(profiles ?? []).map((p) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.full_name || "Sem nome"} {p.phone ? `(${p.phone})` : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    <div>
+                      <Label className="text-xs font-semibold">Tipo de Veículo *</Label>
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        <button
+                          type="button"
+                          onClick={() => setNewDriverForm({ ...newDriverForm, vehicleType: "carro" })}
+                          className={cn(
+                            "p-2.5 rounded-xl border text-left transition-all",
+                            newDriverForm.vehicleType === "carro"
+                              ? "border-primary bg-primary/10 text-primary font-bold ring-2 ring-primary/20"
+                              : "border-border bg-card text-muted-foreground",
+                          )}
+                        >
+                          <p className="text-xs font-bold flex items-center gap-1.5">🚗 Carro</p>
+                          <p className="text-[10px] mt-0.5 opacity-80">Permitido para pets Pequenos, Médios e Grandes</p>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewDriverForm({ ...newDriverForm, vehicleType: "moto" })}
+                          className={cn(
+                            "p-2.5 rounded-xl border text-left transition-all",
+                            newDriverForm.vehicleType === "moto"
+                              ? "border-primary bg-primary/10 text-primary font-bold ring-2 ring-primary/20"
+                              : "border-border bg-card text-muted-foreground",
+                          )}
+                        >
+                          <p className="text-xs font-bold flex items-center gap-1.5">🏍️ Moto</p>
+                          <p className="text-[10px] mt-0.5 opacity-80">Apenas para pets de Porte Pequeno com caixa</p>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <DialogFooter className="mt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="rounded-xl text-xs"
+                      onClick={() => setIsNewDriverDialogOpen(false)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="rounded-xl text-xs font-bold bg-primary text-primary-foreground"
+                      onClick={() => {
+                        if (!newDriverForm.name.trim()) {
+                          toast.error("Informe o nome do motorista");
+                          return;
+                        }
+                        registerNewDriver({
+                          name: newDriverForm.name,
+                          phone: newDriverForm.phone,
+                          email: newDriverForm.email,
+                          vehicleType: newDriverForm.vehicleType,
+                          existingUserId: newDriverMode === "existente" ? newDriverForm.existingUserId : undefined,
+                        });
+                        setCustomDriversRevision((prev) => prev + 1);
+                        setIsNewDriverDialogOpen(false);
+                        setNewDriverForm({
+                          name: "",
+                          phone: "",
+                          email: "",
+                          vehicleType: "carro",
+                          existingUserId: "",
+                        });
+                        toast.success("Motorista cadastrado com sucesso!");
+                      }}
+                    >
+                      Salvar Motorista
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            <div className="mt-3 space-y-2">
               {drivers.map((driver) => (
                 <div
                   key={driver.id}
-                  className="flex items-center justify-between gap-2 rounded-xl bg-secondary px-3 py-2"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-border/70 bg-card p-3 shadow-xs hover:border-border transition-colors"
                 >
-                  <p className="min-w-0 truncate text-xs font-semibold">
-                    {driver.full_name ?? driver.phone ?? driver.id.slice(0, 8)}
-                  </p>
-                  <div className="flex shrink-0 overflow-hidden rounded-lg border border-border">
-                    {(["moto", "carro"] as VehicleType[]).map((vehicle) => (
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-xs font-bold text-foreground">
+                        {driver.full_name ?? driver.phone ?? driver.id.slice(0, 8)}
+                      </p>
+                      {driver.id === "33333333-3333-3333-3333-333333333333" && (
+                        <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] py-0 px-1.5 border-0 font-bold">
+                          Oficial
+                        </Badge>
+                      )}
+                      <Badge variant="outline" className="text-[9px] py-0 px-1 text-muted-foreground capitalize">
+                        {driver.vehicle_type === "moto" ? "🏍️ Moto" : "🚗 Carro"}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {driver.phone ? `📱 ${driver.phone}` : "Sem telefone"}
+                      {driver.email ? ` · ✉️ ${driver.email}` : ""}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* Switcher de Veículo */}
+                    <div className="flex shrink-0 overflow-hidden rounded-lg border border-border">
+                      {(["moto", "carro"] as VehicleType[]).map((vehicle) => (
+                        <button
+                          key={vehicle}
+                          type="button"
+                          disabled={updateDriverVehicle.isPending}
+                          onClick={() =>
+                            updateDriverVehicle.mutate({ driverId: driver.id, vehicleType: vehicle })
+                          }
+                          className={cn(
+                            "px-2.5 py-1 text-[11px] font-semibold transition-colors",
+                            driver.vehicle_type === vehicle
+                              ? "bg-primary text-primary-foreground font-bold"
+                              : "bg-card text-muted-foreground hover:bg-muted",
+                          )}
+                        >
+                          {vehicleTypeLabels[vehicle]}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Botão Ver Rotas no Painel */}
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2.5 rounded-lg text-[11px] font-bold gap-1 border-primary/30 text-primary hover:bg-primary/10"
+                    >
+                      <Link to="/motorista" search={{ driverId: driver.id }}>
+                        <Truck className="h-3 w-3" />
+                        Ver Rotas
+                      </Link>
+                    </Button>
+
+                    {/* Excluir customizado */}
+                    {driver.is_custom && (
                       <button
-                        key={vehicle}
                         type="button"
-                        disabled={updateDriverVehicle.isPending}
-                        onClick={() =>
-                          updateDriverVehicle.mutate({ driverId: driver.id, vehicleType: vehicle })
-                        }
-                        className={cn(
-                          "px-2.5 py-1 text-[11px] font-semibold",
-                          driver.vehicle_type === vehicle
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-card text-muted-foreground",
-                        )}
+                        onClick={() => {
+                          removeManagedDriver(driver.id);
+                          setCustomDriversRevision((prev) => prev + 1);
+                          toast.success("Motorista removido");
+                        }}
+                        className="text-muted-foreground hover:text-destructive p-1 rounded-lg transition-colors"
+                        title="Remover motorista customizado"
                       >
-                        {vehicleTypeLabels[vehicle]}
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
-                    ))}
+                    )}
                   </div>
                 </div>
               ))}
