@@ -204,7 +204,17 @@ function Conta() {
         list = appointments ?? [];
         break;
     }
-    return sortInServiceFirst(list, isAppointmentInService);
+    return [...list].sort((a, b) => {
+      const aInService = isAppointmentInService(a) ? 1 : 0;
+      const bInService = isAppointmentInService(b) ? 1 : 0;
+      if (bInService !== aInService) return bInService - aInService;
+
+      const aPending = a.status === "pendente" ? 1 : 0;
+      const bPending = b.status === "pendente" ? 1 : 0;
+      if (bPending !== aPending) return bPending - aPending;
+
+      return new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime();
+    });
   }, [apptFilter, openAppts, concludedAppts, cancelledAppts, appointments]);
 
   function isOrderOpen(order: { status: string }) {

@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import {
+  CalendarClock,
   CheckCircle2,
   Compass,
   CreditCard,
@@ -311,10 +312,12 @@ function Admin() {
   const { data: appointments } = useQuery({
     queryKey: ["admin-appointments"],
     enabled: isAdmin,
+    refetchInterval: 3000,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("appointments")
-        .select("id, user_id, pet_id, scheduled_at, status, ops_status, logistics_type, notes, origin, total_cents, service_price_cents, transport_price_cents, payment_status, payment_method, paid_at, services(name, category), pets(name, species, size, photo_url, breed)")
+        .select("id, user_id, pet_id, scheduled_at, created_at, status, ops_status, logistics_type, notes, origin, total_cents, service_price_cents, transport_price_cents, payment_status, payment_method, paid_at, services(name, category), pets(name, species, size, photo_url, breed)")
         .order("scheduled_at", { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -458,8 +461,18 @@ function Admin() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "appointments" },
-        () => {
+        (payload) => {
           queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
+          queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
+          queryClient.invalidateQueries({ queryKey: ["admin-dash-appointments"] });
+          if (payload.eventType === "INSERT") {
+            try {
+              playStatusSound("alerta", 3);
+            } catch {}
+            toast.info("🔔 Novo agendamento recebido!", {
+              description: "Clique em Agendamentos no topo para confirmar.",
+            });
+          }
         },
       )
       .on(
@@ -775,8 +788,46 @@ function Admin() {
       });
   }, [appointments, getClientAbcInfo]);
 
+  const pendingAppointmentsCount = useMemo(() => {
+    return (appointments ?? []).filter((a) => a.status === "pendente").length;
+  }, [appointments]);
+
+  const handleNavigateToAgenda = useCallback(() => {
+    setCurrentTab("gestao");
+    setGestaoSubTab("agenda");
+    setTimeout(() => {
+      const el =
+        document.getElementById("primeiro-agendamento-pendente") ||
+        document.getElementById("agendamentos-detalhados-topo");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 150);
+  }, []);
+
   const sortedAgendaAppointments = useMemo(() => {
-    return sortInServiceFirst(appointments ?? [], isAppointmentInService);
+    const list = [...(appointments ?? [])];
+    return list.sort((a, b) => {
+      // 1. Agendamentos pendentes ("Aguardando Loja") vão para o topo absoluto!
+      const aPending = a.status === "pendente" ? 1 : 0;
+      const bPending = b.status === "pendente" ? 1 : 0;
+      if (bPending !== aPending) return bPending - aPending;
+
+      // Se ambos forem pendentes, os mais recentes criados ou agendados ficam no topo
+      if (aPending && bPending) {
+        const timeA = new Date((a as { created_at?: string }).created_at || a.scheduled_at).getTime();
+        const timeB = new Date((b as { created_at?: string }).created_at || b.scheduled_at).getTime();
+        return timeB - timeA;
+      }
+
+      // 2. Em seguida, quem está em atendimento agora
+      const aInService = isAppointmentInService(a) ? 1 : 0;
+      const bInService = isAppointmentInService(b) ? 1 : 0;
+      if (bInService !== aInService) return bInService - aInService;
+
+      // 3. Os demais ordenados por scheduled_at decrescente
+      return new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime();
+    });
   }, [appointments]);
 
   const sortedOrders = useMemo(() => {
@@ -1154,6 +1205,8 @@ function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-dash-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
       playStatusSound("confirmado");
@@ -2345,6 +2398,8 @@ function Admin() {
 
       {/* 2. KPIS RÁPIDOS NO TOPO (PÍLULAS OPERACIONAIS SINCRONIZADAS) */}
       <AdminKpiPills
+        pendingAppointmentsCount={pendingAppointmentsCount}
+        onNavigateToAgenda={handleNavigateToAgenda}
         unreadChatCount={unreadConversationsCount}
         totalChatConversations={openConversations.length}
         activeDeliveriesCount={activeDeliveriesCount}
@@ -2718,8 +2773,13 @@ function Admin() {
               <TabsTrigger value="clinica" className="rounded-xl text-xs font-bold shrink-0 text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/50 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-sm cursor-pointer">
                 Prontuários / Clínica
               </TabsTrigger>
-              <TabsTrigger value="agenda" className="rounded-xl text-xs font-bold shrink-0 text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/50 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-sm cursor-pointer">
+              <TabsTrigger value="agenda" className="group rounded-xl text-xs font-bold gap-1 shrink-0 text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/50 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-sm cursor-pointer">
                 Agendamentos Detalhados
+                {pendingAppointmentsCount > 0 && (
+                  <Badge className="bg-amber-500 text-slate-950 text-[9px] py-0 px-1.5 font-black animate-pulse group-data-[state=active]:bg-amber-300 group-data-[state=active]:text-amber-950">
+                    Confirmar ({pendingAppointmentsCount})
+                  </Badge>
+                )}
               </TabsTrigger>
               <TabsTrigger value="retirada-entrega" className="rounded-xl text-xs font-bold shrink-0 text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/50 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-sm cursor-pointer">
                 Logística Completa
@@ -4279,21 +4339,47 @@ function Admin() {
             </div>
           </div>
 
+          <div id="agendamentos-detalhados-topo" />
+          {pendingAppointmentsCount > 0 && (
+            <div className="rounded-2xl border-2 border-amber-500 bg-amber-50/80 dark:bg-amber-950/40 p-3 shadow-sm flex items-center justify-between gap-3 mb-2 animate-in fade-in">
+              <div className="flex items-center gap-2.5">
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-amber-500 text-slate-950 font-bold shadow-xs">
+                  <CalendarClock className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-amber-950 dark:text-amber-200">
+                    {pendingAppointmentsCount} novo{pendingAppointmentsCount > 1 ? "s" : ""} pedido{pendingAppointmentsCount > 1 ? "s" : ""} de agendamento aguardando confirmação
+                  </p>
+                  <p className="text-[11px] text-amber-900/80 dark:text-amber-300/80">
+                    Exibidos no topo da lista abaixo. Clique em &quot;Confirmar Agendamento&quot; para notificar o tutor e liberar o horário.
+                  </p>
+                </div>
+              </div>
+              <Badge className="bg-amber-500 text-slate-950 font-black text-xs px-2 py-0.5 shrink-0 animate-pulse">
+                {pendingAppointmentsCount} Pendente{pendingAppointmentsCount > 1 ? "s" : ""}
+              </Badge>
+            </div>
+          )}
+
           <p className="text-xs text-muted-foreground">
             Confirme os agendamentos pendentes para avisar o cliente automaticamente pelo WhatsApp.
           </p>
 
-          {sortedAgendaAppointments.map((item) => {
+          {sortedAgendaAppointments.map((item, idx) => {
             const clientInfo = getClientAbcInfo(item.user_id);
             const clientName = profileById.get(item.user_id)?.full_name || clientInfo?.name;
             const inService = isAppointmentInService(item);
+            const isPending = item.status === "pendente";
 
             return (
               <div
                 key={item.id}
+                id={isPending && idx === 0 ? "primeiro-agendamento-pendente" : undefined}
                 className={cn(
                   "rounded-2xl p-3 shadow-card transition-all",
-                  inService
+                  isPending
+                    ? "border-2 border-amber-500 bg-amber-50/50 dark:border-amber-500/70 dark:bg-amber-950/30 ring-2 ring-amber-400/30 shadow-md"
+                    : inService
                     ? "border-2 border-emerald-500/80 bg-emerald-50/50 dark:border-emerald-500/60 dark:bg-emerald-950/30 ring-1 ring-emerald-400/40 shadow-md"
                     : clientInfo?.abcClass === "A"
                     ? "border-2 border-emerald-500/50 bg-card"
@@ -4302,6 +4388,20 @@ function Admin() {
                     : "bg-card",
                 )}
               >
+                {isPending && (
+                  <div className="mb-2 flex items-center justify-between gap-1.5 rounded-lg bg-amber-500/20 px-2.5 py-1 text-xs font-black text-amber-950 dark:text-amber-200">
+                    <span className="flex items-center gap-1.5">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-600"></span>
+                      </span>
+                      🟡 NOVO PEDIDO - AGUARDANDO CONFIRMAÇÃO DA LOJA
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                      Topo da Agenda
+                    </span>
+                  </div>
+                )}
                 {inService && (
                   <div className="mb-2 flex items-center justify-between gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:text-emerald-200">
                     <span className="flex items-center gap-1.5">
@@ -4347,12 +4447,12 @@ function Admin() {
                 {item.status === "pendente" && (
                   <Button
                     size="sm"
-                    className="mt-2 h-9 w-full rounded-xl"
+                    className="mt-2.5 h-10 w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm shadow-md transition-all hover:scale-[1.005]"
                     disabled={confirmAppointment.isPending}
                     onClick={() => confirmAppointment.mutate(item)}
                   >
-                    <CheckCircle2 className="h-4 w-4" />
-                    Confirmar agendamento
+                    <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                    ✓ Confirmar Agendamento e Notificar Tutor
                   </Button>
                 )}
 

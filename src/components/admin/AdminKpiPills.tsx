@@ -1,8 +1,10 @@
-import { MessageCircle, Truck, Scissors, AlertTriangle, ChevronRight } from "lucide-react";
+import { CalendarClock, MessageCircle, Truck, Scissors, AlertTriangle, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export interface AdminKpiPillsProps {
+  pendingAppointmentsCount?: number | undefined;
+  onNavigateToAgenda?: (() => void) | undefined;
   unreadChatCount: number;
   totalChatConversations: number;
   activeDeliveriesCount: number;
@@ -21,6 +23,8 @@ export interface AdminKpiPillsProps {
 }
 
 export function AdminKpiPills({
+  pendingAppointmentsCount,
+  onNavigateToAgenda,
   unreadChatCount,
   totalChatConversations,
   activeDeliveriesCount,
@@ -41,10 +45,66 @@ export function AdminKpiPills({
   const todayTaxiTotal = todayTaxiCount ?? activeDeliveriesCount;
   const urgentPets = urgentHealthPetsCount ?? (urgentHealthAlertsCount > 0 ? urgentHealthAlertsCount : 0);
   const totalPendingAlerts = urgentPets + criticalStockCount;
+  const pendingCount = pendingAppointmentsCount ?? 0;
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
-      {/* 1. Chat & Comunicação - Alto contraste sem texto verde em fundo azul */}
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5">
+      {/* 1. Agendamentos - Sinaliza novos pedidos e leva para Confirmar Agendamento */}
+      <button
+        type="button"
+        onClick={() => {
+          if (onNavigateToAgenda) {
+            onNavigateToAgenda();
+          } else {
+            onSelectTab("gestao");
+          }
+        }}
+        className={cn(
+          "flex items-center justify-between gap-2 rounded-2xl p-2.5 sm:p-3 text-left transition-all border shadow-xs cursor-pointer group",
+          currentTab === "gestao"
+            ? "border-primary bg-primary/10 ring-2 ring-primary/20"
+            : pendingCount > 0
+            ? "border-amber-500 bg-amber-50/70 dark:bg-amber-950/30 ring-2 ring-amber-400/30 hover:bg-amber-100/60 dark:hover:bg-amber-950/45"
+            : "border-border/70 bg-card hover:bg-muted/40"
+        )}
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div
+            className={cn(
+              "grid h-8 w-8 sm:h-9 sm:w-9 shrink-0 place-items-center rounded-xl transition-colors font-bold",
+              pendingCount > 0
+                ? "bg-amber-500 text-slate-950 font-black shadow-xs"
+                : "bg-primary/10 text-primary group-hover:bg-primary/20"
+            )}
+          >
+            <CalendarClock className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider truncate">
+              Agendamentos
+            </p>
+            <p className="text-xs sm:text-sm font-extrabold font-display text-foreground truncate mt-0.5">
+              {pendingCount > 0 ? (
+                <span className="text-amber-950 dark:text-amber-200">
+                  {pendingCount} novo{pendingCount > 1 ? "s" : ""}
+                </span>
+              ) : (
+                <span className="text-muted-foreground font-semibold">Em dia</span>
+              )}
+            </p>
+          </div>
+        </div>
+
+        {pendingCount > 0 ? (
+          <Badge className="bg-amber-500 text-slate-950 font-black text-[10px] px-1.5 py-0.5 shrink-0 shadow-xs animate-pulse">
+            Confirmar ({pendingCount})
+          </Badge>
+        ) : (
+          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+        )}
+      </button>
+
+      {/* 2. Chat & Comunicação - Alto contraste sem texto verde em fundo azul */}
       <button
         type="button"
         onClick={() => onSelectTab("comunicacao")}

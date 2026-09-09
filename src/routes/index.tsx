@@ -204,19 +204,41 @@ function Home() {
 
   const sortedAppointments = useMemo(() => {
     if (!visibleAppointments || visibleAppointments.length <= 1) return visibleAppointments ?? [];
-    return [...visibleAppointments].sort((a, b) => {
-      const aCancelled = a.status === "cancelado" || a.ops_status === "cancelado" ? 1 : 0;
-      const bCancelled = b.status === "cancelado" || b.ops_status === "cancelado" ? 1 : 0;
-      const aInService = isAppointmentInService(a) ? 1 : 0;
-      const bInService = isAppointmentInService(b) ? 1 : 0;
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
-      // Cancelados ou em atendimento sempre no topo da tela do tutor
-      const aPriority = aCancelled ? 3 : aInService ? 2 : 1;
-      const bPriority = bCancelled ? 3 : bInService ? 2 : 1;
-      if (bPriority !== aPriority) {
-        return bPriority - aPriority;
+    const getPriority = (item: (typeof visibleAppointments)[0]) => {
+      const isCancelled = item.status === "cancelado" || item.ops_status === "cancelado";
+      if (isCancelled) return 100;
+      if (isAppointmentInService(item)) return 90;
+      // Agendamento pendente recém-feito (aguardando confirmação da loja) fica no topo para o tutor acompanhar
+      if (item.status === "pendente") return 80;
+      const itemDateStr = item.scheduled_at ? item.scheduled_at.slice(0, 10) : "";
+      if (itemDateStr === todayStr) return 70;
+      const schedTime = new Date(item.scheduled_at).getTime();
+      if (schedTime >= now.getTime()) return 60;
+      return 10; // agendamento passado que ainda não foi concluído
+    };
+
+    return [...visibleAppointments].sort((a, b) => {
+      const pA = getPriority(a);
+      const pB = getPriority(b);
+      if (pB !== pA) return pB - pA;
+
+      // Se ambos forem pendentes, mais recente criado/agendado fica no topo
+      if (a.status === "pendente" && b.status === "pendente") {
+        const timeA = new Date((a as { created_at?: string }).created_at || a.scheduled_at).getTime();
+        const timeB = new Date((b as { created_at?: string }).created_at || b.scheduled_at).getTime();
+        return timeB - timeA;
       }
-      return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime();
+
+      // Se ambos forem futuros, o mais próximo cronologicamente fica primeiro
+      if (pA === 60) {
+        return new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime();
+      }
+
+      // Para passados ou outros, o mais recente primeiro
+      return new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime();
     });
   }, [visibleAppointments]);
 
