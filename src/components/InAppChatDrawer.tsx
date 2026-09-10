@@ -45,6 +45,8 @@ import {
   openInAppChat,
   type OpenChatDetail,
   getOrCreateTutorSessionId,
+  getActiveTutorConversationId,
+  getMessagesForConversation,
   markConversationAsRead,
   getPetEmoji,
   type SenderRole,
@@ -76,11 +78,19 @@ export function InAppChatDrawer() {
     };
   }, []);
 
-  // Determina se o contexto operacional ativo é Loja ou Tutor
-  const isStoreContext = (pathname.startsWith("/admin") || isAdmin) && !isPreviewClient;
-  const [roleOverride, setRoleOverride] = useState<"loja" | "tutor" | null>(null);
-  const activeRole: "loja" | "tutor" = roleOverride || (isStoreContext ? "loja" : "tutor");
+  // Determina se o contexto operacional ativo é Loja, Motorista ou Tutor
+  const isDriverRoute = pathname === "/motorista" && !isPreviewClient;
+  const isStoreContext = (pathname.startsWith("/admin") || (isAdmin && !isDriverRoute)) && !isPreviewClient;
+  const [roleOverride, setRoleOverride] = useState<"loja" | "tutor" | "motorista" | null>(null);
+  const defaultRole: "loja" | "tutor" | "motorista" = isDriverRoute
+    ? "motorista"
+    : isStoreContext
+    ? "loja"
+    : "tutor";
+  const activeRole: "loja" | "tutor" | "motorista" = roleOverride || defaultRole;
   const isStore = activeRole === "loja";
+  const isDriver = activeRole === "motorista";
+  const isTutor = activeRole === "tutor";
 
   const [isOpen, setIsOpen] = useState(false);
   const [inputText, setInputText] = useState("");
@@ -90,11 +100,12 @@ export function InAppChatDrawer() {
   const [activePetId, setActivePetId] = useState<string | null>(null);
   const [activePetSpecies, setActivePetSpecies] = useState<string | null>(null);
   const [activeTutorName, setActiveTutorName] = useState<string | null>(null);
+  const [activeSenderName, setActiveSenderName] = useState<string | null>(null);
   const [activeConversationId, setActiveConversationId] = useState<string>(() =>
-    !isStore ? (user?.id || getOrCreateTutorSessionId()) : "geral"
+    !isStore && !isDriver ? getActiveTutorConversationId(user?.id) : "geral"
   );
 
-  // Se for Loja, começa na Fila de Atendimentos. Se for Tutor, vai direto na sua conversa.
+  // Se for Loja, começa na Fila de Atendimentos. Se for Tutor ou Motorista em corrida, vai direto na sua conversa.
   const [isViewingQueue, setIsViewingQueue] = useState<boolean>(isStore);
   const [queueSearch, setQueueSearch] = useState("");
   const [queueTab, setQueueTab] = useState<"abertos" | "finalizados">("abertos");
@@ -111,18 +122,19 @@ export function InAppChatDrawer() {
   // Reseta override de simulação ao navegar ou alterar modo preview
   useEffect(() => {
     setRoleOverride(null);
+    setActiveSenderName(null);
   }, [isPreviewClient, pathname]);
 
-  // Se o contexto atual for Tutor, garante que acesse sua conversa e saia da fila
+  // Se o contexto atual for Tutor, garante que acesse a conversa com mensagens ou sua sessão e saia da fila
   useEffect(() => {
-    if (!isStore) {
-      const tutorConvId = user?.id || getOrCreateTutorSessionId();
+    if (isTutor) {
+      const tutorConvId = getActiveTutorConversationId(user?.id);
       if (!activeConversationId || activeConversationId === "geral") {
         setActiveConversationId(tutorConvId);
       }
       setIsViewingQueue(false);
     }
-  }, [isStore, user?.id]);
+  }, [isTutor, user?.id]);
 
   const {
     messages,
@@ -133,7 +145,7 @@ export function InAppChatDrawer() {
     closeCurrentConversation,
     markAsRead,
   } = useInAppChat({
-    role: activeRole,
+    role: isTutor ? "tutor" : "loja",
     conversationId: activeConversationId,
   });
 
@@ -150,20 +162,23 @@ export function InAppChatDrawer() {
         if (custom.detail.petId) setActivePetId(custom.detail.petId);
         if (custom.detail.petSpecies) setActivePetSpecies(custom.detail.petSpecies);
         if (custom.detail.tutorName) setActiveTutorName(custom.detail.tutorName);
+        if (custom.detail.senderRole) setRoleOverride(custom.detail.senderRole);
+        if (custom.detail.senderName) setActiveSenderName(custom.detail.senderName);
+
         if (custom.detail.conversationId) {
           setActiveConversationId(custom.detail.conversationId);
-          setIsViewingQueue(false); // Entra diretamente na conversa do tutor acionado
-        } else if (!isStore) {
-          const tutorConvId = user?.id || getOrCreateTutorSessionId();
+          setIsViewingQueue(false); // Entra diretamente na conversa acionada
+        } else if (!isStore && !isDriver) {
+          const tutorConvId = getActiveTutorConversationId(user?.id);
           setActiveConversationId(tutorConvId);
           setIsViewingQueue(false);
         }
       } else {
-        // Se a loja clicou sem especificar tutor, abre a fila; se tutor, vai direto na conversa
+        // Se a loja clicou sem especificar tutor, abre a fila; se tutor, vai direto na conversa relevante
         if (isStore) {
           setIsViewingQueue(true);
         } else {
-          const tutorConvId = user?.id || getOrCreateTutorSessionId();
+          const tutorConvId = getActiveTutorConversationId(user?.id);
           setActiveConversationId(tutorConvId);
           setIsViewingQueue(false);
         }
@@ -173,7 +188,28 @@ export function InAppChatDrawer() {
 
     window.addEventListener("open_inapp_chat", handleOpenChat);
     return () => window.removeEventListener("open_inapp_chat", handleOpenChat);
-  }, [isStore, user?.id]);
+  }, [isStore, isDriver, user?.id]);
+
+  // Sincroniza dados da conversa ativa (nome do tutor, pet, tag) a partir do histórico
+  useEffect(() => {
+    if (!activeConversationId || activeConversationId === "geral") return;
+    const convMsgs = getMessagesForConversation(activeConversationId);
+    if (convMsgs.length > 0) {
+      const last = convMsgs[convMsgs.length - 1];
+      if (last.tutorName && (!activeTutorName || activeTutorName === "Tutor")) {
+        setActiveTutorName(last.tutorName);
+      }
+      if (last.petName && !activePetName) {
+        setActivePetName(last.petName);
+      }
+      if (last.petSpecies && !activePetSpecies) {
+        setActivePetSpecies(last.petSpecies);
+      }
+      if (last.contextTag && !activeContextTag) {
+        setActiveContextTag(last.contextTag);
+      }
+    }
+  }, [activeConversationId, activeTutorName, activePetName, activePetSpecies, activeContextTag]);
 
   // Busca espécie do pet no banco de dados se tivermos o petId
   useEffect(() => {
@@ -237,7 +273,31 @@ export function InAppChatDrawer() {
     const text = inputText.trim();
     if (!text) return;
 
-    if (isStore) {
+    if (isDriver) {
+      const senderName = activeSenderName || "João (Motorista Big Dog)";
+      const senderRole: SenderRole = "motorista";
+      const recipientRole: RecipientRole = "tutor";
+      const targetConvId =
+        activeConversationId && activeConversationId !== "geral"
+          ? activeConversationId
+          : user?.id || "geral";
+
+      send({
+        text,
+        conversationId: targetConvId,
+        senderId: user?.id || "motorista",
+        senderName,
+        senderRole,
+        recipientRole,
+        tutorName: activeTutorName || "Tutor",
+        tutorId: targetConvId !== "geral" ? targetConvId : null,
+        contextTag: activeContextTag,
+        petName: activePetName,
+        petId: activePetId,
+        petSpecies: activePetSpecies,
+        status: "respondido",
+      });
+    } else if (isStore) {
       const senderName = "Equipe Big Dog";
       const senderRole: SenderRole = "loja";
       const recipientRole: RecipientRole = "tutor";
@@ -298,10 +358,14 @@ export function InAppChatDrawer() {
     if (pendingText) {
       handleSend();
     }
-    const actorName = isStore
+    const roleForClose: "tutor" | "loja" | "motorista" = isDriver ? "motorista" : isStore ? "loja" : "tutor";
+    const actorName = isDriver
+      ? (activeSenderName || "Motorista Big Dog")
+      : isStore
       ? "Equipe Big Dog"
-      : (typeof user?.user_metadata?.["full_name"] === "string" ? user.user_metadata["full_name"] : "Tutor");
-    closeCurrentConversation(actorName);
+      : (typeof user?.user_metadata?.["full_name"] === "string" ? user.user_metadata["full_name"] : (activeTutorName || "Tutor"));
+
+    closeCurrentConversation(actorName, roleForClose);
     setConfirmCloseOpen(false);
     refreshQueue();
   };
@@ -367,13 +431,12 @@ export function InAppChatDrawer() {
                   onClick={() => {
                     setRoleOverride("tutor");
                     setIsViewingQueue(false);
-                    if (!activeConversationId || activeConversationId === "geral") {
-                      setActiveConversationId(user?.id || getOrCreateTutorSessionId());
-                    }
+                    const tutorConvId = getActiveTutorConversationId(user?.id);
+                    setActiveConversationId(tutorConvId);
                   }}
                   className={cn(
                     "px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer",
-                    !isStore
+                    isTutor
                       ? "bg-primary text-white shadow-xs"
                       : "bg-slate-800 text-slate-300 hover:bg-slate-700"
                   )}
@@ -394,6 +457,23 @@ export function InAppChatDrawer() {
                   )}
                 >
                   🏬 Loja
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRoleOverride("motorista");
+                    setIsViewingQueue(false);
+                    const tutorConvId = getActiveTutorConversationId(user?.id);
+                    setActiveConversationId(tutorConvId);
+                  }}
+                  className={cn(
+                    "px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer",
+                    isDriver
+                      ? "bg-amber-600 text-white shadow-xs"
+                      : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  )}
+                >
+                  🚚 Motorista
                 </button>
               </div>
             </div>
@@ -430,7 +510,12 @@ export function InAppChatDrawer() {
 
               <div className="min-w-0">
                 <SheetTitle className="text-sm font-bold flex items-center gap-1.5 truncate">
-                  {isStore ? (
+                  {isDriver ? (
+                    <>
+                      🚚 Motorista · {activeTutorName || "Tutor"}
+                      {activePetName ? ` · 🐾 ${activePetName}` : ""}
+                    </>
+                  ) : isStore ? (
                     isViewingQueue ? (
                       <>
                         Fila de Atendimento (Loja)
@@ -459,7 +544,9 @@ export function InAppChatDrawer() {
                 </SheetTitle>
                 <p className="text-[11px] text-muted-foreground flex items-center gap-1 truncate">
                   <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-emerald-500"></span>
-                  {isStore
+                  {isDriver
+                    ? "Contato direto de transporte e rota com o tutor"
+                    : isStore
                     ? (isViewingQueue ? "Ordens de chegada e chamados de tutores" : "Atendimento individual em tempo real")
                     : "Atendimento direto com a equipe · Sem WhatsApp"}
                 </p>
@@ -679,8 +766,10 @@ export function InAppChatDrawer() {
             <div className="flex-1 overflow-y-auto p-3.5 space-y-3">
               {messages.map((msg) => {
                 const isMe =
-                  (activeRole === "tutor" && msg.senderRole === "tutor") ||
-                  (activeRole === "loja" && msg.senderRole !== "tutor");
+                  (isTutor && msg.senderRole === "tutor") ||
+                  (isDriver && msg.senderRole === "motorista") ||
+                  (isStore && msg.senderRole === "loja") ||
+                  (!isTutor && msg.senderRole !== "tutor");
 
                 return (
                   <div
@@ -694,14 +783,40 @@ export function InAppChatDrawer() {
                   >
                     {/* Nome do Remetente e Tag de Contexto */}
                     <div className="mb-1 flex items-center justify-between gap-2">
-                      <span
-                        className={cn(
-                          "text-[10px] font-bold uppercase tracking-wider",
-                          isMe ? "text-primary-foreground/80" : "text-primary"
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span
+                          className={cn(
+                            "text-[10px] font-bold uppercase tracking-wider",
+                            isMe ? "text-primary-foreground/90" : "text-primary"
+                          )}
+                        >
+                          {msg.senderName}
+                        </span>
+                        {msg.senderRole === "motorista" && (
+                          <span className={cn(
+                            "text-[9px] px-1 py-0.5 rounded font-bold uppercase",
+                            isMe ? "bg-black/20 text-white" : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                          )}>
+                            🚚 Motorista
+                          </span>
                         )}
-                      >
-                        {msg.senderName}
-                      </span>
+                        {msg.senderRole === "loja" && (
+                          <span className={cn(
+                            "text-[9px] px-1 py-0.5 rounded font-bold uppercase",
+                            isMe ? "bg-black/20 text-white" : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                          )}>
+                            🏬 Loja
+                          </span>
+                        )}
+                        {msg.senderRole === "tutor" && (
+                          <span className={cn(
+                            "text-[9px] px-1 py-0.5 rounded font-bold uppercase",
+                            isMe ? "bg-black/20 text-white" : "bg-blue-500/15 text-blue-700 dark:text-blue-300"
+                          )}>
+                            🐾 Tutor
+                          </span>
+                        )}
+                      </div>
                       <span
                         className={cn(
                           "text-[10px]",
@@ -771,66 +886,40 @@ export function InAppChatDrawer() {
                 <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground truncate min-w-0 flex-1">
                   <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 shrink-0"></span>
                   <span className="font-medium truncate">
-                    {isStore
+                    {isDriver
+                      ? `Motorista atendendo: ${activeTutorName || "Tutor"}${activePetName ? ` (${activePetName} ${petEmoji})` : ""}`
+                      : isStore
                       ? `Atendendo: ${activeTutorName || "Tutor"}${activePetName ? ` (${activePetName} ${petEmoji})` : ""}`
                       : `Bate-papo ao vivo com a Big Dog ${petEmoji}`}
                   </span>
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
-                  {isStore ? (
-                    <>
-                      {/* Loja: Fechar janela e Finalizar atendimento */}
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setIsOpen(false)}
-                        className="h-7 px-2.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground rounded-xl shadow-2xs gap-1 transition-colors cursor-pointer"
-                        title="Fechar janela do chat (a conversa continua salva)"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                        Fechar Chat
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => setConfirmCloseOpen(true)}
-                        className="h-7 px-2.5 text-[11px] font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-xs gap-1.5 transition-transform active:scale-95 cursor-pointer"
-                        title="Concluir e finalizar atendimento (arquiva o chamado)"
-                      >
-                        <PowerOff className="h-3.5 w-3.5" />
-                        Finalizar
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      {/* Tutor: Fechar Chat como ação principal */}
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setIsOpen(false)}
-                        className="h-7 px-3 text-[11px] font-bold text-foreground bg-secondary/80 hover:bg-secondary rounded-xl shadow-2xs gap-1.5 transition-colors cursor-pointer"
-                        title="Fechar janela do chat (suas mensagens e histórico continuam salvos)"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                        Fechar Chat
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setConfirmCloseOpen(true)}
-                        className="h-7 px-2 text-[10px] text-muted-foreground hover:text-rose-600 rounded-xl gap-1 transition-colors cursor-pointer"
-                        title="Concluir e encerrar assunto"
-                      >
-                        <PowerOff className="h-3 w-3" />
-                        Encerrar
-                      </Button>
-                    </>
-                  )}
+                  {/* Fechar janela do chat (sem encerrar conversa) */}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsOpen(false)}
+                    className="h-7 px-2.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground rounded-xl shadow-2xs gap-1 transition-colors cursor-pointer"
+                    title="Fechar janela do chat (a conversa continua salva)"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Fechar Chat
+                  </Button>
+
+                  {/* Finalizar Atendimento (disponível para Loja, Tutor e Motorista) */}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => setConfirmCloseOpen(true)}
+                    className="h-7 px-2.5 text-[11px] font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-xs gap-1.5 transition-transform active:scale-95 cursor-pointer"
+                    title="Concluir e finalizar atendimento"
+                  >
+                    <PowerOff className="h-3.5 w-3.5" />
+                    Finalizar
+                  </Button>
                 </div>
               </div>
 
@@ -841,7 +930,9 @@ export function InAppChatDrawer() {
                   onChange={(e) => setInputText(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder={
-                    isStore
+                    isDriver
+                      ? `Enviar mensagem ao tutor ${activeTutorName || ""}...`
+                      : isStore
                       ? `Responder para ${activeTutorName || "o tutor"}...`
                       : activeContextTag
                         ? `Escreva sua mensagem sobre ${activeContextTag}...`
@@ -866,18 +957,22 @@ export function InAppChatDrawer() {
         )}
       </SheetContent>
 
-      {/* Diálogo de Confirmação para Finalizar Atendimento (Ambos os lados) */}
+      {/* Diálogo de Confirmação para Finalizar Atendimento (Loja, Tutor e Motorista) */}
       <AlertDialog open={confirmCloseOpen} onOpenChange={setConfirmCloseOpen}>
         <AlertDialogContent className="max-w-md rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-rose-600 font-bold">
               <PowerOff className="h-5 w-5" />
-              {isStore ? "Finalizar Atendimento?" : "Encerrar Conversa?"}
+              Finalizar Atendimento?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs leading-relaxed text-muted-foreground">
-              {isStore
-                ? `Tem certeza que deseja encerrar o atendimento com ${activeTutorName || "o tutor"}? O chamado será arquivado na aba de finalizados. Se quiser apenas sair desta tela mantendo a conversa aberta, use o botão "Fechar Chat".`
-                : "Deseja encerrar o atendimento? Se você digitou uma resposta, ela será enviada para a equipe da Big Dog e a conversa continuará gravada no seu histórico. Para apenas fechar esta janela, use o botão 'Fechar Chat'."}
+              {inputText.trim()
+                ? `Você digitou uma mensagem. Ao confirmar, ela será enviada primeiro ao ${isTutor ? "atendimento da Big Dog" : (activeTutorName || "tutor")} e, em seguida, o atendimento será finalizado.`
+                : isStore
+                ? `Tem certeza que deseja encerrar o atendimento com ${activeTutorName || "o tutor"}? O chamado será arquivado na aba de finalizados. Para apenas fechar esta janela mantendo a conversa aberta, use o botão "Fechar Chat".`
+                : isDriver
+                ? `Deseja encerrar o contato com ${activeTutorName || "o tutor"}? Para apenas fechar esta janela mantendo a conversa aberta, use o botão "Fechar Chat".`
+                : "Deseja encerrar o atendimento? A conversa continuará gravada no seu histórico. Para apenas fechar esta janela mantendo a conversa aberta, use o botão 'Fechar Chat'."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 sm:gap-0">
@@ -888,7 +983,7 @@ export function InAppChatDrawer() {
               onClick={handleConfirmClose}
               className="rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-xs font-bold"
             >
-              {isStore ? "Sim, Finalizar Atendimento" : "Sim, Encerrar Atendimento"}
+              Sim, Finalizar Atendimento
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

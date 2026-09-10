@@ -902,9 +902,15 @@ function RouteCard({
           type="button"
           onClick={() =>
             openInAppChat({
-              contextTag: `Entrega #${item.code}`,
+              conversationId: item.appointments?.user_id || item.appointment_id,
+              tutorId: item.appointments?.user_id,
+              tutorName: client?.full_name || "Tutor",
+              tutorPhone: client?.phone || undefined,
               petName: item.appointments?.pets?.name,
+              contextTag: `Entrega #${item.code}`,
               defaultText: `Olá! Aqui é o motorista da van do Big Dog Pet a caminho para ${item.appointments?.pets?.name ?? "o pet"}.`,
+              senderRole: "motorista",
+              senderName: driverName || "Motorista Big Dog",
             })
           }
           className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1.5 text-[11px] font-bold text-primary hover:bg-primary/20 transition-colors"

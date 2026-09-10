@@ -47,6 +47,8 @@ export interface OpenChatDetail {
   tutorId?: string | undefined;
   tutorName?: string | undefined;
   tutorPhone?: string | undefined;
+  senderRole?: SenderRole | undefined;
+  senderName?: string | undefined;
 }
 
 export interface ChatConversationSummary {
@@ -370,11 +372,11 @@ export function sendChatMessage(params: {
     text: params.text.trim(),
     createdAt: new Date().toISOString(),
     readByTutor: params.senderRole === "tutor",
-    readByStore: params.senderRole === "loja",
+    readByStore: params.senderRole === "loja" || params.senderRole === "motorista",
     status: defaultStatus,
   };
 
-  // Ao enviar nova mensagem do tutor ou da loja, reabre a conversa se ela estava fechada
+  // Ao enviar nova mensagem do tutor, loja ou motorista, reabre a conversa se ela estava fechada
   const updated = currentMessages.map((m) => {
     if (
       (m.conversationId === conversationId || (m.tutorId && m.tutorId === conversationId)) &&
@@ -382,7 +384,7 @@ export function sendChatMessage(params: {
     ) {
       return {
         ...m,
-        status: (params.senderRole === "loja" ? "respondido" : "aberto") as ChatMessageStatus,
+        status: (params.senderRole === "tutor" ? "aberto" : "respondido") as ChatMessageStatus,
       };
     }
     return m;
@@ -429,21 +431,22 @@ export function sendChatMessage(params: {
  */
 export function closeConversation(params: {
   conversationId: string;
-  closedByRole: "tutor" | "loja";
+  closedByRole: "tutor" | "loja" | "motorista";
   closedByName: string;
 }): void {
   const current = getAllChatMessages();
   const convId = params.conversationId;
 
   // Atualiza status de todas as mensagens dessa conversa para 'fechado'
+  // PRESERVANDO o estado de leitura do destinatário para que a mensagem nunca se perca!
   const updated = current.map((m) => {
     if (m.conversationId === convId || (m.tutorId && m.tutorId === convId)) {
-      if (params.closedByRole === "loja") {
+      if (params.closedByRole === "loja" || params.closedByRole === "motorista") {
         return {
           ...m,
           status: "fechado" as ChatMessageStatus,
           readByStore: true,
-          readByTutor: true,
+          readByTutor: m.readByTutor, // CRUCIAL: se o tutor ainda não leu, continua não lido!
         };
       } else {
         // Se o tutor encerrou: marca lido para o tutor, mas PRESERVA readByStore para a loja ver a resposta
@@ -451,7 +454,7 @@ export function closeConversation(params: {
           ...m,
           status: "fechado" as ChatMessageStatus,
           readByTutor: true,
-          readByStore: m.readByStore,
+          readByStore: m.readByStore, // CRUCIAL: se a loja ainda não leu, continua não lido!
         };
       }
     }
@@ -888,16 +891,21 @@ export function useInAppChat(options?: {
     return msg;
   };
 
-  const closeCurrentConversation = (closedByName?: string) => {
+  const closeCurrentConversation = (
+    closedByName?: string,
+    closedByRole?: "tutor" | "loja" | "motorista"
+  ) => {
     const targetConvId =
       options?.conversationId ||
       (currentRole === "tutor" ? getOrCreateTutorSessionId() : "geral");
+    const role = closedByRole || currentRole;
     const name =
-      closedByName || (currentRole === "loja" ? "Equipe Big Dog" : "Tutor");
+      closedByName ||
+      (role === "motorista" ? "Motorista Big Dog" : role === "loja" ? "Equipe Big Dog" : "Tutor");
 
     closeConversation({
       conversationId: targetConvId,
-      closedByRole: currentRole,
+      closedByRole: role,
       closedByName: name,
     });
     refresh();
@@ -946,7 +954,7 @@ export function useInAppChat(options?: {
   const isClosed =
     conversationMessages.length > 0 &&
     conversationMessages[conversationMessages.length - 1]?.status === "fechado" &&
-    (currentRole === "loja" ? unreadCount === 0 : true);
+    unreadCount === 0;
 
   return {
     messages: conversationMessages,
@@ -958,6 +966,46 @@ export function useInAppChat(options?: {
     markAsRead,
     refresh,
   };
+}
+
+/**
+ * Localiza o ID da conversa que contém mensagens não lidas destinadas ao tutor,
+ * ou a conversa mais recente do tutor.
+ */
+export function getActiveTutorConversationId(currentUserId?: string | null): string {
+  const messages = getAllChatMessages();
+  // 1. Prioridade máxima: conversa com mensagem não lida para o tutor
+  const unreadMsg = messages
+    .filter((m) => !m.readByTutor && m.senderRole !== "tutor")
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+  if (unreadMsg) {
+    return unreadMsg.conversationId || unreadMsg.tutorId || currentUserId || getOrCreateTutorSessionId();
+  }
+
+  // 2. Segunda prioridade: conversa mais recente associada ao tutor atual
+  if (currentUserId) {
+    const userMsg = messages
+      .filter(
+        (m) =>
+          m.tutorId === currentUserId ||
+          m.conversationId === currentUserId ||
+          m.senderId === currentUserId
+      )
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    if (userMsg) {
+      return userMsg.conversationId || currentUserId;
+    }
+  }
+
+  // 3. Terceira prioridade: última conversa qualquer registrada
+  if (messages.length > 0) {
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg?.conversationId) {
+      return lastMsg.conversationId;
+    }
+  }
+
+  return currentUserId || getOrCreateTutorSessionId();
 }
 
 export interface TutorUnreadAlert {

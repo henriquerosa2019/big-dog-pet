@@ -482,9 +482,12 @@ export function AdminOrdersManager({
                       size="sm"
                       onClick={() =>
                         openInAppChat({
-                          recipientName: order.customer_name || "Cliente",
-                          recipientPhone: order.phone || undefined,
-                          contextText: `Pedido Loja #${order.id.slice(0, 8)} (${order.order_items.length} itens - ${formatBRL(order.total_cents)})`,
+                          conversationId: order.user_id,
+                          tutorId: order.user_id,
+                          tutorName: order.customer_name || "Cliente",
+                          tutorPhone: order.phone || undefined,
+                          contextTag: `Pedido Loja #${order.id.slice(0, 8)}`,
+                          defaultText: `Olá, ${order.customer_name || "cliente"}! Referente ao seu pedido #${order.id.slice(0, 8)} na Big Dog Pet:`,
                         })
                       }
                       className="h-8 px-2.5 text-xs font-semibold rounded-lg hover:bg-card"
