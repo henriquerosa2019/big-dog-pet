@@ -138,6 +138,7 @@ import {
 } from "@/lib/reports";
 import type { TablesUpdate } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
+import { openMiroModal } from "@/components/MiroModal";
 import {
   CLOSING_OPS_STATUS,
   formatOpsStatusWithPet,
@@ -2428,15 +2429,14 @@ function Admin() {
           </Button>
 
           <Button
-            asChild
+            type="button"
             variant="outline"
             size="sm"
-            className="h-9 px-3.5 rounded-xl text-xs font-semibold gap-2 border-border/80 hover:bg-muted bg-emerald-500/10 text-emerald-950 dark:text-emerald-200 border-emerald-500/30 hover:bg-emerald-500/20"
+            onClick={() => openMiroModal()}
+            className="h-9 px-3.5 rounded-xl text-xs font-semibold gap-2 border-border/80 hover:bg-muted bg-emerald-500/10 text-emerald-950 dark:text-emerald-200 border-emerald-500/30 hover:bg-emerald-500/20 cursor-pointer"
           >
-            <a href="/matriz_testes_miro.html" target="_blank" rel="noopener noreferrer">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              Matriz Miro (QA)
-            </a>
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            Matriz Miro (QA)
           </Button>
 
           <Button

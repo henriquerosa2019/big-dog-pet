@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   CalendarPlus,
+  CheckCircle2,
   Home,
   MessageCircle,
   ShieldCheck,
@@ -21,6 +22,8 @@ import { StatusAlertNotifier } from "@/components/StatusAlertNotifier";
 import { testSoundAlert } from "@/lib/soundAlerts";
 import { InAppChatDrawer, openInAppChat } from "@/components/InAppChatDrawer";
 import { useInAppChat } from "@/lib/inAppChat";
+import { Button } from "@/components/ui/button";
+import { MiroModal, openMiroModal } from "@/components/MiroModal";
 
 const baseTabs = [
   { to: "/", label: "Início", icon: Home },
@@ -49,7 +52,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const isAdmin = useIsAdmin(user?.id, user?.email);
   const isDriver = useIsDriver(user?.id, user?.email);
-  const tabs = isAdmin
+
+  const [isPreviewClient, setIsPreviewClient] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem("bigdog_preview_mode") === "cliente";
+  });
+
+  useEffect(() => {
+    const handlePreviewChange = () => {
+      setIsPreviewClient(sessionStorage.getItem("bigdog_preview_mode") === "cliente");
+    };
+    window.addEventListener("storage", handlePreviewChange);
+    window.addEventListener("bigdog_preview_change", handlePreviewChange);
+    return () => {
+      window.removeEventListener("storage", handlePreviewChange);
+      window.removeEventListener("bigdog_preview_change", handlePreviewChange);
+    };
+  }, []);
+
+  const tabs = (isAdmin && !isPreviewClient)
     ? [
         { to: "/admin", label: "Admin", icon: ShieldCheck },
         { to: "/conta", label: "Conta", icon: User },
@@ -58,7 +79,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         { to: "/loja", label: "Loja", icon: ShoppingBag },
       ]
     : [...baseTabs, ...(isDriver ? [driverTab] : [])];
-  const { hasNewMessage } = useInAppChat({ role: isAdmin ? "loja" : "tutor" });
+  const { hasNewMessage } = useInAppChat({ role: isAdmin && !isPreviewClient ? "loja" : "tutor" });
 
   const [isMuted, setIsMuted] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -81,6 +102,98 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background shadow-soft md:max-w-3xl lg:max-w-5xl">
       <StatusAlertNotifier />
       <header className="sticky top-0 z-20 border-b border-border/60 bg-background/90 backdrop-blur">
+        {/* Barra Superior de Homologação Ágil - Alternância Rápida de Atores */}
+        {isAdmin && (
+          <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-white shadow-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-300 border border-amber-500/30">
+                🧪 Homologação
+              </span>
+              <span className="hidden sm:inline text-[10px] text-slate-400 font-semibold">
+                Alternar Papel:
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1 overflow-x-auto">
+              {/* Tutor */}
+              <Button
+                asChild
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  sessionStorage.setItem("bigdog_preview_mode", "cliente");
+                  setIsPreviewClient(true);
+                  window.dispatchEvent(new CustomEvent("bigdog_preview_change"));
+                }}
+                className={cn(
+                  "h-6 px-2 text-[11px] font-bold rounded-lg transition-all",
+                  (isPreviewClient || pathname === "/" || pathname === "/agendar" || pathname === "/carrinho" || pathname === "/loja") && !pathname.startsWith("/admin") && pathname !== "/motorista"
+                    ? "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 hover:text-white"
+                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                )}
+              >
+                <Link to="/" search={{ preview: "cliente" }}>
+                  🐾 Tutor
+                </Link>
+              </Button>
+
+              {/* Loja / Admin */}
+              <Button
+                asChild
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  sessionStorage.removeItem("bigdog_preview_mode");
+                  setIsPreviewClient(false);
+                  window.dispatchEvent(new CustomEvent("bigdog_preview_change"));
+                }}
+                className={cn(
+                  "h-6 px-2 text-[11px] font-bold rounded-lg transition-all",
+                  pathname.startsWith("/admin")
+                    ? "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 hover:text-white"
+                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                )}
+              >
+                <Link to="/admin">
+                  🏬 Loja
+                </Link>
+              </Button>
+
+              {/* Motorista */}
+              <Button
+                asChild
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  sessionStorage.removeItem("bigdog_preview_mode");
+                  setIsPreviewClient(false);
+                  window.dispatchEvent(new CustomEvent("bigdog_preview_change"));
+                }}
+                className={cn(
+                  "h-6 px-2 text-[11px] font-bold rounded-lg transition-all",
+                  pathname === "/motorista"
+                    ? "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 hover:text-white"
+                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                )}
+              >
+                <Link to="/motorista">
+                  🚚 Motorista
+                </Link>
+              </Button>
+
+              {/* Quadro Miro (QA) */}
+              <button
+                type="button"
+                onClick={() => openMiroModal()}
+                className="flex items-center gap-1 h-6 px-2 text-[11px] font-bold rounded-lg border border-emerald-500/50 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 transition-all cursor-pointer"
+                title="Abrir Quadro Miro de Testes (TC-01 a TC-18)"
+              >
+                <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                <span>🎯 Miro (QA)</span>
+              </button>
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
           <Link to="/" className="flex min-w-0 items-center gap-2">
             <img
@@ -142,11 +255,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <InAppChatDrawer />
+      <MiroModal />
 
-      <main className={cn("flex-1", (pathname === "/admin" || pathname.startsWith("/admin")) ? "pb-6" : "pb-24")}>{children}</main>
+      <main className={cn("flex-1", (!isPreviewClient && (pathname === "/admin" || pathname.startsWith("/admin") || pathname === "/motorista")) ? "pb-6" : "pb-24")}>{children}</main>
 
       {/* Barra de navegação inferior exclusiva do fluxo do cliente/tutor - oculta no painel admin para ganho de área útil */}
-      {!(pathname === "/admin" || pathname.startsWith("/admin")) && (
+      {(isPreviewClient || !(pathname === "/admin" || pathname.startsWith("/admin") || pathname === "/motorista")) && (
         <nav className="fixed bottom-0 left-1/2 z-30 w-full max-w-md -translate-x-1/2 border-t border-border/60 bg-card/95 backdrop-blur md:max-w-3xl lg:max-w-5xl">
           <ul className={cn("grid", gridColsClass(tabs.length))}>
             {tabs.map((tab) => {

@@ -87,11 +87,37 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const search = Route.useSearch();
-  const isClientPreview = search.preview === "cliente";
+  const [isClientPreview, setIsClientPreview] = useState(() => {
+    if (typeof window === "undefined") return search.preview === "cliente";
+    return (
+      search.preview === "cliente" ||
+      sessionStorage.getItem("bigdog_preview_mode") === "cliente"
+    );
+  });
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isAdmin } = useIsAdminStatus(user?.id, user?.email);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (search.preview === "cliente") {
+      sessionStorage.setItem("bigdog_preview_mode", "cliente");
+      setIsClientPreview(true);
+      window.dispatchEvent(new CustomEvent("bigdog_preview_change"));
+    }
+  }, [search.preview]);
+
+  useEffect(() => {
+    const handlePreviewChange = () => {
+      setIsClientPreview(sessionStorage.getItem("bigdog_preview_mode") === "cliente");
+    };
+    window.addEventListener("storage", handlePreviewChange);
+    window.addEventListener("bigdog_preview_change", handlePreviewChange);
+    return () => {
+      window.removeEventListener("storage", handlePreviewChange);
+      window.removeEventListener("bigdog_preview_change", handlePreviewChange);
+    };
+  }, []);
 
   useEffect(() => {
     if (isAdmin && !isClientPreview) {
@@ -529,6 +555,11 @@ function Home() {
           <Button
             asChild
             size="sm"
+            onClick={() => {
+              sessionStorage.removeItem("bigdog_preview_mode");
+              setIsClientPreview(false);
+              window.dispatchEvent(new CustomEvent("bigdog_preview_change"));
+            }}
             className="h-7 rounded-lg bg-primary hover:bg-primary/90 text-white font-bold text-xs"
           >
             <Link to="/admin">Voltar ao Painel Admin</Link>
