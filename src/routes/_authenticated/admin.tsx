@@ -2622,14 +2622,16 @@ function Admin() {
             className={cn(
               "h-9 px-3.5 rounded-xl text-xs font-bold gap-2 transition-all shadow-xs cursor-pointer",
               totalChatUnread > 0
-                ? "bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-400/50 animate-pulse"
+                ? "bg-rose-600 hover:bg-rose-700 text-white ring-2 ring-rose-400/50 animate-pulse"
+                : openConversations.length > 0
+                ? "bg-rose-600 hover:bg-rose-700 text-white shadow-xs"
                 : "bg-primary text-primary-foreground hover:bg-primary/90"
             )}
           >
             <MessageCircle className="h-4 w-4" />
             Central de Chat
             {totalChatUnread > 0 ? (
-              <span className="bg-white text-emerald-900 animate-pulse text-[10px] py-0 px-1.5 h-5 font-black shadow-xs rounded-full inline-flex items-center">
+              <span className="bg-white text-rose-900 animate-pulse text-[10px] py-0 px-1.5 h-5 font-black shadow-xs rounded-full inline-flex items-center">
                 {totalChatUnread} nova{totalChatUnread > 1 ? "s" : ""}
               </span>
             ) : openConversations.length > 0 ? (

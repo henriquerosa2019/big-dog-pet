@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import { StatusAlertNotifier } from "@/components/StatusAlertNotifier";
 import { testSoundAlert, playChatNotificationSound } from "@/lib/soundAlerts";
 import { InAppChatDrawer, openInAppChat } from "@/components/InAppChatDrawer";
-import { useInAppChat } from "@/lib/inAppChat";
+import { useInAppChat, getAppRole, setAppRole, type SimulationRole } from "@/lib/inAppChat";
 import { Button } from "@/components/ui/button";
 import { MiroModal, openMiroModal } from "@/components/MiroModal";
 
@@ -57,18 +57,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (typeof window === "undefined") return false;
     return sessionStorage.getItem("bigdog_preview_mode") === "cliente";
   });
+  const [activeRole, setActiveRole] = useState<SimulationRole>(() => getAppRole(pathname));
 
   useEffect(() => {
-    const handlePreviewChange = () => {
+    const handleRoleUpdate = () => {
       setIsPreviewClient(sessionStorage.getItem("bigdog_preview_mode") === "cliente");
+      setActiveRole(getAppRole(pathname));
     };
-    window.addEventListener("storage", handlePreviewChange);
-    window.addEventListener("bigdog_preview_change", handlePreviewChange);
+    window.addEventListener("storage", handleRoleUpdate);
+    window.addEventListener("bigdog_preview_change", handleRoleUpdate);
+    window.addEventListener("bigdog_role_change", handleRoleUpdate);
     return () => {
-      window.removeEventListener("storage", handlePreviewChange);
-      window.removeEventListener("bigdog_preview_change", handlePreviewChange);
+      window.removeEventListener("storage", handleRoleUpdate);
+      window.removeEventListener("bigdog_preview_change", handleRoleUpdate);
+      window.removeEventListener("bigdog_role_change", handleRoleUpdate);
     };
-  }, []);
+  }, [pathname]);
+
+  useEffect(() => {
+    setActiveRole(getAppRole(pathname));
+  }, [pathname]);
 
   const tabs = (isAdmin && !isPreviewClient)
     ? [
@@ -80,10 +88,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       ]
     : [...baseTabs, ...(isDriver ? [driverTab] : [])];
 
-  const isDriverRoute = pathname === "/motorista" && !isPreviewClient;
-  const isStoreContext = (pathname.startsWith("/admin") || (isAdmin && !isDriverRoute)) && !isPreviewClient;
-  const currentChatRole: "loja" | "tutor" = (isStoreContext || isDriverRoute) ? "loja" : "tutor";
-  const { hasNewMessage, unreadCount } = useInAppChat({ role: currentChatRole });
+  const currentChatRole: "loja" | "tutor" = (activeRole === "loja" || activeRole === "motorista") ? "loja" : "tutor";
+  const { hasNewMessage, unreadCount, isChatRed } = useInAppChat({ role: currentChatRole });
 
   const prevUnreadRef = useRef(unreadCount);
   useEffect(() => {
@@ -133,13 +139,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 size="sm"
                 variant="ghost"
                 onClick={() => {
-                  sessionStorage.setItem("bigdog_preview_mode", "cliente");
-                  setIsPreviewClient(true);
-                  window.dispatchEvent(new CustomEvent("bigdog_preview_change"));
+                  setAppRole("tutor");
                 }}
                 className={cn(
                   "h-6 px-2 text-[11px] font-bold rounded-lg transition-all",
-                  (isPreviewClient || pathname === "/" || pathname === "/agendar" || pathname === "/carrinho" || pathname === "/loja") && !pathname.startsWith("/admin") && pathname !== "/motorista"
+                  activeRole === "tutor"
                     ? "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 hover:text-white"
                     : "text-slate-300 hover:bg-slate-800 hover:text-white"
                 )}
@@ -155,13 +159,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 size="sm"
                 variant="ghost"
                 onClick={() => {
-                  sessionStorage.removeItem("bigdog_preview_mode");
-                  setIsPreviewClient(false);
-                  window.dispatchEvent(new CustomEvent("bigdog_preview_change"));
+                  setAppRole("loja");
                 }}
                 className={cn(
                   "h-6 px-2 text-[11px] font-bold rounded-lg transition-all",
-                  pathname.startsWith("/admin")
+                  activeRole === "loja"
                     ? "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 hover:text-white"
                     : "text-slate-300 hover:bg-slate-800 hover:text-white"
                 )}
@@ -177,13 +179,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 size="sm"
                 variant="ghost"
                 onClick={() => {
-                  sessionStorage.removeItem("bigdog_preview_mode");
-                  setIsPreviewClient(false);
-                  window.dispatchEvent(new CustomEvent("bigdog_preview_change"));
+                  setAppRole("motorista");
                 }}
                 className={cn(
                   "h-6 px-2 text-[11px] font-bold rounded-lg transition-all",
-                  pathname === "/motorista"
+                  activeRole === "motorista"
                     ? "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 hover:text-white"
                     : "text-slate-300 hover:bg-slate-800 hover:text-white"
                 )}
@@ -247,9 +247,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={() => openInAppChat()}
+              title={
+                unreadCount > 0
+                  ? `Chat: ${unreadCount} nova(s) mensagem(ns)`
+                  : isChatRed
+                  ? "Chat: Atendimento em andamento"
+                  : "Abrir Bate-papo Big Dog"
+              }
               className={cn(
                 "relative flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer",
-                unreadCount > 0
+                isChatRed
                   ? "bg-rose-600 text-white shadow-md shadow-rose-600/30 ring-2 ring-rose-400/50 animate-pulse hover:bg-rose-700"
                   : "bg-primary text-primary-foreground hover:bg-primary/90"
               )}
@@ -260,6 +267,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-white px-1.5 text-[10px] font-black text-rose-700 shadow-xs animate-pulse">
                   {unreadCount}
                 </span>
+              ) : isChatRed ? (
+                <span className="flex h-2 w-2 rounded-full bg-white animate-ping" />
               ) : null}
             </button>
           </div>

@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type SenderRole = "tutor" | "loja" | "motorista" | "vet";
 export type RecipientRole = "tutor" | "loja";
+export type SimulationRole = "tutor" | "loja" | "motorista";
 export type ChatMessageStatus = "aberto" | "respondido" | "fechado";
 export type ChatPeriodFilter = "hoje" | "semana" | "mes" | "todos";
 
@@ -591,6 +592,114 @@ export function getUnreadCount(role: "tutor" | "loja", conversationId?: string):
 }
 
 /**
+ * Obtém o papel ativo da aplicação / simulação com sincronização global
+ */
+export function getAppRole(pathname?: string): SimulationRole {
+  if (typeof window === "undefined") return "tutor";
+
+  const isPreviewClient = sessionStorage.getItem("bigdog_preview_mode") === "cliente";
+  if (isPreviewClient) return "tutor";
+
+  if (pathname?.startsWith("/admin")) {
+    return "loja";
+  }
+  if (pathname === "/motorista") {
+    return "motorista";
+  }
+
+  const savedRole = sessionStorage.getItem("bigdog_active_role") as SimulationRole | null;
+  if (savedRole === "loja" || savedRole === "motorista" || savedRole === "tutor") {
+    return savedRole;
+  }
+
+  return "tutor";
+}
+
+/**
+ * Define o papel ativo da aplicação / simulação e notifica todos os componentes
+ */
+export function setAppRole(role: SimulationRole | null): void {
+  if (typeof window === "undefined") return;
+  if (role) {
+    sessionStorage.setItem("bigdog_active_role", role);
+    if (role === "tutor") {
+      sessionStorage.setItem("bigdog_preview_mode", "cliente");
+    } else {
+      sessionStorage.removeItem("bigdog_preview_mode");
+    }
+  } else {
+    sessionStorage.removeItem("bigdog_active_role");
+  }
+
+  window.dispatchEvent(new CustomEvent("bigdog_role_change", { detail: { role } }));
+  window.dispatchEvent(new CustomEvent("bigdog_preview_change"));
+}
+
+/**
+ * Verifica se o botão de bate-papo deve ficar em alerta vermelho para o papel atual.
+ * Regra de negócio estrita:
+ * "o botão do chat, da loja, tutor ou motorista, só não deve ficar em vermelho, quando alguém ler a última msg E o chat for encerrado"
+ */
+export function getChatAlertStatus(role: SimulationRole | "loja" | "tutor", conversationId?: string): {
+  isRed: boolean;
+  unreadCount: number;
+  isOpenAttendance: boolean;
+  isClosed: boolean;
+} {
+  const allMessages = getAllChatMessages();
+  if (allMessages.length === 0) {
+    return { isRed: false, unreadCount: 0, isOpenAttendance: false, isClosed: true };
+  }
+
+  if (role === "tutor") {
+    const unreadCount = getUnreadCount("tutor", conversationId);
+    const targetConvId = conversationId || getActiveTutorConversationId();
+    const convMsgs = getMessagesForConversation(targetConvId);
+
+    if (convMsgs.length === 0) {
+      return { isRed: false, unreadCount: 0, isOpenAttendance: false, isClosed: true };
+    }
+
+    const lastMsg = convMsgs[convMsgs.length - 1];
+    const isLastMsgRead = lastMsg.senderRole === "tutor" || lastMsg.readByTutor;
+    const isClosed = lastMsg.status === "fechado";
+
+    // Só não deve ficar em vermelho quando alguém ler a última mensagem E o chat for encerrado!
+    const isFinishedAndRead = isClosed && isLastMsgRead && unreadCount === 0;
+    const isRed = !isFinishedAndRead;
+
+    return {
+      isRed,
+      unreadCount,
+      isOpenAttendance: !isClosed,
+      isClosed,
+    };
+  } else {
+    // Loja ou Motorista
+    const unreadCount = getUnreadCount("loja", conversationId);
+    const allConvs = getAllChatConversations();
+
+    if (allConvs.length === 0) {
+      return { isRed: false, unreadCount: 0, isOpenAttendance: false, isClosed: true };
+    }
+
+    const openConvs = allConvs.filter((c) => c.status !== "fechado");
+    const isClosed = openConvs.length === 0;
+
+    // Só não deve ficar em vermelho quando alguém ler a última mensagem E o chat for encerrado!
+    const isFinishedAndRead = isClosed && unreadCount === 0;
+    const isRed = !isFinishedAndRead;
+
+    return {
+      isRed,
+      unreadCount,
+      isOpenAttendance: !isClosed,
+      isClosed,
+    };
+  }
+}
+
+/**
  * Retorna as conversas agrupadas em FILA POR ORDEM DE CHEGADA para a loja.
  * Conversas com mensagens não lidas ficam no topo; em seguida, por data mais recente.
  */
@@ -811,11 +920,14 @@ export function useInAppChat(options?: {
   const currentRole = options?.role || "tutor";
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [isChatRed, setIsChatRed] = useState<boolean>(false);
 
   const refresh = () => {
     const all = getAllChatMessages();
     setMessages(all);
-    setUnreadCount(getUnreadCount(currentRole, options?.conversationId));
+    const alert = getChatAlertStatus(currentRole, options?.conversationId);
+    setUnreadCount(alert.unreadCount);
+    setIsChatRed(alert.isRed);
   };
 
   useEffect(() => {
@@ -960,6 +1072,7 @@ export function useInAppChat(options?: {
     messages: conversationMessages,
     unreadCount,
     hasNewMessage: unreadCount > 0,
+    isChatRed,
     isClosed,
     send,
     closeCurrentConversation,

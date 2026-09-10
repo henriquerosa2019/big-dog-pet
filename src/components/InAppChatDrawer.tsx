@@ -36,7 +36,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth, useIsAdmin } from "@/hooks/useAuth";
-import { useRouterState } from "@tanstack/react-router";
+import { useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   useInAppChat,
   useChatQueue,
@@ -49,6 +49,9 @@ import {
   getMessagesForConversation,
   markConversationAsRead,
   getPetEmoji,
+  getAppRole,
+  setAppRole,
+  type SimulationRole,
   type SenderRole,
   type RecipientRole,
 } from "@/lib/inAppChat";
@@ -62,35 +65,55 @@ export function InAppChatDrawer() {
   const { user } = useAuth();
   const isAdmin = useIsAdmin(user?.id);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
 
   const [isPreviewClient, setIsPreviewClient] = useState(() => {
     if (typeof window === "undefined") return false;
     return sessionStorage.getItem("bigdog_preview_mode") === "cliente";
   });
+  const [activeRole, setActiveRole] = useState<SimulationRole>(() => getAppRole(pathname));
 
   useEffect(() => {
-    const handlePreview = () => {
+    const handleRoleUpdate = () => {
       setIsPreviewClient(sessionStorage.getItem("bigdog_preview_mode") === "cliente");
+      setActiveRole(getAppRole(pathname));
     };
-    window.addEventListener("bigdog_preview_change", handlePreview);
+    window.addEventListener("storage", handleRoleUpdate);
+    window.addEventListener("bigdog_preview_change", handleRoleUpdate);
+    window.addEventListener("bigdog_role_change", handleRoleUpdate);
     return () => {
-      window.removeEventListener("bigdog_preview_change", handlePreview);
+      window.removeEventListener("storage", handleRoleUpdate);
+      window.removeEventListener("bigdog_preview_change", handleRoleUpdate);
+      window.removeEventListener("bigdog_role_change", handleRoleUpdate);
     };
-  }, []);
+  }, [pathname]);
 
-  // Determina se o contexto operacional ativo é Loja, Motorista ou Tutor
-  const isDriverRoute = pathname === "/motorista" && !isPreviewClient;
-  const isStoreContext = (pathname.startsWith("/admin") || (isAdmin && !isDriverRoute)) && !isPreviewClient;
-  const [roleOverride, setRoleOverride] = useState<"loja" | "tutor" | "motorista" | null>(null);
-  const defaultRole: "loja" | "tutor" | "motorista" = isDriverRoute
-    ? "motorista"
-    : isStoreContext
-    ? "loja"
-    : "tutor";
-  const activeRole: "loja" | "tutor" | "motorista" = roleOverride || defaultRole;
+  useEffect(() => {
+    setActiveRole(getAppRole(pathname));
+  }, [pathname]);
+
   const isStore = activeRole === "loja";
   const isDriver = activeRole === "motorista";
   const isTutor = activeRole === "tutor";
+
+  const handleSwitchRole = (newRole: SimulationRole) => {
+    setAppRole(newRole);
+    setIsOpen(false); // Fecha o drawer para que o usuário veja a perspectiva do destinatário (com o badge vermelho no topo!)
+
+    if (newRole === "tutor") {
+      if (pathname.startsWith("/admin") || pathname === "/motorista") {
+        navigate({ to: "/", search: { preview: "cliente" } as any });
+      }
+    } else if (newRole === "loja") {
+      if (!pathname.startsWith("/admin")) {
+        navigate({ to: "/admin" });
+      }
+    } else if (newRole === "motorista") {
+      if (pathname !== "/motorista") {
+        navigate({ to: "/motorista" });
+      }
+    }
+  };
 
   const [isOpen, setIsOpen] = useState(false);
   const [inputText, setInputText] = useState("");
@@ -118,12 +141,6 @@ export function InAppChatDrawer() {
     totalUnread,
     refresh: refreshQueue,
   } = useChatQueue();
-
-  // Reseta override de simulação ao navegar ou alterar modo preview
-  useEffect(() => {
-    setRoleOverride(null);
-    setActiveSenderName(null);
-  }, [isPreviewClient, pathname]);
 
   // Se o contexto atual for Tutor, garante que acesse a conversa com mensagens ou sua sessão e saia da fila
   useEffect(() => {
@@ -245,7 +262,7 @@ export function InAppChatDrawer() {
 
   // Ao abrir uma conversa específica, rola pro final e marca como lida para o papel ativo
   useEffect(() => {
-    if (isOpen && !isViewingQueue) {
+    if (isOpen && !isViewingQueue && activeConversationId) {
       if (isStore) {
         markConversationAsRead(activeConversationId, "loja");
       } else {
@@ -255,7 +272,24 @@ export function InAppChatDrawer() {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 150);
     }
-  }, [isOpen, isViewingQueue, activeConversationId, messages.length, isStore]);
+  }, [isOpen, isViewingQueue, activeConversationId]);
+
+  // Se uma nova mensagem do destinatário chegar com o chat já aberto, marca como lida e rola pro final
+  useEffect(() => {
+    if (!isOpen || isViewingQueue || !activeConversationId || messages.length === 0) return;
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg) return;
+
+    if (isStore && lastMsg.senderRole === "tutor" && !lastMsg.readByStore) {
+      markConversationAsRead(activeConversationId, "loja");
+    } else if (isTutor && lastMsg.senderRole !== "tutor" && !lastMsg.readByTutor) {
+      markConversationAsRead(activeConversationId, "tutor");
+    }
+
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 150);
+  }, [messages.length, isOpen, isViewingQueue, isStore, isTutor, activeConversationId]);
 
   const handleOpenConversationFromQueue = (conv: ChatConversationSummary) => {
     setActiveConversationId(conv.conversationId);
@@ -428,12 +462,7 @@ export function InAppChatDrawer() {
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => {
-                    setRoleOverride("tutor");
-                    setIsViewingQueue(false);
-                    const tutorConvId = getActiveTutorConversationId(user?.id);
-                    setActiveConversationId(tutorConvId);
-                  }}
+                  onClick={() => handleSwitchRole("tutor")}
                   className={cn(
                     "px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer",
                     isTutor
@@ -445,10 +474,7 @@ export function InAppChatDrawer() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setRoleOverride("loja");
-                    refreshQueue();
-                  }}
+                  onClick={() => handleSwitchRole("loja")}
                   className={cn(
                     "px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer",
                     isStore
@@ -460,12 +486,7 @@ export function InAppChatDrawer() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setRoleOverride("motorista");
-                    setIsViewingQueue(false);
-                    const tutorConvId = getActiveTutorConversationId(user?.id);
-                    setActiveConversationId(tutorConvId);
-                  }}
+                  onClick={() => handleSwitchRole("motorista")}
                   className={cn(
                     "px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer",
                     isDriver
