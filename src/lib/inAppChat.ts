@@ -105,61 +105,11 @@ export function openInAppChat(detail?: OpenChatDetail): void {
   window.dispatchEvent(new CustomEvent("open_inapp_chat", { detail }));
 }
 
-const STORAGE_KEY = "bigdog_inapp_chat_v3";
+const STORAGE_KEY = "bigdog_inapp_chat_v4";
 const BROADCAST_CHANNEL_NAME = "bigdog_inapp_chat_channel";
 
-// Mensagens padrão iniciais demonstrativas
-const DEFAULT_INITIAL_MESSAGES: ChatMessage[] = [
-  {
-    id: "msg-init-1",
-    conversationId: "tutor-maria-silva",
-    senderId: "tutor-maria",
-    senderName: "Maria Silva",
-    senderRole: "tutor",
-    recipientRole: "loja",
-    tutorId: "tutor-maria",
-    tutorName: "Maria Silva",
-    tutorPhone: "(11) 99876-5432",
-    petName: "Thor",
-    contextTag: "Vacina V10",
-    text: "Olá! Gostaria de confirmar se posso levar o Thor amanhã às 14h para o reforço da V10.",
-    createdAt: new Date(Date.now() - 1000 * 60 * 18).toISOString(), // há 18 min
-    readByTutor: true,
-    readByStore: false,
-    status: "aberto",
-  },
-  {
-    id: "msg-init-2",
-    conversationId: "tutor-carlos-souza",
-    senderId: "tutor-carlos",
-    senderName: "Carlos Souza",
-    senderRole: "tutor",
-    recipientRole: "loja",
-    tutorId: "tutor-carlos",
-    tutorName: "Carlos Souza",
-    tutorPhone: "(11) 98765-4321",
-    petName: "Luna",
-    contextTag: "Táxi Pet / Banho",
-    text: "Boa tarde! O motorista já está a caminho para buscar a Luna em casa?",
-    createdAt: new Date(Date.now() - 1000 * 60 * 42).toISOString(), // há 42 min
-    readByTutor: true,
-    readByStore: false,
-    status: "aberto",
-  },
-  {
-    id: "msg-welcome-store",
-    conversationId: "geral",
-    senderId: "loja-bigdog",
-    senderName: "Big Dog Pet",
-    senderRole: "loja",
-    recipientRole: "tutor",
-    text: "Olá! Bem-vindo ao Bate-papo da Big Dog Pet. Envie suas dúvidas sobre banho, vacinas, consultas ou entregas por aqui!",
-    createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-    readByTutor: true,
-    readByStore: true,
-    status: "respondido",
-  },
-];
+// Mensagens padrão iniciais demonstrativas (vazio para a nova fase de homologação)
+const DEFAULT_INITIAL_MESSAGES: ChatMessage[] = [];
 
 let broadcastChannel: BroadcastChannel | null = null;
 if (typeof window !== "undefined" && "BroadcastChannel" in window) {
@@ -283,23 +233,34 @@ export function getAllChatMessages(): ChatMessage[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      // Migra da versão anterior se houver
-      const oldRaw = localStorage.getItem("bigdog_inapp_chat_v2");
-      if (oldRaw) {
-        try {
-          const oldList: ChatMessage[] = JSON.parse(oldRaw);
-          if (Array.isArray(oldList) && oldList.length > 0) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(oldList));
-            return oldList;
-          }
-        } catch {}
-      }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_INITIAL_MESSAGES));
-      return DEFAULT_INITIAL_MESSAGES;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+      return [];
     }
     return JSON.parse(raw);
   } catch {
-    return DEFAULT_INITIAL_MESSAGES;
+    return [];
+  }
+}
+
+/**
+ * Zera todo o histórico de mensagens de bate-papo para nova fase de homologação
+ */
+export function clearAllChatMessages(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+    localStorage.removeItem("bigdog_inapp_chat_v3");
+    localStorage.removeItem("bigdog_inapp_chat_v2");
+    window.dispatchEvent(
+      new CustomEvent("bigdog_chat_event", {
+        detail: { type: "CHAT_CLEARED" },
+      })
+    );
+    if (broadcastChannel) {
+      broadcastChannel.postMessage({ type: "CHAT_CLEARED" });
+    }
+  } catch (err) {
+    console.error("Erro ao zerar mensagens de chat:", err);
   }
 }
 

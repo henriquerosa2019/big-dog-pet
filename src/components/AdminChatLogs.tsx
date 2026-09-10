@@ -12,6 +12,7 @@ import {
   Download,
   Eye,
   X,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,7 @@ import {
   getChatLogs,
   getMessagesForConversation,
   openInAppChat,
+  clearAllChatMessages,
   type ChatConversationSummary,
   type ChatMessage,
   type ChatPeriodFilter,
@@ -122,15 +124,33 @@ export function AdminChatLogs() {
           </p>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleExportCsv}
-          className="h-8 gap-1.5 text-xs rounded-xl font-semibold border-primary/30 text-primary hover:bg-primary/5"
-        >
-          <Download className="h-3.5 w-3.5" />
-          Exportar CSV / Excel
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (window.confirm("Deseja realmente zerar todas as conversas do bate-papo para iniciar a nova homologação?")) {
+                clearAllChatMessages();
+                refresh();
+                toast.success("Histórico de bate-papo zerado com sucesso!");
+              }
+            }}
+            className="h-8 gap-1.5 text-xs rounded-xl font-semibold border-rose-500/30 text-rose-600 hover:bg-rose-500/10"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Zerar Chat (Homologação)
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCsv}
+            className="h-8 gap-1.5 text-xs rounded-xl font-semibold border-primary/30 text-primary hover:bg-primary/5"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Exportar CSV / Excel
+          </Button>
+        </div>
       </div>
 
       {/* 2. KPIs de Atendimento */}

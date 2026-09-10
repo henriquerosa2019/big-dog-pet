@@ -2428,6 +2428,18 @@ function Admin() {
           </Button>
 
           <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="h-9 px-3.5 rounded-xl text-xs font-semibold gap-2 border-border/80 hover:bg-muted bg-emerald-500/10 text-emerald-950 dark:text-emerald-200 border-emerald-500/30 hover:bg-emerald-500/20"
+          >
+            <a href="/matriz_testes_miro.html" target="_blank" rel="noopener noreferrer">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              Matriz Miro (QA)
+            </a>
+          </Button>
+
+          <Button
             size="sm"
             onClick={() => {
               setCurrentTab("comunicacao");
