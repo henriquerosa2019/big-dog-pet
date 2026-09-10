@@ -250,13 +250,11 @@ export function getAllChatMessages(): ChatMessage[] {
     }
 
     const sanitized = filtered.map((m) => {
-      // Se a mensagem está aberta e ainda não foi respondida/fechada, garante que conte como não lida pela loja
-      if (m.status === "aberto" && m.readByStore) {
+      // Se a mensagem foi enviada pelo tutor e a loja ainda não leu, assegura que continue não lida pela loja
+      if (m.senderRole === "tutor" && !m.readByStore && m.recipientRole !== "loja") {
         healed = true;
         return {
           ...m,
-          readByStore: false,
-          senderRole: (m.senderRole === "loja" ? "tutor" : m.senderRole) as SenderRole,
           recipientRole: "loja" as RecipientRole,
         };
       }
@@ -371,12 +369,25 @@ export function sendChatMessage(params: {
     contextTag: params.contextTag ?? null,
     text: params.text.trim(),
     createdAt: new Date().toISOString(),
-    readByTutor: defaultStatus === "fechado" ? true : (params.senderRole === "tutor"),
-    readByStore: defaultStatus === "fechado" ? true : (params.senderRole !== "tutor"),
+    readByTutor: params.senderRole === "tutor",
+    readByStore: params.senderRole === "loja",
     status: defaultStatus,
   };
 
-  const updated = [...currentMessages, newMessage];
+  // Ao enviar nova mensagem do tutor ou da loja, reabre a conversa se ela estava fechada
+  const updated = currentMessages.map((m) => {
+    if (
+      (m.conversationId === conversationId || (m.tutorId && m.tutorId === conversationId)) &&
+      m.status === "fechado"
+    ) {
+      return {
+        ...m,
+        status: (params.senderRole === "loja" ? "respondido" : "aberto") as ChatMessageStatus,
+      };
+    }
+    return m;
+  });
+  updated.push(newMessage);
   saveAllChatMessages(updated);
 
   // Alerta sonoro de 2 toques (ao chegar msg na loja e no tutor)
@@ -424,15 +435,25 @@ export function closeConversation(params: {
   const current = getAllChatMessages();
   const convId = params.conversationId;
 
-  // Atualiza status de todas as mensagens dessa conversa para 'fechado' e marca como lidas
+  // Atualiza status de todas as mensagens dessa conversa para 'fechado'
   const updated = current.map((m) => {
     if (m.conversationId === convId || (m.tutorId && m.tutorId === convId)) {
-      return {
-        ...m,
-        status: "fechado" as ChatMessageStatus,
-        readByStore: true,
-        readByTutor: true,
-      };
+      if (params.closedByRole === "loja") {
+        return {
+          ...m,
+          status: "fechado" as ChatMessageStatus,
+          readByStore: true,
+          readByTutor: true,
+        };
+      } else {
+        // Se o tutor encerrou: marca lido para o tutor, mas PRESERVA readByStore para a loja ver a resposta
+        return {
+          ...m,
+          status: "fechado" as ChatMessageStatus,
+          readByTutor: true,
+          readByStore: m.readByStore,
+        };
+      }
     }
     return m;
   });
@@ -553,11 +574,16 @@ export function markChatAsRead(options: {
 export function getUnreadCount(role: "tutor" | "loja", conversationId?: string): number {
   const list = getAllChatMessages();
   return list.filter((m) => {
-    if (m.status === "fechado") return false;
     if (conversationId && m.conversationId !== conversationId && m.tutorId !== conversationId) {
       return false;
     }
-    return role === "tutor" ? !m.readByTutor : !m.readByStore;
+    if (role === "loja") {
+      // Para a loja: conta mensagens enviadas pelo tutor que a loja ainda não leu
+      return !m.readByStore && m.senderRole === "tutor";
+    } else {
+      // Para o tutor: conta mensagens enviadas pela loja que o tutor ainda não leu
+      return !m.readByTutor && m.senderRole !== "tutor";
+    }
   }).length;
 }
 
@@ -613,14 +639,23 @@ export function getAllChatConversations(): ChatConversationSummary[] {
       tutorName = "Atendimento Geral";
     }
 
-    const isClosed = lastMsg.status === "fechado";
-    const unreadStore = isClosed ? 0 : msgList.filter((m) => !m.readByStore).length;
-    const unreadTutor = isClosed ? 0 : msgList.filter((m) => !m.readByTutor).length;
+    // Mensagens não lidas pela loja enviadas pelo tutor
+    const unreadStore = msgList.filter((m) => !m.readByStore && m.senderRole === "tutor").length;
+    // Mensagens não lidas pelo tutor enviadas pela loja
+    const unreadTutor = msgList.filter((m) => !m.readByTutor && m.senderRole !== "tutor").length;
 
-    // Status: se a última mensagem foi 'fechado', o status é 'fechado'
-    // Se a última mensagem foi da loja, status é "respondido"; se foi do tutor e loja ainda não leu/respondeu, "aberto"
-    const status: ChatMessageStatus =
-      lastMsg.status ?? (lastMsg.senderRole === "loja" ? "respondido" : "aberto");
+    // Se houver mensagens do tutor não lidas pela loja, a conversa NÃO pode estar finalizada/oculta na loja!
+    const isClosed = lastMsg.status === "fechado" && unreadStore === 0;
+
+    // Status operacional da conversa:
+    // Se isClosed: "fechado"
+    // Se a loja foi a última a responder e não há novas do tutor: "respondido"
+    // Caso contrário (tutor respondeu ou aguarda loja): "aberto"
+    const status: ChatMessageStatus = isClosed
+      ? "fechado"
+      : lastMsg.senderRole === "loja" && unreadStore === 0
+      ? "respondido"
+      : "aberto";
 
     summaries.push({
       conversationId: cid,
@@ -642,15 +677,15 @@ export function getAllChatConversations(): ChatConversationSummary[] {
   }
 
   // Ordenação da Fila:
-  // 1º: Fechados sempre no final
-  // 2º: Não lidas da loja no topo
+  // 1º: Não lidas da loja no topo absoluto (urgência máxima!)
+  // 2º: Não fechados antes de fechados
   // 3º: Abertos antes de respondidos
   // 4º: Data da última mensagem decrescente (mais recentes primeiro)
   return summaries.sort((a, b) => {
-    if (a.status !== "fechado" && b.status === "fechado") return -1;
-    if (a.status === "fechado" && b.status !== "fechado") return 1;
     if (a.unreadCountStore > 0 && b.unreadCountStore === 0) return -1;
     if (a.unreadCountStore === 0 && b.unreadCountStore > 0) return 1;
+    if (a.status !== "fechado" && b.status === "fechado") return -1;
+    if (a.status === "fechado" && b.status !== "fechado") return 1;
     if (a.status === "aberto" && b.status !== "aberto") return -1;
     if (a.status !== "aberto" && b.status === "aberto") return 1;
     return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
@@ -893,11 +928,11 @@ export function useInAppChat(options?: {
 
     // 1. Mensagens com id da conversa exato
     if (m.conversationId === targetId) return true;
-    // 2. Mensagens onde tutorId é o id da conversa
+    // 2. Mensagens onde tutorId ou senderId é o id da conversa
     if (m.tutorId && m.tutorId === targetId) return true;
+    if (m.senderId && m.senderId === targetId) return true;
     // 3. Se for tela do tutor, aceita mensagens destinadas a ele
     if (currentRole === "tutor") {
-      if (m.senderId === targetId) return true;
       if (
         m.recipientRole === "tutor" &&
         (m.conversationId === targetId || m.tutorId === targetId || m.conversationId === "geral")
@@ -910,7 +945,8 @@ export function useInAppChat(options?: {
 
   const isClosed =
     conversationMessages.length > 0 &&
-    conversationMessages[conversationMessages.length - 1]?.status === "fechado";
+    conversationMessages[conversationMessages.length - 1]?.status === "fechado" &&
+    (currentRole === "loja" ? unreadCount === 0 : true);
 
   return {
     messages: conversationMessages,
@@ -949,7 +985,7 @@ export function getUnreadStoreMessagesForTutorOrPet(params: {
   const targetPetName = params.petName?.trim().toLowerCase();
 
   for (const m of messages) {
-    if (m.status === "fechado" || m.readByStore) continue;
+    if (m.readByStore) continue;
     // Considera apenas mensagens destinadas à loja ou originadas por tutor
     if (m.recipientRole !== "loja" && m.senderRole !== "tutor") continue;
 

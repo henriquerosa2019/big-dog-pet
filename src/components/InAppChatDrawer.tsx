@@ -293,6 +293,11 @@ export function InAppChatDrawer() {
   };
 
   const handleConfirmClose = () => {
+    // Se o usuário digitou uma resposta antes de finalizar, envia a mensagem primeiro!
+    const pendingText = inputText.trim();
+    if (pendingText) {
+      handleSend();
+    }
     const actorName = isStore
       ? "Equipe Big Dog"
       : (typeof user?.user_metadata?.["full_name"] === "string" ? user.user_metadata["full_name"] : "Tutor");
@@ -379,6 +384,7 @@ export function InAppChatDrawer() {
                   type="button"
                   onClick={() => {
                     setRoleOverride("loja");
+                    refreshQueue();
                   }}
                   className={cn(
                     "px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer",
@@ -772,31 +778,59 @@ export function InAppChatDrawer() {
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
-                  {/* Botão Fechar Janela do Chat (mantém conversa aberta) */}
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setIsOpen(false)}
-                    className="h-7 px-2.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground rounded-xl shadow-2xs gap-1 transition-colors cursor-pointer"
-                    title="Fechar janela do chat (a conversa continua salva)"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    Fechar Chat
-                  </Button>
-
-                  {/* Botão Finalizar Atendimento (conclui e arquiva o chamado) */}
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => setConfirmCloseOpen(true)}
-                    className="h-7 px-2.5 text-[11px] font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-xs gap-1.5 transition-transform active:scale-95 cursor-pointer"
-                    title="Concluir e finalizar atendimento (arquiva o chamado)"
-                  >
-                    <PowerOff className="h-3.5 w-3.5" />
-                    Finalizar
-                  </Button>
+                  {isStore ? (
+                    <>
+                      {/* Loja: Fechar janela e Finalizar atendimento */}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsOpen(false)}
+                        className="h-7 px-2.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground rounded-xl shadow-2xs gap-1 transition-colors cursor-pointer"
+                        title="Fechar janela do chat (a conversa continua salva)"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Fechar Chat
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => setConfirmCloseOpen(true)}
+                        className="h-7 px-2.5 text-[11px] font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-xs gap-1.5 transition-transform active:scale-95 cursor-pointer"
+                        title="Concluir e finalizar atendimento (arquiva o chamado)"
+                      >
+                        <PowerOff className="h-3.5 w-3.5" />
+                        Finalizar
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      {/* Tutor: Fechar Chat como ação principal */}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsOpen(false)}
+                        className="h-7 px-3 text-[11px] font-bold text-foreground bg-secondary/80 hover:bg-secondary rounded-xl shadow-2xs gap-1.5 transition-colors cursor-pointer"
+                        title="Fechar janela do chat (suas mensagens e histórico continuam salvos)"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Fechar Chat
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setConfirmCloseOpen(true)}
+                        className="h-7 px-2 text-[10px] text-muted-foreground hover:text-rose-600 rounded-xl gap-1 transition-colors cursor-pointer"
+                        title="Concluir e encerrar assunto"
+                      >
+                        <PowerOff className="h-3 w-3" />
+                        Encerrar
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -838,12 +872,12 @@ export function InAppChatDrawer() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-rose-600 font-bold">
               <PowerOff className="h-5 w-5" />
-              Finalizar Atendimento?
+              {isStore ? "Finalizar Atendimento?" : "Encerrar Conversa?"}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs leading-relaxed text-muted-foreground">
               {isStore
                 ? `Tem certeza que deseja encerrar o atendimento com ${activeTutorName || "o tutor"}? O chamado será arquivado na aba de finalizados. Se quiser apenas sair desta tela mantendo a conversa aberta, use o botão "Fechar Chat".`
-                : "Tem certeza que deseja finalizar esta conversa com a equipe da Big Dog? O chamado será marcado como concluído. Para apenas fechar a janela, use o botão 'Fechar Chat'."}
+                : "Deseja encerrar o atendimento? Se você digitou uma resposta, ela será enviada para a equipe da Big Dog e a conversa continuará gravada no seu histórico. Para apenas fechar esta janela, use o botão 'Fechar Chat'."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 sm:gap-0">
@@ -854,7 +888,7 @@ export function InAppChatDrawer() {
               onClick={handleConfirmClose}
               className="rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-xs font-bold"
             >
-              Sim, Finalizar Atendimento
+              {isStore ? "Sim, Finalizar Atendimento" : "Sim, Encerrar Atendimento"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
