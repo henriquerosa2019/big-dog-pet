@@ -141,6 +141,15 @@ function Motorista() {
       .channel("driver-routes-live")
       .on(
         "postgres_changes",
+        { event: "INSERT", schema: "public", table: "transport_orders" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["driver-routes"] });
+          playStatusSound("alerta");
+          toast.info("🔔 Nova corrida de Táxi Pet disponível! Clique em 'Iniciar Retirada'.");
+        },
+      )
+      .on(
+        "postgres_changes",
         { event: "*", schema: "public", table: "transport_orders" },
         () => {
           queryClient.invalidateQueries({ queryKey: ["driver-routes"] });
@@ -189,22 +198,63 @@ function Motorista() {
   });
 
   const claimRoute = useMutation({
-    mutationFn: async (transportOrderId: string) => {
+    mutationFn: async (vars: {
+      transportOrderId: string;
+      appointmentId: string;
+      userId?: string;
+      petName?: string | null;
+    }) => {
       const assignedId =
-        isAdmin && selectedDriverId !== "todos" ? selectedDriverId : user!.id;
-      const { error } = await supabase
+        isAdmin && selectedDriverId !== "todos"
+          ? selectedDriverId
+          : (allDrivers[0]?.id || user!.id);
+
+      const nowIso = new Date().toISOString();
+
+      // 1. Atribui motorista na ordem de transporte e grava horário de início de retirada
+      const { error: transportError } = await supabase
         .from("transport_orders")
-        .update({ driver_id: assignedId, assigned_at: new Date().toISOString() })
-        .eq("id", transportOrderId);
-      if (error) throw error;
+        .update({
+          driver_id: assignedId,
+          assigned_at: nowIso,
+          en_route_pickup_at: nowIso,
+        })
+        .eq("id", vars.transportOrderId);
+      if (transportError) throw transportError;
+
+      // 2. Atualiza o status do agendamento para em_deslocamento_retirada
+      const { error: apptError } = await supabase
+        .from("appointments")
+        .update({
+          ops_status: "em_deslocamento_retirada",
+        })
+        .eq("id", vars.appointmentId);
+      if (apptError) throw apptError;
+
+      // 3. Registra no histórico de status do pet
+      const { error: historyError } = await supabase.from("pet_status_history").insert({
+        appointment_id: vars.appointmentId,
+        status: "em_deslocamento_retirada",
+        created_by: user!.id,
+      });
+      if (historyError) throw historyError;
+
+      return vars;
     },
-    onSuccess: () => {
+    onSuccess: (vars) => {
       queryClient.invalidateQueries({ queryKey: ["driver-routes"] });
       queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
       queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
-      toast.success("Rota aceita! Avance o status conforme for buscando o pet.");
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-dash-appointments"] });
+
+      playStatusSound("transporte");
+      toast.success(
+        `Retirada iniciada! O tutor foi notificado que o motorista está a caminho para buscar ${vars.petName ? capitalizeWords(vars.petName) : "o pet"}.`
+      );
     },
-    onError: () => toast.error("Não foi possível aceitar essa rota"),
+    onError: () => toast.error("Não foi possível iniciar a retirada dessa rota"),
   });
 
   const advanceStatus = useMutation({
@@ -455,7 +505,7 @@ function Motorista() {
                 Nenhuma rota atribuída no momento.
               </p>
               <p className="text-xs text-muted-foreground/80 mt-1">
-                Aceite uma rota disponível abaixo ou peça para a recepção designar no Admin.
+                Clique em "Iniciar Retirada" na corrida disponível abaixo para começar o trajeto.
               </p>
             </div>
           )}
@@ -466,9 +516,9 @@ function Motorista() {
       <section className="space-y-3 pt-2">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-base sm:text-lg font-bold flex items-center gap-2">
-            <span>Rotas Disponíveis para Pegar</span>
-            <Badge variant="outline" className="text-xs font-black px-2 py-0.5">
-              {available.length}
+            <span>Novas Corridas & Rotas Disponíveis</span>
+            <Badge variant="secondary" className="text-xs font-black px-2 py-0.5 bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-500/30">
+              {available.length} {available.length === 1 ? "corrida" : "corridas"}
             </Badge>
           </h2>
         </div>
@@ -491,8 +541,8 @@ function Motorista() {
                       {` · Porte ${petSizeLabels[petSize].toLowerCase()}`}
                     </p>
                   </div>
-                  <Badge variant="secondary" className="text-[10px] font-bold">
-                    Aguardando Motorista
+                  <Badge variant="secondary" className="text-[10px] font-bold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                    Aguardando Início da Retirada
                   </Badge>
                 </div>
 
@@ -517,14 +567,29 @@ function Motorista() {
 
                 <Button
                   size="sm"
-                  className="mt-2 h-9 w-full rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90"
+                  className="mt-2 h-10 w-full rounded-xl font-black text-xs sm:text-sm bg-amber-500 hover:bg-amber-600 text-white shadow-md transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
                   disabled={claimRoute.isPending || blocked}
-                  onClick={() => claimRoute.mutate(item.id)}
+                  onClick={() =>
+                    claimRoute.mutate({
+                      transportOrderId: item.id,
+                      appointmentId: item.appointment_id,
+                      userId: item.appointments?.user_id,
+                      petName: item.appointments?.pets?.name,
+                    })
+                  }
                 >
-                  <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                  {isAdmin && selectedDriverId !== "todos"
-                    ? `Atribuir a ${activeDriver?.full_name ?? "Motorista"}`
-                    : "Aceitar Esta Rota"}
+                  <Truck className="h-4 w-4 shrink-0" />
+                  <span>
+                    Iniciar Retirada
+                    {item.appointments?.pets?.name
+                      ? ` · 🐾 ${capitalizeWords(item.appointments.pets.name)}`
+                      : ""}
+                  </span>
+                  {isAdmin && selectedDriverId !== "todos" && activeDriver?.full_name && (
+                    <span className="text-[10px] font-semibold opacity-90 hidden sm:inline">
+                      ({activeDriver.full_name})
+                    </span>
+                  )}
                 </Button>
               </div>
             );
@@ -538,6 +603,30 @@ function Motorista() {
       </section>
     </div>
   );
+}
+
+function getDriverActionButtonLabel(nextStatus: OpsStatus, petName?: string | null): string {
+  const name = petName ? capitalizeWords(petName) : "Pet";
+  switch (nextStatus) {
+    case "em_deslocamento_retirada":
+      return `🚗 Iniciar Retirada (${name})`;
+    case "pet_retirado":
+      return `🐾 Confirmar Embarque de ${name}`;
+    case "pet_chegou_petshop":
+      return `🏬 Confirmar Chegada no Petshop (${name})`;
+    case "em_atendimento":
+      return `✂️ Iniciar Atendimento de ${name}`;
+    case "servico_concluido":
+      return `✨ Concluir Atendimento de ${name}`;
+    case "em_rota_devolucao":
+      return `🚗 Iniciar Devolução (Levar ${name} para Casa)`;
+    case "pet_entregue":
+      return `🏡 Confirmar Entrega ao Tutor (${name})`;
+    case "finalizado":
+      return `✅ Finalizar Viagem (${name})`;
+    default:
+      return `Avançar: ${formatOpsStatusWithPet(nextStatus, petName)}`;
+  }
 }
 
 function RouteCard({
@@ -864,11 +953,24 @@ function RouteCard({
       {next && (
         <Button
           size="sm"
-          className="mt-2 h-9 w-full rounded-xl"
+          className={cn(
+            "mt-2 h-10 w-full rounded-xl font-bold text-xs sm:text-sm shadow-sm transition-all flex items-center justify-center gap-2",
+            next === "em_deslocamento_retirada"
+              ? "bg-amber-500 hover:bg-amber-600 text-white"
+              : next === "pet_retirado"
+                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                : next === "pet_chegou_petshop"
+                  ? "bg-primary hover:bg-primary/90 text-primary-foreground"
+                  : next === "em_rota_devolucao"
+                    ? "bg-sky-600 hover:bg-sky-700 text-white"
+                    : next === "pet_entregue" || next === "finalizado"
+                      ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                      : "bg-primary text-primary-foreground"
+          )}
           disabled={isPending}
           onClick={() => onAdvance(next)}
         >
-          Avançar: {formatOpsStatusWithPet(next, item.appointments?.pets?.name)}
+          {getDriverActionButtonLabel(next, item.appointments?.pets?.name)}
         </Button>
       )}
 
