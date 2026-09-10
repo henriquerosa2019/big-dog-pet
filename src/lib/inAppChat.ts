@@ -710,10 +710,8 @@ export function getChatLogs(filters?: {
  * Hook reativo para a Loja acompanhar a Fila de Atendimentos em tempo real
  */
 export function useChatQueue() {
-  const [conversations, setConversations] = useState<ChatConversationSummary[]>(() =>
-    getAllChatConversations()
-  );
-  const [totalUnread, setTotalUnread] = useState<number>(() => getUnreadCount("loja"));
+  const [conversations, setConversations] = useState<ChatConversationSummary[]>([]);
+  const [totalUnread, setTotalUnread] = useState<number>(0);
 
   const refresh = () => {
     setConversations(getAllChatConversations());
@@ -723,11 +721,11 @@ export function useChatQueue() {
   useEffect(() => {
     let mounted = true;
     getSupabaseChatChannel();
+    refresh();
 
     const handleEvent = () => {
       if (!mounted) return;
-      setConversations(getAllChatConversations());
-      setTotalUnread(getUnreadCount("loja"));
+      refresh();
     };
 
     window.addEventListener("bigdog_chat_event", handleEvent);
@@ -773,10 +771,8 @@ export function useInAppChat(options?: {
   conversationId?: string;
 }) {
   const currentRole = options?.role || "tutor";
-  const [messages, setMessages] = useState<ChatMessage[]>(() => getAllChatMessages());
-  const [unreadCount, setUnreadCount] = useState<number>(() =>
-    getUnreadCount(currentRole, options?.conversationId)
-  );
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   const refresh = () => {
     const all = getAllChatMessages();

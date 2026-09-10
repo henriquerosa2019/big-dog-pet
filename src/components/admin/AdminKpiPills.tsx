@@ -52,8 +52,9 @@ export function AdminKpiPills({
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
       {/* 1. Agendamentos - Sinaliza novos pedidos e leva para Confirmar Agendamento */}
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => {
           if (onNavigateToAgenda) {
             onNavigateToAgenda();
@@ -61,8 +62,15 @@ export function AdminKpiPills({
             onSelectTab("gestao");
           }
         }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            if (onNavigateToAgenda) onNavigateToAgenda();
+            else onSelectTab("gestao");
+          }
+        }}
         className={cn(
-          "flex flex-col justify-between rounded-2xl p-3 sm:p-3.5 text-left transition-all duration-200 border shadow-xs cursor-pointer group hover:-translate-y-0.5 hover:shadow-md",
+          "flex flex-col justify-between rounded-2xl p-3 sm:p-3.5 text-left transition-all duration-200 border shadow-xs cursor-pointer group hover:-translate-y-0.5 hover:shadow-md select-none",
           currentTab === "gestao"
             ? "border-amber-500 bg-amber-50/70 dark:bg-amber-950/30 ring-2 ring-amber-400/40"
             : pendingCount > 0
@@ -110,14 +118,21 @@ export function AdminKpiPills({
             {pendingCount > 0 ? "Requer confirmação" : "Nenhum pedido pendente"}
           </p>
         </div>
-      </button>
+      </div>
 
       {/* 2. Chat & Comunicação - Alto contraste sem texto verde em fundo azul */}
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => onSelectTab("comunicacao")}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onSelectTab("comunicacao");
+          }
+        }}
         className={cn(
-          "flex flex-col justify-between rounded-2xl p-3 sm:p-3.5 text-left transition-all duration-200 border shadow-xs cursor-pointer group hover:-translate-y-0.5 hover:shadow-md",
+          "flex flex-col justify-between rounded-2xl p-3 sm:p-3.5 text-left transition-all duration-200 border shadow-xs cursor-pointer group hover:-translate-y-0.5 hover:shadow-md select-none",
           currentTab === "comunicacao"
             ? "border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/30 ring-2 ring-emerald-400/40"
             : unreadChatCount > 0
@@ -171,14 +186,21 @@ export function AdminKpiPills({
             {unreadChatCount > 0 ? "Resposta de tutor pendente" : "Atendimento aos tutores"}
           </p>
         </div>
-      </button>
+      </div>
 
       {/* 3. Delivery & Táxi Pet */}
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => onSelectTab("hoje")}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onSelectTab("hoje");
+          }
+        }}
         className={cn(
-          "flex flex-col justify-between rounded-2xl p-3 sm:p-3.5 text-left transition-all duration-200 border shadow-xs cursor-pointer group hover:-translate-y-0.5 hover:shadow-md",
+          "flex flex-col justify-between rounded-2xl p-3 sm:p-3.5 text-left transition-all duration-200 border shadow-xs cursor-pointer group hover:-translate-y-0.5 hover:shadow-md select-none",
           inRouteCount > 0
             ? "border-sky-500 bg-sky-50/70 dark:bg-sky-950/30 ring-2 ring-sky-400/40"
             : activeDeliveriesCount > 0
@@ -236,14 +258,21 @@ export function AdminKpiPills({
               : "Leva e traz do petshop"}
           </p>
         </div>
-      </button>
+      </div>
 
       {/* 4. Atendimentos do Dia (Fila Operacional / Kanban) */}
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => onSelectTab("hoje")}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onSelectTab("hoje");
+          }
+        }}
         className={cn(
-          "flex flex-col justify-between rounded-2xl p-3 sm:p-3.5 text-left transition-all duration-200 border shadow-xs cursor-pointer group hover:-translate-y-0.5 hover:shadow-md",
+          "flex flex-col justify-between rounded-2xl p-3 sm:p-3.5 text-left transition-all duration-200 border shadow-xs cursor-pointer group hover:-translate-y-0.5 hover:shadow-md select-none",
           currentTab === "hoje"
             ? "border-violet-500 bg-violet-50/60 dark:bg-violet-950/30 ring-2 ring-violet-400/40"
             : inProgressServicesCount > 0
@@ -305,14 +334,21 @@ export function AdminKpiPills({
               : "Banho, tosa e estética"}
           </p>
         </div>
-      </button>
+      </div>
 
       {/* 5. Alertas de Saúde & Retornos Preventivos */}
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => onSelectTab("saude")}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onSelectTab("saude");
+          }
+        }}
         className={cn(
-          "flex flex-col justify-between rounded-2xl p-3 sm:p-3.5 text-left transition-all duration-200 border shadow-xs cursor-pointer group hover:-translate-y-0.5 hover:shadow-md col-span-2 sm:col-span-1 lg:col-span-1",
+          "flex flex-col justify-between rounded-2xl p-3 sm:p-3.5 text-left transition-all duration-200 border shadow-xs cursor-pointer group hover:-translate-y-0.5 hover:shadow-md col-span-2 sm:col-span-1 lg:col-span-1 select-none",
           currentTab === "saude"
             ? "border-rose-500 bg-rose-50/70 dark:bg-rose-950/30 ring-2 ring-rose-400/40"
             : urgentPets > 0
@@ -374,7 +410,7 @@ export function AdminKpiPills({
               : "Controle preventivo"}
           </p>
         </div>
-      </button>
+      </div>
     </div>
   );
 }

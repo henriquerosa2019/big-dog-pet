@@ -2482,9 +2482,9 @@ function Admin() {
             <MessageCircle className="h-4 w-4" />
             Central de Chat
             {totalChatUnread > 0 ? (
-              <Badge className="bg-white text-emerald-900 animate-pulse text-[10px] py-0 px-1.5 h-5 font-black shadow-xs">
+              <span className="bg-white text-emerald-900 animate-pulse text-[10px] py-0 px-1.5 h-5 font-black shadow-xs rounded-full inline-flex items-center">
                 {totalChatUnread} nova{totalChatUnread > 1 ? "s" : ""}
-              </Badge>
+              </span>
             ) : openConversations.length > 0 ? (
               <span className="text-[11px] font-semibold text-primary-foreground/80">
                 ({openConversations.length})
