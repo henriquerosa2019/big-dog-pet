@@ -80,7 +80,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       ]
     : [...baseTabs, ...(isDriver ? [driverTab] : [])];
 
-  const isStoreContext = pathname.startsWith("/admin") || (isAdmin && !isPreviewClient);
+  const isStoreContext = (pathname.startsWith("/admin") || isAdmin) && !isPreviewClient;
   const currentChatRole: "loja" | "tutor" = isStoreContext ? "loja" : "tutor";
   const { hasNewMessage, unreadCount } = useInAppChat({ role: currentChatRole });
 

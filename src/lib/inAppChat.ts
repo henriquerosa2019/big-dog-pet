@@ -236,7 +236,27 @@ export function getAllChatMessages(): ChatMessage[] {
       localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
       return [];
     }
-    return JSON.parse(raw);
+    const list: ChatMessage[] = JSON.parse(raw);
+    let healed = false;
+    const sanitized = list.map((m) => {
+      // Se a mensagem está aberta e ainda não foi respondida/fechada, garante que conte como não lida pela loja
+      if (m.status === "aberto" && m.readByStore) {
+        healed = true;
+        return {
+          ...m,
+          readByStore: false,
+          senderRole: (m.senderRole === "loja" ? "tutor" : m.senderRole) as SenderRole,
+          recipientRole: "loja" as RecipientRole,
+        };
+      }
+      return m;
+    });
+
+    if (healed) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+      return sanitized;
+    }
+    return list;
   } catch {
     return [];
   }
@@ -990,6 +1010,18 @@ export function getUnreadStoreMessagesForTutorOrPet(params: {
         } else {
           matched = true;
         }
+      }
+    }
+
+    // Match 4: por nome do pet diretamente (ex: "Thor")
+    if (!matched && targetPetName && m.petName) {
+      const msgPet = m.petName.trim().toLowerCase();
+      if (
+        msgPet === targetPetName ||
+        targetPetName.includes(msgPet) ||
+        msgPet.includes(targetPetName)
+      ) {
+        matched = true;
       }
     }
 

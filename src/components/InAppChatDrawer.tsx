@@ -36,6 +36,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth, useIsAdmin } from "@/hooks/useAuth";
+import { useRouterState } from "@tanstack/react-router";
 import {
   useInAppChat,
   useChatQueue,
@@ -46,6 +47,8 @@ import {
   getOrCreateTutorSessionId,
   markConversationAsRead,
   getPetEmoji,
+  type SenderRole,
+  type RecipientRole,
 } from "@/lib/inAppChat";
 import { supabase } from "@/integrations/supabase/client";
 import { playChatNotificationSound } from "@/lib/soundAlerts";
@@ -56,7 +59,28 @@ export { openInAppChat, type OpenChatDetail };
 export function InAppChatDrawer() {
   const { user } = useAuth();
   const isAdmin = useIsAdmin(user?.id);
-  const userRole: "loja" | "tutor" = isAdmin ? "loja" : "tutor";
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  const [isPreviewClient, setIsPreviewClient] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem("bigdog_preview_mode") === "cliente";
+  });
+
+  useEffect(() => {
+    const handlePreview = () => {
+      setIsPreviewClient(sessionStorage.getItem("bigdog_preview_mode") === "cliente");
+    };
+    window.addEventListener("bigdog_preview_change", handlePreview);
+    return () => {
+      window.removeEventListener("bigdog_preview_change", handlePreview);
+    };
+  }, []);
+
+  // Determina se o contexto operacional ativo é Loja ou Tutor
+  const isStoreContext = (pathname.startsWith("/admin") || isAdmin) && !isPreviewClient;
+  const [roleOverride, setRoleOverride] = useState<"loja" | "tutor" | null>(null);
+  const activeRole: "loja" | "tutor" = roleOverride || (isStoreContext ? "loja" : "tutor");
+  const isStore = activeRole === "loja";
 
   const [isOpen, setIsOpen] = useState(false);
   const [inputText, setInputText] = useState("");
@@ -67,11 +91,11 @@ export function InAppChatDrawer() {
   const [activePetSpecies, setActivePetSpecies] = useState<string | null>(null);
   const [activeTutorName, setActiveTutorName] = useState<string | null>(null);
   const [activeConversationId, setActiveConversationId] = useState<string>(() =>
-    userRole === "tutor" ? (user?.id || getOrCreateTutorSessionId()) : "geral"
+    !isStore ? (user?.id || getOrCreateTutorSessionId()) : "geral"
   );
 
   // Se for Loja, começa na Fila de Atendimentos. Se for Tutor, vai direto na sua conversa.
-  const [isViewingQueue, setIsViewingQueue] = useState<boolean>(isAdmin);
+  const [isViewingQueue, setIsViewingQueue] = useState<boolean>(isStore);
   const [queueSearch, setQueueSearch] = useState("");
   const [queueTab, setQueueTab] = useState<"abertos" | "finalizados">("abertos");
 
@@ -84,14 +108,21 @@ export function InAppChatDrawer() {
     refresh: refreshQueue,
   } = useChatQueue();
 
-  // Garante que o tutor use sua conversa particular mesmo ao deslogar/trocar
+  // Reseta override de simulação ao navegar ou alterar modo preview
   useEffect(() => {
-    if (!isAdmin) {
+    setRoleOverride(null);
+  }, [isPreviewClient, pathname]);
+
+  // Se o contexto atual for Tutor, garante que acesse sua conversa e saia da fila
+  useEffect(() => {
+    if (!isStore) {
       const tutorConvId = user?.id || getOrCreateTutorSessionId();
-      setActiveConversationId(tutorConvId);
+      if (!activeConversationId || activeConversationId === "geral") {
+        setActiveConversationId(tutorConvId);
+      }
       setIsViewingQueue(false);
     }
-  }, [isAdmin, user?.id]);
+  }, [isStore, user?.id]);
 
   const {
     messages,
@@ -102,7 +133,7 @@ export function InAppChatDrawer() {
     closeCurrentConversation,
     markAsRead,
   } = useInAppChat({
-    role: userRole,
+    role: activeRole,
     conversationId: activeConversationId,
   });
 
@@ -122,15 +153,19 @@ export function InAppChatDrawer() {
         if (custom.detail.conversationId) {
           setActiveConversationId(custom.detail.conversationId);
           setIsViewingQueue(false); // Entra diretamente na conversa do tutor acionado
-        } else if (!isAdmin) {
+        } else if (!isStore) {
           const tutorConvId = user?.id || getOrCreateTutorSessionId();
           setActiveConversationId(tutorConvId);
           setIsViewingQueue(false);
         }
       } else {
-        // Se a loja clicou sem especificar tutor, abre a fila
-        if (isAdmin) {
+        // Se a loja clicou sem especificar tutor, abre a fila; se tutor, vai direto na conversa
+        if (isStore) {
           setIsViewingQueue(true);
+        } else {
+          const tutorConvId = user?.id || getOrCreateTutorSessionId();
+          setActiveConversationId(tutorConvId);
+          setIsViewingQueue(false);
         }
       }
       setIsOpen(true);
@@ -138,7 +173,7 @@ export function InAppChatDrawer() {
 
     window.addEventListener("open_inapp_chat", handleOpenChat);
     return () => window.removeEventListener("open_inapp_chat", handleOpenChat);
-  }, [isAdmin, user?.id]);
+  }, [isStore, user?.id]);
 
   // Busca espécie do pet no banco de dados se tivermos o petId
   useEffect(() => {
@@ -156,7 +191,7 @@ export function InAppChatDrawer() {
 
   // Se o tutor estiver logado e não tiver pet selecionado, busca o primeiro pet cadastrado
   useEffect(() => {
-    if (isAdmin || !user?.id || activePetSpecies) return;
+    if (isStore || !user?.id || activePetSpecies) return;
     supabase
       .from("pets")
       .select("name, species")
@@ -170,17 +205,21 @@ export function InAppChatDrawer() {
           if (!activePetName && data.name) setActivePetName(data.name);
         }
       });
-  }, [isAdmin, user?.id, activePetSpecies, activePetName]);
+  }, [isStore, user?.id, activePetSpecies, activePetName]);
 
-  // Ao abrir uma conversa específica, rola pro final e marca como lida
+  // Ao abrir uma conversa específica, rola pro final e marca como lida para o papel ativo
   useEffect(() => {
     if (isOpen && !isViewingQueue) {
-      markAsRead();
+      if (isStore) {
+        markConversationAsRead(activeConversationId, "loja");
+      } else {
+        markConversationAsRead(activeConversationId, "tutor");
+      }
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 150);
     }
-  }, [isOpen, isViewingQueue, activeConversationId, messages.length]);
+  }, [isOpen, isViewingQueue, activeConversationId, messages.length, isStore]);
 
   const handleOpenConversationFromQueue = (conv: ChatConversationSummary) => {
     setActiveConversationId(conv.conversationId);
@@ -198,27 +237,55 @@ export function InAppChatDrawer() {
     const text = inputText.trim();
     if (!text) return;
 
-    const senderName = isAdmin
-      ? "Equipe Big Dog"
-      : (typeof user?.user_metadata?.["full_name"] === "string" ? user.user_metadata["full_name"] : "Tutor");
-    const senderRole = isAdmin ? "loja" : "tutor";
-    const recipientRole = isAdmin ? "tutor" : "loja";
+    if (isStore) {
+      const senderName = "Equipe Big Dog";
+      const senderRole: SenderRole = "loja";
+      const recipientRole: RecipientRole = "tutor";
 
-    send({
-      text,
-      conversationId: activeConversationId,
-      senderId: user?.id || (isAdmin ? "loja" : getOrCreateTutorSessionId()),
-      senderName,
-      senderRole,
-      recipientRole,
-      tutorName: activeTutorName || (isAdmin ? "Tutor" : senderName),
-      tutorId: isAdmin ? (activeConversationId !== "geral" ? activeConversationId : null) : (user?.id || getOrCreateTutorSessionId()),
-      contextTag: activeContextTag,
-      petName: activePetName,
-      petId: activePetId,
-      petSpecies: activePetSpecies,
-      status: isAdmin ? "respondido" : "aberto",
-    });
+      send({
+        text,
+        conversationId: activeConversationId,
+        senderId: user?.id || "loja",
+        senderName,
+        senderRole,
+        recipientRole,
+        tutorName: activeTutorName || "Tutor",
+        tutorId: activeConversationId !== "geral" ? activeConversationId : null,
+        contextTag: activeContextTag,
+        petName: activePetName,
+        petId: activePetId,
+        petSpecies: activePetSpecies,
+        status: "respondido",
+      });
+    } else {
+      const tutorName =
+        activeTutorName ||
+        (typeof user?.user_metadata?.["full_name"] === "string"
+          ? user.user_metadata["full_name"]
+          : "Henrique (Tutor)");
+      const senderRole: SenderRole = "tutor";
+      const recipientRole: RecipientRole = "loja";
+      const tutorConvId =
+        activeConversationId && activeConversationId !== "geral"
+          ? activeConversationId
+          : user?.id || getOrCreateTutorSessionId();
+
+      send({
+        text,
+        conversationId: tutorConvId,
+        senderId: user?.id || getOrCreateTutorSessionId(),
+        senderName: tutorName,
+        senderRole,
+        recipientRole,
+        tutorName,
+        tutorId: tutorConvId,
+        contextTag: activeContextTag,
+        petName: activePetName || "Thor (simulação)",
+        petId: activePetId,
+        petSpecies: activePetSpecies || "cão",
+        status: "aberto",
+      });
+    }
 
     setInputText("");
     setActiveContextTag(null);
@@ -226,7 +293,7 @@ export function InAppChatDrawer() {
   };
 
   const handleConfirmClose = () => {
-    const actorName = isAdmin
+    const actorName = isStore
       ? "Equipe Big Dog"
       : (typeof user?.user_metadata?.["full_name"] === "string" ? user.user_metadata["full_name"] : "Tutor");
     closeCurrentConversation(actorName);
@@ -265,7 +332,7 @@ export function InAppChatDrawer() {
     const petRefLoja = activePetName ? `${activePetName} ${petEmoji}` : `seu pet ${petEmoji}`;
     const petRefTutor = activePetName ? `${activePetName} ${petEmoji}` : `meu pet ${petEmoji}`;
 
-    if (userRole === "tutor") {
+    if (!isStore) {
       return [
         `Olá! Como está ${petRefTutor}? ✨`,
         "Qual o horário previsto do banho/tosa? 🛁⏰",
@@ -284,7 +351,7 @@ export function InAppChatDrawer() {
       `Atendimento de ${petRefLoja} iniciado com muito carinho! ❤️✨`,
       "Agendamento confirmado com sucesso na agenda! ✅📅",
     ];
-  }, [userRole, activePetName, petEmoji]);
+  }, [isStore, activePetName, petEmoji]);
 
   const formatRelativeTime = (isoString: string) => {
     try {
@@ -309,10 +376,53 @@ export function InAppChatDrawer() {
         onInteractOutside={(e) => e.preventDefault()}
       >
         {/* Cabeçalho do Chat */}
-        <SheetHeader className="border-b border-border/80 bg-card p-3.5">
+        <SheetHeader className="border-b border-border/80 bg-card p-3.5 space-y-2">
+          {/* Seletor rápido de teste de homologação para admin */}
+          {isAdmin && (
+            <div className="flex items-center justify-between gap-2 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-white text-xs mb-1">
+              <span className="text-[10px] text-amber-300 font-bold flex items-center gap-1">
+                🧪 Simulação Chat:
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRoleOverride("tutor");
+                    setIsViewingQueue(false);
+                    if (!activeConversationId || activeConversationId === "geral") {
+                      setActiveConversationId(user?.id || getOrCreateTutorSessionId());
+                    }
+                  }}
+                  className={cn(
+                    "px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer",
+                    !isStore
+                      ? "bg-primary text-white shadow-xs"
+                      : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  )}
+                >
+                  🐾 Tutor
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRoleOverride("loja");
+                  }}
+                  className={cn(
+                    "px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer",
+                    isStore
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  )}
+                >
+                  🏬 Loja
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5 min-w-0">
-              {isAdmin && !isViewingQueue ? (
+              {isStore && !isViewingQueue ? (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -328,7 +438,7 @@ export function InAppChatDrawer() {
               ) : (
                 <div className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
                   <MessageCircle className="h-5 w-5" />
-                  {totalUnread > 0 && (
+                  {totalUnread > 0 && isStore && (
                     <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-amber-500 text-[9px] font-bold text-white items-center justify-center">
@@ -341,7 +451,7 @@ export function InAppChatDrawer() {
 
               <div className="min-w-0">
                 <SheetTitle className="text-sm font-bold flex items-center gap-1.5 truncate">
-                  {isAdmin ? (
+                  {isStore ? (
                     isViewingQueue ? (
                       <>
                         Fila de Atendimento (Loja)
@@ -370,7 +480,7 @@ export function InAppChatDrawer() {
                 </SheetTitle>
                 <p className="text-[11px] text-muted-foreground flex items-center gap-1 truncate">
                   <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-emerald-500"></span>
-                  {isAdmin
+                  {isStore
                     ? (isViewingQueue ? "Ordens de chegada e chamados de tutores" : "Atendimento individual em tempo real")
                     : "Atendimento direto com a equipe · Sem WhatsApp"}
                 </p>
@@ -409,7 +519,7 @@ export function InAppChatDrawer() {
         </SheetHeader>
 
         {/* CORPO DO DRAWER: SE FOR LOJA E ESTIVER NA FILA, RENDERIZA A FILA DE ATENDIMENTOS */}
-        {isAdmin && isViewingQueue ? (
+        {isStore && isViewingQueue ? (
           <div className="flex-1 flex flex-col overflow-hidden bg-muted/20">
             {/* Barra de Busca e Tabs de Tutores na Fila */}
             <div className="p-3 border-b border-border/60 bg-card space-y-2">
@@ -578,8 +688,8 @@ export function InAppChatDrawer() {
             <div className="flex-1 overflow-y-auto p-3.5 space-y-3">
               {messages.map((msg) => {
                 const isMe =
-                  (userRole === "tutor" && msg.senderRole === "tutor") ||
-                  (userRole === "loja" && msg.senderRole !== "tutor");
+                  (activeRole === "tutor" && msg.senderRole === "tutor") ||
+                  (activeRole === "loja" && msg.senderRole !== "tutor");
 
                 return (
                   <div
@@ -638,7 +748,7 @@ export function InAppChatDrawer() {
                         <CheckCheck
                           className={cn(
                             "h-3 w-3",
-                            (userRole === "tutor" ? msg.readByStore : msg.readByTutor)
+                            (activeRole === "tutor" ? msg.readByStore : msg.readByTutor)
                               ? "text-sky-300"
                               : "text-primary-foreground/50"
                           )}
@@ -694,7 +804,7 @@ export function InAppChatDrawer() {
                 <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground truncate">
                   <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 shrink-0"></span>
                   <span className="font-medium truncate">
-                    {isAdmin
+                    {isStore
                       ? `Atendendo: ${activeTutorName || "Tutor"}${activePetName ? ` (${activePetName} ${petEmoji})` : ""}`
                       : `Bate-papo ao vivo com a Big Dog ${petEmoji}`}
                   </span>
@@ -721,7 +831,7 @@ export function InAppChatDrawer() {
                   onChange={(e) => setInputText(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder={
-                    isAdmin
+                    isStore
                       ? `Responder para ${activeTutorName || "o tutor"}...`
                       : activeContextTag
                         ? `Escreva sua mensagem sobre ${activeContextTag}...`
@@ -755,7 +865,7 @@ export function InAppChatDrawer() {
               Finalizar Conversa?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs leading-relaxed text-muted-foreground">
-              {isAdmin
+              {isStore
                 ? `Tem certeza que deseja encerrar o atendimento com ${activeTutorName || "o tutor"}? O chamado será marcado como finalizado em ambos os lados.`
                 : "Tem certeza que deseja finalizar esta conversa com a equipe da Big Dog? O atendimento será marcado como concluído."}
             </AlertDialogDescription>
