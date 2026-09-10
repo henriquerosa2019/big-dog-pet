@@ -239,9 +239,11 @@ export function getAllChatMessages(): ChatMessage[] {
     const list: ChatMessage[] = JSON.parse(raw);
     let healed = false;
 
-    // Remove mensagens automáticas de fechamento anteriores que poluem o histórico
+    // Remove mensagens automáticas de fechamento e mensagens pré-definidas anteriores que poluem o histórico
     const filtered = list.filter(
-      (m) => !m.text.startsWith("🏁 Atendimento finalizado")
+      (m) =>
+        !m.text.startsWith("🏁 Atendimento finalizado") &&
+        !m.text.includes("Sou tutor(a) de um pet com transporte agendado")
     );
     if (filtered.length !== list.length) {
       healed = true;

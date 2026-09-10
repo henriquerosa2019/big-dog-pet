@@ -41,7 +41,6 @@ export function DriverContact({ appointmentId }: { appointmentId: string }) {
         onClick={() =>
           openInAppChat({
             contextTag: "Transporte",
-            defaultText: `Olá! Sou tutor(a) de um pet com transporte agendado com o motorista ${driver.full_name || ""}.`,
           })
         }
         className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs gap-1.5 px-3 h-7 shadow-xs rounded-xl"
