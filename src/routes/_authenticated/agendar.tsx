@@ -228,8 +228,8 @@ function Agendar() {
     number: "",
     complement: "",
     district: "",
-    city: "Franco da Rocha",
-    state: "SP",
+    city: "",
+    state: "",
     reference: "",
   });
   const [isAgendarCepLoading, setIsAgendarCepLoading] = useState(false);
@@ -248,8 +248,8 @@ function Agendar() {
             cep: masked,
             street: info.logradouro || prev.street,
             district: info.bairro || prev.district,
-            city: info.localidade || prev.city,
-            state: info.uf || prev.state,
+            city: info.localidade || prev.city || "",
+            state: info.uf || prev.state || "",
           }));
           toast.success("Endereço preenchido pelo CEP!");
         }
@@ -296,7 +296,8 @@ function Agendar() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("addresses")
-        .select("id, label, street, number, district, is_default")
+        .select("id, label, street, number, complement, district, city, state, cep, is_default")
+        .eq("user_id", user!.id)
         .order("is_default", { ascending: false })
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -463,8 +464,8 @@ function Agendar() {
         number: "",
         complement: "",
         district: "",
-        city: "Franco da Rocha",
-        state: "SP",
+        city: "",
+        state: "",
         reference: "",
       });
       toast.success("Endereço cadastrado");

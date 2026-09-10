@@ -46,9 +46,16 @@ export function formatFullAddress(addr: AddressInfo): string {
     parts.push(addr.district.trim());
   }
 
-  const city = addr.city?.trim() || "Franco da Rocha";
-  const state = addr.state?.trim() || "SP";
-  parts.push(`${city} - ${state}`);
+  const city = addr.city?.trim();
+  const state = addr.state?.trim();
+
+  if (city && state) {
+    parts.push(`${city} - ${state}`);
+  } else if (city) {
+    parts.push(city);
+  } else {
+    parts.push("Franco da Rocha - SP");
+  }
 
   return parts.join(", ");
 }

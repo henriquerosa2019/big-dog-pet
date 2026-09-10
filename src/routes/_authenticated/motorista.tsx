@@ -222,11 +222,12 @@ function Motorista() {
         .eq("id", vars.transportOrderId);
       if (transportError) throw transportError;
 
-      // 2. Atualiza o status do agendamento para em_deslocamento_retirada
+      // 2. Atualiza o status do agendamento para em_deslocamento_retirada e confirmado
       const { error: apptError } = await supabase
         .from("appointments")
         .update({
           ops_status: "em_deslocamento_retirada",
+          status: "confirmado",
         })
         .eq("id", vars.appointmentId);
       if (apptError) throw apptError;
@@ -269,7 +270,7 @@ function Motorista() {
         .from("appointments")
         .update({
           ops_status: vars.status,
-          ...(CLOSING_OPS_STATUS.includes(vars.status) ? { status: "concluido" } : {}),
+          status: CLOSING_OPS_STATUS.includes(vars.status) ? "concluido" : "confirmado",
         })
         .eq("id", vars.appointmentId);
       if (apptError) throw apptError;

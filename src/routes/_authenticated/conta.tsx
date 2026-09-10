@@ -276,8 +276,8 @@ function Conta() {
     number: "",
     complement: "",
     district: "",
-    city: "Franco da Rocha",
-    state: "SP",
+    city: "",
+    state: "",
     reference: "",
   });
   const [isAddressCepLoading, setIsAddressCepLoading] = useState(false);
@@ -296,8 +296,8 @@ function Conta() {
             cep: masked,
             street: info.logradouro || prev.street,
             district: info.bairro || prev.district,
-            city: info.localidade || prev.city,
-            state: info.uf || prev.state,
+            city: info.localidade || prev.city || "",
+            state: info.uf || prev.state || "",
           }));
           toast.success("Endereço preenchido pelo CEP!");
         }
@@ -1366,8 +1366,8 @@ function Conta() {
                     number: defaultAddr.number ?? "",
                     complement: defaultAddr.complement ?? "",
                     district: defaultAddr.district ?? "",
-                    city: defaultAddr.city ?? "Franco da Rocha",
-                    state: defaultAddr.state ?? "SP",
+                    city: defaultAddr.city ?? "",
+                    state: defaultAddr.state ?? "",
                     reference: defaultAddr.reference ?? "",
                   });
                 } else {
@@ -1378,8 +1378,8 @@ function Conta() {
                     number: "",
                     complement: "",
                     district: "",
-                    city: "Franco da Rocha",
-                    state: "SP",
+                    city: "",
+                    state: "",
                     reference: "",
                   });
                 }
@@ -1600,8 +1600,8 @@ function Conta() {
                       number: addr.number ?? "",
                       complement: addr.complement ?? "",
                       district: addr.district ?? "",
-                      city: addr.city ?? "Franco da Rocha",
-                      state: addr.state ?? "SP",
+                      city: addr.city ?? "",
+                      state: addr.state ?? "",
                       reference: addr.reference ?? "",
                     });
                     setShowAddressForm(true);
@@ -1631,8 +1631,8 @@ function Conta() {
                         number: "",
                         complement: "",
                         district: "",
-                        city: "Franco da Rocha",
-                        state: "SP",
+                        city: "",
+                        state: "",
                         reference: "",
                       });
                       setShowAddressForm(true);

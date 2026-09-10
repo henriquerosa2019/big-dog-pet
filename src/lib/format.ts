@@ -268,8 +268,6 @@ export function getAppointmentStatusDisplay(item: {
   const isCancelled = status === "cancelado" || ops === "cancelado";
   const isInService = isAppointmentInService(item);
   const isConcluded = status === "concluido" || ops === "finalizado" || ops === "pet_entregue";
-  const isConfirmed = status === "confirmado" && !isInService && !isConcluded && !isCancelled;
-  const isPending = status === "pendente" && !isCancelled && !isConfirmed && !isInService && !isConcluded;
 
   if (isCancelled) {
     return {
@@ -312,6 +310,136 @@ export function getAppointmentStatusDisplay(item: {
       isConcluded: false,
     };
   }
+
+  // Fases operacionais ativas de Táxi Pet: nunca devem exibir "Aguardando confirmação da loja"
+  if (ops === "em_deslocamento_retirada") {
+    return {
+      label: "A Caminho da Retirada",
+      bannerText: "🚗 Táxi Pet a caminho da sua casa para buscar seu pet!",
+      bannerTag: "A Caminho",
+      badgeClass: "bg-blue-600 hover:bg-blue-700 text-white font-bold border-0 animate-pulse",
+      cardClass: "border-2 border-blue-500/90 bg-blue-50/90 dark:border-blue-500/80 dark:bg-blue-950/50 ring-2 ring-blue-400/40 shadow-md",
+      bannerClass: "border border-blue-500/30 bg-blue-500/20 text-blue-950 dark:text-blue-100 font-bold",
+      dotPingClass: "bg-blue-500",
+      dotClass: "bg-blue-600",
+      titleColorClass: "text-blue-950 dark:text-blue-50 font-bold",
+      timeColorClass: "text-blue-800 dark:text-blue-300 font-medium",
+      iconColorClass: "text-blue-600 dark:text-blue-400",
+      isCancelled: false,
+      isPending: false,
+      isConfirmed: true,
+      isInService: false,
+      isConcluded: false,
+    };
+  }
+
+  if (ops === "pet_retirado") {
+    return {
+      label: "A Caminho do Petshop",
+      bannerText: "🐾 Pet a bordo a caminho do petshop!",
+      bannerTag: "Em Trânsito",
+      badgeClass: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold border-0",
+      cardClass: "border-2 border-indigo-500/90 bg-indigo-50/90 dark:border-indigo-500/80 dark:bg-indigo-950/50 ring-2 ring-indigo-400/40 shadow-md",
+      bannerClass: "border border-indigo-500/30 bg-indigo-500/20 text-indigo-950 dark:text-indigo-100 font-bold",
+      dotPingClass: "bg-indigo-500",
+      dotClass: "bg-indigo-600",
+      titleColorClass: "text-indigo-950 dark:text-indigo-50 font-bold",
+      timeColorClass: "text-indigo-800 dark:text-indigo-300 font-medium",
+      iconColorClass: "text-indigo-600 dark:text-indigo-400",
+      isCancelled: false,
+      isPending: false,
+      isConfirmed: true,
+      isInService: false,
+      isConcluded: false,
+    };
+  }
+
+  if (ops === "pet_chegou_petshop") {
+    return {
+      label: "No Petshop",
+      bannerText: "🏬 Pet recebido no petshop para banho e tosa!",
+      bannerTag: "Na Loja",
+      badgeClass: "bg-emerald-600 hover:bg-emerald-700 text-white font-bold border-0",
+      cardClass: "border-2 border-emerald-500/90 bg-emerald-50/90 dark:border-emerald-500/80 dark:bg-emerald-950/50 ring-2 ring-emerald-400/40 shadow-md",
+      bannerClass: "border border-emerald-500/30 bg-emerald-500/20 text-emerald-950 dark:text-emerald-100 font-bold",
+      dotPingClass: "bg-emerald-500",
+      dotClass: "bg-emerald-600",
+      titleColorClass: "text-emerald-950 dark:text-emerald-50 font-bold",
+      timeColorClass: "text-emerald-800 dark:text-emerald-300 font-medium",
+      iconColorClass: "text-emerald-600 dark:text-emerald-400",
+      isCancelled: false,
+      isPending: false,
+      isConfirmed: true,
+      isInService: false,
+      isConcluded: false,
+    };
+  }
+
+  if (ops === "em_rota_devolucao") {
+    return {
+      label: "A Caminho de Casa",
+      bannerText: "🏡 Pet limpinho e cheiroso voltando para casa!",
+      bannerTag: "Em Devolução",
+      badgeClass: "bg-purple-600 hover:bg-purple-700 text-white font-bold border-0 animate-pulse",
+      cardClass: "border-2 border-purple-500/90 bg-purple-50/90 dark:border-purple-500/80 dark:bg-purple-950/50 ring-2 ring-purple-400/40 shadow-md",
+      bannerClass: "border border-purple-500/30 bg-purple-500/20 text-purple-950 dark:text-purple-100 font-bold",
+      dotPingClass: "bg-purple-500",
+      dotClass: "bg-purple-600",
+      titleColorClass: "text-purple-950 dark:text-purple-50 font-bold",
+      timeColorClass: "text-purple-800 dark:text-purple-300 font-medium",
+      iconColorClass: "text-purple-600 dark:text-purple-400",
+      isCancelled: false,
+      isPending: false,
+      isConfirmed: true,
+      isInService: false,
+      isConcluded: false,
+    };
+  }
+
+  if (ops === "servico_concluido") {
+    return {
+      label: "Serviço Pronto",
+      bannerText: "✨ Banho e tosa concluídos! Aguardando transporte para devolução",
+      bannerTag: "Pronto",
+      badgeClass: "bg-emerald-600 hover:bg-emerald-700 text-white font-bold border-0",
+      cardClass: "border-2 border-emerald-500/90 bg-emerald-50/90 dark:border-emerald-500/80 dark:bg-emerald-950/50 ring-2 ring-emerald-400/40 shadow-md",
+      bannerClass: "border border-emerald-500/30 bg-emerald-500/20 text-emerald-950 dark:text-emerald-100 font-bold",
+      dotPingClass: "bg-emerald-500",
+      dotClass: "bg-emerald-600",
+      titleColorClass: "text-emerald-950 dark:text-emerald-50 font-bold",
+      timeColorClass: "text-emerald-800 dark:text-emerald-300 font-medium",
+      iconColorClass: "text-emerald-600 dark:text-emerald-400",
+      isCancelled: false,
+      isPending: false,
+      isConfirmed: true,
+      isInService: false,
+      isConcluded: false,
+    };
+  }
+
+  if (ops === "motorista_designado") {
+    return {
+      label: "Motorista Designado",
+      bannerText: "🚗 Motorista designado para a rota de coleta!",
+      bannerTag: "Confirmado",
+      badgeClass: "bg-blue-600 hover:bg-blue-700 text-white font-bold border-0",
+      cardClass: "border-2 border-blue-500/90 bg-blue-50/90 dark:border-blue-500/80 dark:bg-blue-950/50 ring-2 ring-blue-400/40 shadow-md",
+      bannerClass: "border border-blue-500/30 bg-blue-500/20 text-blue-950 dark:text-blue-100 font-bold",
+      dotPingClass: "bg-blue-500",
+      dotClass: "bg-blue-600",
+      titleColorClass: "text-blue-950 dark:text-blue-50 font-bold",
+      timeColorClass: "text-blue-800 dark:text-blue-300 font-medium",
+      iconColorClass: "text-blue-600 dark:text-blue-400",
+      isCancelled: false,
+      isPending: false,
+      isConfirmed: true,
+      isInService: false,
+      isConcluded: false,
+    };
+  }
+
+  const isConfirmed = status === "confirmado";
+  const isPending = status === "pendente";
 
   if (isConfirmed) {
     return {
