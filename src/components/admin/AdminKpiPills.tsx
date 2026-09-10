@@ -1,4 +1,4 @@
-import { CalendarClock, MessageCircle, Truck, Scissors, AlertTriangle, ChevronRight, Check } from "lucide-react";
+import { CalendarClock, MessageCircle, Truck, Scissors, AlertTriangle, ChevronRight, Check, ShoppingBag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -14,10 +14,13 @@ export interface AdminKpiPillsProps {
   inProgressServicesCount: number;
   waitingServicesCount?: number | undefined;
   completedServicesCount?: number | undefined;
-  pendingHealthAlertsCount: number;
-  urgentHealthAlertsCount: number;
+  pendingHealthAlertsCount?: number | undefined;
+  urgentHealthAlertsCount?: number | undefined;
   urgentHealthPetsCount?: number | undefined;
   criticalStockCount: number;
+  pendingOrdersCount?: number | undefined;
+  todayOrdersCount?: number | undefined;
+  onNavigateToOrders?: (() => void) | undefined;
   currentTab: string;
   onSelectTab: (tab: string) => void;
 }
@@ -38,16 +41,21 @@ export function AdminKpiPills({
   urgentHealthAlertsCount,
   urgentHealthPetsCount,
   criticalStockCount,
+  pendingOrdersCount,
+  todayOrdersCount,
+  onNavigateToOrders,
   currentTab,
   onSelectTab,
 }: AdminKpiPillsProps) {
   const inRouteCount = inRouteDeliveriesCount ?? 0;
   const todayTaxiTotal = todayTaxiCount ?? activeDeliveriesCount;
-  const urgentPets = urgentHealthPetsCount ?? (urgentHealthAlertsCount > 0 ? urgentHealthAlertsCount : 0);
+  const urgentPets = urgentHealthPetsCount ?? ((urgentHealthAlertsCount ?? 0) > 0 ? urgentHealthAlertsCount! : 0);
   const totalPendingAlerts = urgentPets + criticalStockCount;
   const pendingCount = pendingAppointmentsCount ?? 0;
   const waitingCount = waitingServicesCount ?? 0;
   const completedCount = completedServicesCount ?? 0;
+  const pendingOrders = pendingOrdersCount ?? 0;
+  const todayOrders = todayOrdersCount ?? 0;
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
@@ -336,24 +344,31 @@ export function AdminKpiPills({
         </div>
       </div>
 
-      {/* 5. Alertas de Saúde & Retornos Preventivos */}
+      {/* 5. Pedidos na Loja (Produtos) */}
       <div
         role="button"
         tabIndex={0}
-        onClick={() => onSelectTab("saude")}
+        onClick={() => {
+          if (onNavigateToOrders) {
+            onNavigateToOrders();
+          } else {
+            onSelectTab("pedidos");
+          }
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            onSelectTab("saude");
+            if (onNavigateToOrders) onNavigateToOrders();
+            else onSelectTab("pedidos");
           }
         }}
         className={cn(
           "flex flex-col justify-between rounded-2xl p-3 sm:p-3.5 text-left transition-all duration-200 border shadow-xs cursor-pointer group hover:-translate-y-0.5 hover:shadow-md col-span-2 sm:col-span-1 lg:col-span-1 select-none",
-          currentTab === "saude"
-            ? "border-rose-500 bg-rose-50/70 dark:bg-rose-950/30 ring-2 ring-rose-400/40"
-            : urgentPets > 0
-            ? "border-rose-500 bg-rose-50/80 dark:bg-rose-950/40 ring-2 ring-rose-400/30 hover:bg-rose-100/70 dark:hover:bg-rose-950/60"
-            : totalPendingAlerts > 0
+          currentTab === "pedidos"
+            ? "border-blue-500 bg-blue-50/70 dark:bg-blue-950/30 ring-2 ring-blue-400/40"
+            : pendingOrders > 0
+            ? "border-blue-500 bg-blue-50/80 dark:bg-blue-950/40 ring-2 ring-blue-400/30 hover:bg-blue-100/70 dark:hover:bg-blue-950/60"
+            : criticalStockCount > 0
             ? "border-amber-500/60 bg-card hover:bg-amber-50/50 dark:hover:bg-amber-950/20"
             : "border-border/70 bg-card hover:bg-muted/40 hover:border-border"
         )}
@@ -362,23 +377,27 @@ export function AdminKpiPills({
           <div
             className={cn(
               "grid h-8 w-8 sm:h-9 sm:w-9 shrink-0 place-items-center rounded-xl transition-colors",
-              urgentPets > 0
-                ? "bg-rose-600 text-white font-black shadow-xs animate-pulse"
-                : totalPendingAlerts > 0
+              pendingOrders > 0
+                ? "bg-blue-600 text-white font-black shadow-xs animate-pulse"
+                : criticalStockCount > 0
                 ? "bg-amber-500 text-slate-950 font-black shadow-xs"
-                : "bg-rose-500/10 text-rose-700 dark:text-rose-300 group-hover:bg-rose-500/20"
+                : "bg-blue-500/10 text-blue-700 dark:text-blue-300 group-hover:bg-blue-500/20"
             )}
           >
-            <AlertTriangle className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+            <ShoppingBag className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
           </div>
 
-          {urgentPets > 0 ? (
-            <Badge className="bg-rose-600 text-white text-[10px] font-black px-2 py-0.5 shrink-0 shadow-xs animate-pulse">
-              ● {urgentPets} em atraso
+          {pendingOrders > 0 ? (
+            <Badge className="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 shrink-0 shadow-xs animate-pulse">
+              ● {pendingOrders} em preparo
             </Badge>
-          ) : pendingHealthAlertsCount > 0 ? (
+          ) : criticalStockCount > 0 ? (
             <Badge variant="secondary" className="bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 font-bold text-[10px] px-2 py-0.5 shrink-0">
-              {pendingHealthAlertsCount} previstos
+              ⚠️ {criticalStockCount} estoque baixo
+            </Badge>
+          ) : todayOrders > 0 ? (
+            <Badge variant="secondary" className="bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-200 font-bold text-[10px] px-2 py-0.5 shrink-0">
+              {todayOrders} hoje
             </Badge>
           ) : (
             <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
@@ -389,25 +408,25 @@ export function AdminKpiPills({
 
         <div className="space-y-0.5 min-w-0 w-full">
           <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-            Saúde & Alertas
+            Pedidos na Loja (Produtos)
           </p>
           <p className="text-sm sm:text-base font-extrabold font-display text-foreground leading-snug">
-            {urgentPets > 0 ? (
-              <span className="text-rose-950 dark:text-rose-200">
-                {urgentPets} pet{urgentPets > 1 ? "s" : ""} com atraso
+            {pendingOrders > 0 ? (
+              <span className="text-blue-950 dark:text-blue-200">
+                {pendingOrders} pedido{pendingOrders > 1 ? "s" : ""} em aberto
               </span>
-            ) : pendingHealthAlertsCount > 0 ? (
-              <span>{pendingHealthAlertsCount} retorno{pendingHealthAlertsCount > 1 ? "s" : ""} previsto{pendingHealthAlertsCount > 1 ? "s" : ""}</span>
+            ) : todayOrders > 0 ? (
+              <span>{todayOrders} pedido{todayOrders > 1 ? "s" : ""} hoje</span>
             ) : (
-              <span>Vacinas e saúde em dia</span>
+              <span>Tudo em dia</span>
             )}
           </p>
           <p className="text-[11px] text-muted-foreground font-medium leading-none pt-0.5 truncate">
-            {urgentPets > 0
-              ? "Vacina ou retorno pendente"
-              : criticalStockCount > 0
+            {criticalStockCount > 0
               ? `${criticalStockCount} item(ns) em estoque crítico`
-              : "Controle preventivo"}
+              : pendingOrders > 0
+              ? "Separação e entrega de produtos"
+              : "Nenhum pedido pendente"}
           </p>
         </div>
       </div>

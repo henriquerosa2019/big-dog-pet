@@ -37,6 +37,8 @@ import {
   Trash2,
   ShieldCheck,
   UserCheck,
+  ShoppingBag,
+  Package,
 } from "lucide-react";
 import { getCapacitySettings, saveCapacitySettings, type CapacitySettings } from "@/lib/schedulingCapacity";
 import { playStatusSound, testSoundAlert } from "@/lib/soundAlerts";
@@ -116,6 +118,7 @@ import { AdminChatLogs } from "@/components/AdminChatLogs";
 import { AdminKpiPills } from "@/components/admin/AdminKpiPills";
 import { AdminOperationalKanban, type KanbanItem } from "@/components/admin/AdminOperationalKanban";
 import { AdminHealthAlertsGrouped, type HealthAlertItem } from "@/components/admin/AdminHealthAlertsGrouped";
+import { AdminOrdersManager } from "@/components/admin/AdminOrdersManager";
 import { PetAvatar } from "@/components/PetAvatar";
 import { PetPhotoUpload } from "@/components/PetPhotoUpload";
 import { getCriticalStock, setCriticalStock, findCurveACriticalProducts } from "@/lib/stockSettings";
@@ -281,10 +284,10 @@ function Admin() {
   const { getClientAbcInfo } = useClientAbcMap();
   const mapSearchToTabs = (tab?: string): { master: string; sub?: string } => {
     if (!tab) return { master: "hoje" };
-    if (["hoje", "comunicacao", "saude", "gestao"].includes(tab)) return { master: tab };
+    if (["hoje", "comunicacao", "pedidos", "saude", "gestao"].includes(tab)) return { master: tab };
     if (["dashboard"].includes(tab)) return { master: "hoje" };
     if (["atendimentos", "chat"].includes(tab)) return { master: "comunicacao" };
-    if (["retornos"].includes(tab)) return { master: "saude" };
+    if (["retornos"].includes(tab)) return { master: "pedidos" };
     if (
       [
         "clientes",
@@ -296,6 +299,7 @@ function Admin() {
         "produtos",
         "agenda",
         "retirada-entrega",
+        "saude",
       ].includes(tab)
     ) {
       return { master: "gestao", sub: tab };
@@ -870,6 +874,27 @@ function Admin() {
   const sortedOrders = useMemo(() => {
     return sortInServiceFirst(orders ?? [], isOrderInService);
   }, [orders]);
+
+  const pendingOrdersCount = useMemo(() => {
+    return (orders ?? []).filter((o) => o.status === "novo" || o.status === "em_preparo").length;
+  }, [orders]);
+
+  const todayOrdersCount = useMemo(() => {
+    const todayStr = new Date().toDateString();
+    return (orders ?? []).filter((o) => new Date(o.created_at).toDateString() === todayStr).length;
+  }, [orders]);
+
+  const handleNavigateToOrders = useCallback(() => {
+    setCurrentTab("pedidos");
+    setTimeout(() => {
+      const el =
+        document.getElementById("pedidos-loja-topo") ||
+        document.getElementById("pedidos-loja-container");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 150);
+  }, []);
 
   const sortedTransportOrders = useMemo(() => {
     return sortInServiceFirst(
@@ -2511,6 +2536,9 @@ function Admin() {
         urgentHealthAlertsCount={urgentHealthAlertsCount}
         urgentHealthPetsCount={urgentHealthPetsCount}
         criticalStockCount={curveACriticalAlerts.length}
+        pendingOrdersCount={pendingOrdersCount}
+        todayOrdersCount={todayOrdersCount}
+        onNavigateToOrders={handleNavigateToOrders}
         currentTab={currentTab}
         onSelectTab={(tab) => {
           setCurrentTab(tab);
@@ -2562,20 +2590,20 @@ function Admin() {
           </TabsTrigger>
 
           <TabsTrigger
-            value="saude"
+            value="pedidos"
             className="group h-11 rounded-xl text-xs font-bold gap-1.5 px-3 transition-all text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/40 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-md [&[data-state=active]>svg]:text-white [&[data-state=active]>span]:text-white cursor-pointer"
           >
-            <Syringe className="h-4 w-4 text-primary transition-colors shrink-0" />
-            <span>Saúde & Retornos</span>
-            {urgentHealthPetsCount > 0 ? (
-              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white shadow-xs">
-                {urgentHealthPetsCount}
+            <ShoppingBag className="h-4 w-4 text-primary transition-colors shrink-0" />
+            <span>Pedidos na Loja (Produtos)</span>
+            {pendingOrdersCount > 0 ? (
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-blue-600 text-white shadow-xs animate-pulse">
+                {pendingOrdersCount}
               </span>
-            ) : (
+            ) : (orders ?? []).length > 0 ? (
               <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-800 group-data-[state=active]:bg-white group-data-[state=active]:text-primary transition-colors">
-                {healthAlertItems.length}
+                {(orders ?? []).length}
               </span>
-            )}
+            ) : null}
           </TabsTrigger>
 
           <TabsTrigger
@@ -2828,7 +2856,22 @@ function Admin() {
           </div>
         </TabsContent>
 
-        {/* ABA 3: SAÚDE & RETORNOS */}
+        {/* ABA 3: PEDIDOS NA LOJA (PRODUTOS) */}
+        <TabsContent value="pedidos" className="mt-4 space-y-4">
+          <AdminOrdersManager
+            orders={orders ?? []}
+            getClientAbcInfo={getClientAbcInfo}
+            onUpdateOrderStatus={(id, status) => updateOrder.mutate({ id, status })}
+            isUpdatingStatus={updateOrder.isPending}
+            criticalStockCount={curveACriticalAlerts.length}
+            onNavigateToProducts={() => {
+              setCurrentTab("gestao");
+              setGestaoSubTab("produtos");
+            }}
+          />
+        </TabsContent>
+
+        {/* Fallback de compatibilidade caso acesse via rota direta ?tab=saude */}
         <TabsContent value="saude" className="mt-4 space-y-4">
           <AdminHealthAlertsGrouped
             alerts={healthAlertItems}
@@ -2870,6 +2913,18 @@ function Admin() {
               </TabsTrigger>
               <TabsTrigger value="clinica" className="rounded-xl text-xs font-bold shrink-0 text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/50 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-sm cursor-pointer">
                 Prontuários / Clínica
+              </TabsTrigger>
+              <TabsTrigger value="saude" className="group rounded-xl text-xs font-bold gap-1 shrink-0 text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/50 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-sm cursor-pointer">
+                Saúde & Retornos
+                {urgentHealthPetsCount > 0 ? (
+                  <Badge className="ml-1 bg-rose-500 text-white text-[9px] py-0 px-1 font-bold">
+                    {urgentHealthPetsCount}
+                  </Badge>
+                ) : healthAlertItems.length > 0 ? (
+                  <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-slate-200 text-slate-800 group-data-[state=active]:bg-white group-data-[state=active]:text-primary">
+                    {healthAlertItems.length}
+                  </span>
+                ) : null}
               </TabsTrigger>
               <TabsTrigger value="agenda" className="group rounded-xl text-xs font-bold gap-1 shrink-0 text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/50 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-sm cursor-pointer">
                 Agendamentos Detalhados
@@ -5323,97 +5378,26 @@ function Admin() {
           )}
         </TabsContent>
 
-        <TabsContent value="pedidos" className="mt-4 space-y-2">
-          {sortedOrders.map((order) => {
-            const clientInfo = getClientAbcInfo(order.user_id, order.phone);
-            const inService = isOrderInService(order);
+        <TabsContent value="pedidos" className="mt-4 space-y-4">
+          <AdminOrdersManager
+            orders={orders ?? []}
+            getClientAbcInfo={getClientAbcInfo}
+            onUpdateOrderStatus={(id, status) => updateOrder.mutate({ id, status })}
+            isUpdatingStatus={updateOrder.isPending}
+            criticalStockCount={curveACriticalAlerts.length}
+            onNavigateToProducts={() => setGestaoSubTab("produtos")}
+          />
+        </TabsContent>
 
-            return (
-              <div
-                key={order.id}
-                className={cn(
-                  "rounded-2xl p-3 shadow-card transition-all",
-                  inService
-                    ? "border-2 border-emerald-500/80 bg-emerald-50/50 dark:border-emerald-500/60 dark:bg-emerald-950/30 ring-1 ring-emerald-400/40 shadow-md"
-                    : clientInfo?.abcClass === "A"
-                    ? "border-2 border-emerald-500/50 bg-card"
-                    : clientInfo?.abcClass === "B"
-                    ? "border-2 border-blue-500/40 bg-card"
-                    : "bg-card",
-                )}
-              >
-                {inService && (
-                  <div className="mb-2 flex items-center justify-between gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:text-emerald-200">
-                    <span className="flex items-center gap-1.5">
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
-                      </span>
-                      🟢 Em atendimento (em preparo)
-                    </span>
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-                      Início da fila
-                    </span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <p className="truncate text-sm font-semibold">{order.customer_name ?? "Cliente"}</p>
-                    {clientInfo && (
-                      <Badge className={cn("text-[10px] font-bold px-1.5 py-0.2", clientInfo.suggestion.badgeClass)}>
-                        {clientInfo.suggestion.badgeLabel}
-                      </Badge>
-                    )}
-                  </div>
-                  <span className="font-display text-sm text-primary">
-                    {formatBRL(order.total_cents)}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {formatDateTime(order.created_at)} · {order.phone ?? "sem telefone"}
-                  {clientInfo && clientInfo.ltvCents > 0 ? ` · Total Gasto: ${formatBRL(clientInfo.ltvCents)}` : ""}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {order.order_items.map((i) => `${i.quantity}x ${i.product_name}`).join(", ")}
-                </p>
-
-                {/* Destaque de Ação na Separação do Pedido */}
-                {clientInfo && clientInfo.abcClass === "A" && (
-                  <div className="mt-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-2 text-xs flex items-center justify-between gap-2">
-                    <span className="text-emerald-900 dark:text-emerald-200">
-                      🎁 <strong>Ação VIP Loja:</strong> Cliente VIP comprando produtos! Enviar amostra/petisco cortesia e bilhete carinhoso na sacola.
-                    </span>
-                  </div>
-                )}
-                {clientInfo && clientInfo.abcClass === "B" && (
-                  <div className="mt-2 rounded-xl bg-blue-500/10 border border-blue-500/30 p-2 text-xs flex items-center justify-between gap-2">
-                    <span className="text-blue-900 dark:text-blue-200">
-                      📈 <strong>Ação Regular Loja:</strong> Enviar cupom promocional para o próximo banho/tosa junto com os produtos.
-                    </span>
-                  </div>
-                )}
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {orderStatuses.map((status) => (
-                    <button
-                      key={status}
-                      onClick={() => updateOrder.mutate({ id: order.id, status })}
-                      className={cn(
-                        "rounded-lg px-2.5 py-1 text-[11px] font-semibold",
-                        order.status === status
-                          ? cn("bg-primary text-primary-foreground", statusToneClass(orderStatusTone(status)))
-                          : "bg-secondary text-secondary-foreground",
-                      )}
-                    >
-                      {status.replace("_", " ")}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-          {(orders ?? []).length === 0 && (
-            <p className="text-sm text-muted-foreground">Nenhum pedido.</p>
-          )}
+        <TabsContent value="saude" className="mt-4 space-y-4">
+          <AdminHealthAlertsGrouped
+            alerts={healthAlertItems}
+            onCompleteReminder={(reminderId) => completeReturnReminder.mutate(reminderId)}
+            onOpenPetRecord={(petId) => {
+              setRecordPetId(petId);
+              setGestaoSubTab("clinica");
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="servicos" className="mt-4 space-y-2">
