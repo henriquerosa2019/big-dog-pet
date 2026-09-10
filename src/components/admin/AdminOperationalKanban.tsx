@@ -14,6 +14,7 @@ import {
   ExternalLink,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   Layers,
   Send,
 } from "lucide-react";
