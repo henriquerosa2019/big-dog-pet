@@ -238,7 +238,16 @@ export function getAllChatMessages(): ChatMessage[] {
     }
     const list: ChatMessage[] = JSON.parse(raw);
     let healed = false;
-    const sanitized = list.map((m) => {
+
+    // Remove mensagens automáticas de fechamento anteriores que poluem o histórico
+    const filtered = list.filter(
+      (m) => !m.text.startsWith("🏁 Atendimento finalizado")
+    );
+    if (filtered.length !== list.length) {
+      healed = true;
+    }
+
+    const sanitized = filtered.map((m) => {
       // Se a mensagem está aberta e ainda não foi respondida/fechada, garante que conte como não lida pela loja
       if (m.status === "aberto" && m.readByStore) {
         healed = true;
@@ -403,25 +412,19 @@ export function sendChatMessage(params: {
 
 /**
  * Encerra e finaliza uma conversa (tanto Tutor quanto Loja podem acionar).
- * Marca as mensagens como 'fechado', envia mensagem de encerramento do sistema
- * com emojis elegantes personalizados para cão ou gato e sincroniza instantaneamente.
+ * Marca as mensagens como 'fechado' e sincroniza instantaneamente sem poluir o histórico com mensagens automáticas.
  */
 export function closeConversation(params: {
   conversationId: string;
   closedByRole: "tutor" | "loja";
   closedByName: string;
-}): ChatMessage {
+}): void {
   const current = getAllChatMessages();
   const convId = params.conversationId;
 
   // Atualiza status de todas as mensagens dessa conversa para 'fechado' e marca como lidas
-  let foundPetSpecies: string | null = null;
-  let foundPetName: string | null = null;
-
   const updated = current.map((m) => {
     if (m.conversationId === convId || (m.tutorId && m.tutorId === convId)) {
-      if (m.petSpecies && !foundPetSpecies) foundPetSpecies = m.petSpecies;
-      if (m.petName && !foundPetName) foundPetName = m.petName;
       return {
         ...m,
         status: "fechado" as ChatMessageStatus,
@@ -432,23 +435,6 @@ export function closeConversation(params: {
     return m;
   });
   saveAllChatMessages(updated);
-
-  const petEmoji = getPetEmoji(foundPetSpecies, foundPetName);
-  const petMention = foundPetName ? `${foundPetName} ${petEmoji}` : `seu pet ${petEmoji}`;
-
-  // Envia a mensagem de sistema elegante que documenta a finalização
-  const closingMessage = sendChatMessage({
-    conversationId: convId,
-    senderId: params.closedByRole === "loja" ? "loja" : convId,
-    senderName: params.closedByName,
-    senderRole: params.closedByRole,
-    recipientRole: params.closedByRole === "loja" ? "tutor" : "loja",
-    petName: foundPetName,
-    petSpecies: foundPetSpecies,
-    text: `🏁 Atendimento finalizado por ${params.closedByName}. A Big Dog agradece a confiança e o carinho com ${petMention}! Se precisar de novo atendimento, basta enviar uma mensagem! ✨`,
-    status: "fechado",
-    playSound: false,
-  });
 
   // Notifica via Supabase Realtime Broadcast
   try {
@@ -484,8 +470,6 @@ export function closeConversation(params: {
       })
     );
   }
-
-  return closingMessage;
 }
 
 /**
@@ -878,13 +862,12 @@ export function useInAppChat(options?: {
     const name =
       closedByName || (currentRole === "loja" ? "Equipe Big Dog" : "Tutor");
 
-    const msg = closeConversation({
+    closeConversation({
       conversationId: targetConvId,
       closedByRole: currentRole,
       closedByName: name,
     });
     refresh();
-    return msg;
   };
 
   const markAsRead = () => {

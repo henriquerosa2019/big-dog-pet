@@ -327,31 +327,6 @@ export function InAppChatDrawer() {
     [activePetSpecies, activePetName]
   );
 
-  // Mensagens padrão elegantes em carreiras de 2 em 2 (fila dupla)
-  const quickQuestions = useMemo(() => {
-    const petRefLoja = activePetName ? `${activePetName} ${petEmoji}` : `seu pet ${petEmoji}`;
-    const petRefTutor = activePetName ? `${activePetName} ${petEmoji}` : `meu pet ${petEmoji}`;
-
-    if (!isStore) {
-      return [
-        `Olá! Como está ${petRefTutor}? ✨`,
-        "Qual o horário previsto do banho/tosa? 🛁⏰",
-        `O Táxi Pet já saiu para buscar ${petRefTutor}? 🚗💨`,
-        `Gostaria de agendar um horário para ${petRefTutor} ✂️✨`,
-        "Tenho uma dúvida sobre medicação/vacina 🩺💉",
-        "Muito obrigado pelo carinho e atenção! ❤️🐾",
-      ];
-    }
-
-    return [
-      "A Big Dog agradece a confiança! 🐾✨",
-      `Olá! Como podemos ajudar hoje com ${petRefLoja}? 😊`,
-      `${petRefLoja} já está pronto, cheiroso e feliz! ✨🛁`,
-      `Táxi Pet a caminho para transportar ${petRefLoja} 🚗💨`,
-      `Atendimento de ${petRefLoja} iniciado com muito carinho! ❤️✨`,
-      "Agendamento confirmado com sucesso na agenda! ✅📅",
-    ];
-  }, [isStore, activePetName, petEmoji]);
 
   const formatRelativeTime = (isoString: string) => {
     try {
@@ -372,8 +347,6 @@ export function InAppChatDrawer() {
       <SheetContent
         side="right"
         className="flex w-full flex-col p-0 sm:max-w-md bg-background"
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onInteractOutside={(e) => e.preventDefault()}
       >
         {/* Cabeçalho do Chat */}
         <SheetHeader className="border-b border-border/80 bg-card p-3.5 space-y-2">
@@ -487,15 +460,27 @@ export function InAppChatDrawer() {
               </div>
             </div>
 
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
                 onClick={() => playChatNotificationSound()}
                 title="Testar som de 2 toques do bate-papo"
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
               >
                 <Volume2 className="h-4 w-4" />
               </button>
+
+              {/* Botão Fechar Janela do Chat */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsOpen(false)}
+                className="h-8 px-2 rounded-xl text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground gap-1 transition-colors cursor-pointer"
+                title="Fechar janela do chat (a conversa continua salva)"
+              >
+                <X className="h-4 w-4" />
+                <span className="text-[11px]">Fechar</span>
+              </Button>
             </div>
           </div>
 
@@ -773,35 +758,11 @@ export function InAppChatDrawer() {
               </div>
             )}
 
-            {/* Mensagens Padrão em Fila Dupla (Carreiras de 2 em 2) */}
-            <div className="border-t border-border/60 bg-muted/25 px-3 py-2">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                  <Sparkles className="h-3 w-3 text-primary" />
-                  Mensagens Rápidas {petEmoji}
-                </span>
-                <span className="text-[10px] text-muted-foreground">Toque para preencher</span>
-              </div>
-              <div className="grid grid-cols-2 gap-1.5">
-                {quickQuestions.map((q, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setInputText(q)}
-                    className="text-left rounded-xl border border-border/70 bg-card px-2.5 py-1.5 text-[11px] font-medium leading-tight text-foreground hover:bg-secondary hover:border-primary/50 transition-all line-clamp-2 shadow-2xs active:scale-[0.98]"
-                    title={q}
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Barra de Entrada de Texto com Botão Finalizar em Vermelho */}
+            {/* Barra de Entrada de Texto com Botão Fechar Chat e Botão Finalizar */}
             <div className="border-t border-border bg-card p-3 space-y-2">
-              {/* Linha com Status e Botão Finalizar em Vermelho perto do Prompt */}
+              {/* Linha com Status, Botão Fechar Chat e Botão Finalizar */}
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground truncate">
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground truncate min-w-0 flex-1">
                   <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 shrink-0"></span>
                   <span className="font-medium truncate">
                     {isStore
@@ -810,18 +771,33 @@ export function InAppChatDrawer() {
                   </span>
                 </div>
 
-                {/* Botão Finalizar em Vermelho perto do Prompt */}
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => setConfirmCloseOpen(true)}
-                  className="h-7 px-2.5 text-[11px] font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-xs gap-1.5 shrink-0 transition-transform active:scale-95"
-                  title="Finalizar atendimento em ambos os lados"
-                >
-                  <PowerOff className="h-3.5 w-3.5" />
-                  Finalizar Conversa
-                </Button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Botão Fechar Janela do Chat (mantém conversa aberta) */}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsOpen(false)}
+                    className="h-7 px-2.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground rounded-xl shadow-2xs gap-1 transition-colors cursor-pointer"
+                    title="Fechar janela do chat (a conversa continua salva)"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Fechar Chat
+                  </Button>
+
+                  {/* Botão Finalizar Atendimento (conclui e arquiva o chamado) */}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => setConfirmCloseOpen(true)}
+                    className="h-7 px-2.5 text-[11px] font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-xs gap-1.5 transition-transform active:scale-95 cursor-pointer"
+                    title="Concluir e finalizar atendimento (arquiva o chamado)"
+                  >
+                    <PowerOff className="h-3.5 w-3.5" />
+                    Finalizar
+                  </Button>
+                </div>
               </div>
 
               {/* Campo de Texto e Botão de Envio */}
@@ -841,7 +817,7 @@ export function InAppChatDrawer() {
                 />
                 <Button
                   size="icon"
-                  className="h-10 w-10 shrink-0 rounded-xl shadow-sm bg-primary text-primary-foreground hover:bg-primary/90"
+                  className="h-10 w-10 shrink-0 rounded-xl shadow-sm bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
                   onClick={handleSend}
                   disabled={!inputText.trim()}
                 >
@@ -856,18 +832,18 @@ export function InAppChatDrawer() {
         )}
       </SheetContent>
 
-      {/* Diálogo de Confirmação para Finalizar Conversa (Ambos os lados) */}
+      {/* Diálogo de Confirmação para Finalizar Atendimento (Ambos os lados) */}
       <AlertDialog open={confirmCloseOpen} onOpenChange={setConfirmCloseOpen}>
         <AlertDialogContent className="max-w-md rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-rose-600 font-bold">
               <PowerOff className="h-5 w-5" />
-              Finalizar Conversa?
+              Finalizar Atendimento?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs leading-relaxed text-muted-foreground">
               {isStore
-                ? `Tem certeza que deseja encerrar o atendimento com ${activeTutorName || "o tutor"}? O chamado será marcado como finalizado em ambos os lados.`
-                : "Tem certeza que deseja finalizar esta conversa com a equipe da Big Dog? O atendimento será marcado como concluído."}
+                ? `Tem certeza que deseja encerrar o atendimento com ${activeTutorName || "o tutor"}? O chamado será arquivado na aba de finalizados. Se quiser apenas sair desta tela mantendo a conversa aberta, use o botão "Fechar Chat".`
+                : "Tem certeza que deseja finalizar esta conversa com a equipe da Big Dog? O chamado será marcado como concluído. Para apenas fechar a janela, use o botão 'Fechar Chat'."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 sm:gap-0">
@@ -878,7 +854,7 @@ export function InAppChatDrawer() {
               onClick={handleConfirmClose}
               className="rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-xs font-bold"
             >
-              Sim, Finalizar Conversa
+              Sim, Finalizar Atendimento
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
