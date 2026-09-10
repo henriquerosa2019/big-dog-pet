@@ -292,10 +292,10 @@ export function getAppointmentStatusDisplay(item: {
 
   if (isInService) {
     return {
-      label: "Em Atendimento",
-      bannerText: "🛁 Pet em atendimento agora (Banho & Tosa)",
-      bannerTag: "Na loja",
-      badgeClass: "bg-cyan-600 hover:bg-cyan-700 text-white font-bold border-0",
+      label: "Em Atendimento ✂️",
+      bannerText: "🛁 Atendimento iniciado com carinho! (Banho & Tosa) 🥳",
+      bannerTag: "Em Andamento",
+      badgeClass: "bg-cyan-600 hover:bg-cyan-700 text-white font-bold border-0 animate-pulse",
       cardClass: "border-2 border-cyan-500/90 bg-cyan-50/90 dark:border-cyan-500/80 dark:bg-cyan-950/50 ring-2 ring-cyan-400/40 shadow-md",
       bannerClass: "border border-cyan-500/30 bg-cyan-500/20 text-cyan-950 dark:text-cyan-100 font-bold",
       dotPingClass: "bg-cyan-500",

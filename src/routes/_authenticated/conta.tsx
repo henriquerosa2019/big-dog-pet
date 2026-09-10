@@ -372,6 +372,7 @@ function Conta() {
         () => {
           queryClient.invalidateQueries({ queryKey: ["appointments"] });
           queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
+          queryClient.invalidateQueries({ queryKey: ["transport-history"] });
         },
       )
       .subscribe();
@@ -379,6 +380,7 @@ function Conta() {
     function handleStatusAlert() {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["transport-history"] });
     }
     window.addEventListener("bigdog_status_alert", handleStatusAlert);
 

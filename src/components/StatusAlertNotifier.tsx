@@ -98,10 +98,13 @@ function resolveStatusAlert(
     (newOps === "em_atendimento" && prevOps !== "em_atendimento") ||
     (newStatus === "em_atendimento" && prevStatus !== "em_atendimento")
   ) {
+    const title = petName
+      ? `🛁 Atendimento do ${petName} iniciado! 🥳`
+      : "🛁 Atendimento iniciado! 🥳";
     return {
       tone: "atendimento",
-      title: `🛁 Pet em atendimento agora!${nameStr}`,
-      description: "O banho/tosa do seu pet começou com todo o carinho e cuidado.",
+      title,
+      description: `O banho/tosa ${petName ? `do ${petName}` : "do seu pet"} começou com todo o carinho e cuidado!`,
       repeats: 3,
     };
   }
@@ -209,6 +212,7 @@ export function StatusAlertNotifier() {
 
   // Armazena o estado conhecido em memória para detectar mudanças
   const knownStatusMap = useRef<Map<string, { status: string; ops_status: string }>>(new Map());
+  const petNameMap = useRef<Map<string, string>>(new Map());
 
   // 1. Carga inicial de todos os agendamentos do usuário para não apitar no primeiro carregamento
   useEffect(() => {
@@ -219,7 +223,7 @@ export function StatusAlertNotifier() {
     async function loadCurrentStatuses() {
       let query = supabase
         .from("appointments")
-        .select("id, status, ops_status");
+        .select("id, status, ops_status, pets(name)");
 
       // Se não for admin, carrega apenas os agendamentos do tutor
       if (!isAdmin && user?.id) {
@@ -233,6 +237,10 @@ export function StatusAlertNotifier() {
             status: item.status || "",
             ops_status: item.ops_status || "",
           });
+          const pName = (item.pets as { name?: string | null } | null)?.name;
+          if (pName) {
+            petNameMap.current.set(item.id, pName);
+          }
         }
       }
     }
@@ -314,7 +322,8 @@ export function StatusAlertNotifier() {
             return;
           }
 
-          const alert = resolveStatusAlert(prevStatus, newStatus, prevOps, newOps);
+          const petName = petNameMap.current.get(newRecord.id);
+          const alert = resolveStatusAlert(prevStatus, newStatus, prevOps, newOps, petName);
           if (alert) {
             const repeats = alert.repeats ?? 3;
             playStatusSound(alert.tone, repeats); // Soa 2 vezes para cancelamento, 3 para outros!

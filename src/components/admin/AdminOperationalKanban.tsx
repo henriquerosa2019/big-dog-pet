@@ -164,14 +164,18 @@ export function AdminOperationalKanban({
       const isConcluido =
         item.status === "concluido" ||
         ops === "entregue" ||
+        ops === "pet_entregue" ||
+        ops === "finalizado" ||
+        ops === "servico_concluido" ||
         (ops === "concluido" && (!item.logisticsType || item.logisticsType === "levar"));
 
       const isAndamento =
         ops === "em_atendimento" ||
+        ops === "em_deslocamento_retirada" ||
+        ops === "pet_retirado" ||
         ops === "retirado_em_transito_loja" ||
         ops === "em_rota_devolucao" ||
         ops === "cheguei_retirada" ||
-        ops === "em_deslocamento_retirada" ||
         ops === "pronto_para_devolucao";
 
       if (isConcluido) {
@@ -655,7 +659,7 @@ function KanbanGroupCard({
               className="w-full h-8 rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-xs"
             >
               <Play className="h-3.5 w-3.5 fill-current" />
-              ▶ Iniciar {isMultiple ? `(${primaryItem.serviceName})` : "Atendimento"}
+              Iniciar {isMultiple ? `(${primaryItem.serviceName})` : "Atendimento"}
             </Button>
           )
         )}
@@ -667,7 +671,7 @@ function KanbanGroupCard({
             className="w-full h-8 rounded-lg text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white gap-1.5 shadow-xs"
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
-            ✓ Concluir {isMultiple ? `(${primaryItem.serviceName})` : "Atendimento"}
+            Concluir {isMultiple ? `(${primaryItem.serviceName})` : "Atendimento"}
           </Button>
         )}
 

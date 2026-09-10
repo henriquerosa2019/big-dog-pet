@@ -26,7 +26,9 @@ export function TransportHistoryList({
 
   const { data: history, isLoading } = useQuery({
     queryKey: ["transport-history", appointmentId],
-    enabled: expanded,
+    enabled: Boolean(appointmentId),
+    refetchInterval: 3000,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pet_status_history")
@@ -94,7 +96,7 @@ function OpsStatusProgress({ status, petName }: { status: OpsStatus; petName?: s
         ))}
       </div>
       <p className="mt-1 text-[11px] text-muted-foreground">
-        Etapa {idx + 1} de {steps.length} · {label}
+        Etapa {idx + 1} de {steps.length} · <span className="font-bold text-foreground">{label}</span>
       </p>
     </div>
   );

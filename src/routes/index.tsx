@@ -330,6 +330,7 @@ function Home() {
         () => {
           queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
           queryClient.invalidateQueries({ queryKey: ["appointments"] });
+          queryClient.invalidateQueries({ queryKey: ["transport-history"] });
         },
       )
       .on(
@@ -358,6 +359,7 @@ function Home() {
     function handleCustomAlert() {
       queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["transport-history"] });
     }
     window.addEventListener("bigdog_status_alert", handleCustomAlert);
 

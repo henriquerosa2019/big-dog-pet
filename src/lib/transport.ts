@@ -105,7 +105,7 @@ export const opsStatusLabels: Record<OpsStatus, string> = {
   em_deslocamento_retirada: "A caminho da retirada",
   pet_retirado: "Pet retirado",
   pet_chegou_petshop: "Pet chegou ao petshop",
-  em_atendimento: "Em atendimento",
+  em_atendimento: "Atendimento iniciado 🥳",
   servico_concluido: "Serviço concluído",
   em_rota_devolucao: "A caminho para devolver",
   pet_entregue: "Pet entregue",
@@ -120,7 +120,7 @@ export const opsStatusTutorMessage: Record<OpsStatus, string> = {
   em_deslocamento_retirada: "Nosso motorista está a caminho para buscar seu pet.",
   pet_retirado: "Seu pet foi retirado e está a caminho do petshop.",
   pet_chegou_petshop: "Seu pet chegou ao petshop.",
-  em_atendimento: "Seu pet está sendo atendido.",
+  em_atendimento: "Atendimento iniciado com muito carinho! 🥳✨",
   servico_concluido: "O serviço foi concluído!",
   em_rota_devolucao: "Seu pet está voltando para casa.",
   pet_entregue: "Seu pet foi entregue! 🐶❤️",
@@ -153,7 +153,7 @@ export function formatOpsStatusWithPet(
     case "pet_chegou_petshop":
       return `${name} no petshop`;
     case "em_atendimento":
-      return `${name} em atendimento`;
+      return `Atendimento do ${name} iniciado 🥳`;
     case "servico_concluido":
       return `Serviço de ${name} concluído`;
     case "em_rota_devolucao":
@@ -193,7 +193,7 @@ export function getOpsStatusTutorMessage(
     case "pet_chegou_petshop":
       return `${name} chegou ao petshop.`;
     case "em_atendimento":
-      return `${name} está em atendimento.`;
+      return `Atendimento do ${name} iniciado com muito carinho! 🥳✨`;
     case "servico_concluido":
       return `O serviço de ${name} foi concluído!`;
     case "em_rota_devolucao":

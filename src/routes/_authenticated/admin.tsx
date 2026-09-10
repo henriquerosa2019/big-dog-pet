@@ -2295,7 +2295,7 @@ function Admin() {
     onError: () => toast.error("Não foi possível cancelar o agendamento"),
   });
 
-  const handleKanbanAdvance = (item: KanbanItem) => {
+  const handleKanbanAdvance = async (item: KanbanItem) => {
     if (item.status === "pendente") {
       confirmAppointment.mutate({
         id: item.id,
@@ -2307,45 +2307,72 @@ function Admin() {
       return;
     }
 
-    if (item.transportOrderId) {
-      const next = nextOpsStatus(item.opsStatus as OpsStatus);
-      if (next) {
-        advanceOpsStatus.mutate({
-          appointmentId: item.id,
-          transportOrderId: item.transportOrderId,
-          status: next,
-          userId: item.userId,
-          petName: item.petName,
-        });
-        return;
-      }
-    }
+    try {
+      if (item.opsStatus !== "em_atendimento") {
+        // INICIAR ATENDIMENTO (da coluna Aguardando Início para Em Andamento)
+        const { error: apptError } = await supabase
+          .from("appointments")
+          .update({
+            ops_status: "em_atendimento",
+            status: "confirmado",
+          })
+          .eq("id", item.id);
+        if (apptError) throw apptError;
 
-    const nextStatus = item.opsStatus === "em_atendimento" ? "servico_concluido" : "em_atendimento";
-    supabase
-      .from("appointments")
-      .update({
-        ops_status: nextStatus,
-        ...(nextStatus === "servico_concluido" ? { status: "concluido" } : {}),
-      })
-      .eq("id", item.id)
-      .then(({ error }) => {
-        if (error) {
-          toast.error("Erro ao atualizar status do atendimento");
-        } else {
-          queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
-          queryClient.invalidateQueries({ queryKey: ["admin-dash-appointments"] });
-          queryClient.invalidateQueries({ queryKey: ["appointments"] });
-          queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
-          if (nextStatus === "em_atendimento") {
-            playStatusSound("atendimento");
-            toast.success(`${item.petName} entrou em atendimento! ✂️`);
-          } else {
-            playStatusSound("concluido");
-            toast.success(`Atendimento de ${item.petName} concluído! ✨`);
-          }
+        if (user?.id) {
+          await supabase.from("pet_status_history").insert({
+            appointment_id: item.id,
+            status: "em_atendimento",
+            created_by: user.id,
+            note: `Atendimento do ${item.petName} iniciado`,
+          });
         }
-      });
+
+        playStatusSound("atendimento", 3);
+        toast.success(`Atendimento do ${item.petName} iniciado! 🥳✂️`);
+      } else {
+        // CONCLUIR ATENDIMENTO (da coluna Em Andamento para Pronto / Concluído)
+        const hasReturnTransport =
+          item.logisticsType === "buscar_e_devolver" || item.logisticsType === "devolver";
+        const nextOps = "servico_concluido";
+        const nextStatus = hasReturnTransport ? "confirmado" : "concluido";
+
+        const { error: apptError } = await supabase
+          .from("appointments")
+          .update({
+            ops_status: nextOps,
+            status: nextStatus,
+          })
+          .eq("id", item.id);
+        if (apptError) throw apptError;
+
+        if (user?.id) {
+          await supabase.from("pet_status_history").insert({
+            appointment_id: item.id,
+            status: "servico_concluido",
+            created_by: user.id,
+            note: `Atendimento do ${item.petName} concluído`,
+          });
+        }
+
+        playStatusSound("confirmado", 3);
+        toast.success(
+          hasReturnTransport
+            ? `Atendimento de ${item.petName} concluído! Pronto para devolução pelo motorista 🚗✨`
+            : `Atendimento de ${item.petName} concluído com sucesso! ✨`,
+        );
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-dash-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["transport-history", item.id] });
+      queryClient.invalidateQueries({ queryKey: ["transport-history"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar status do atendimento");
+    }
   };
 
   if (authLoading || (user && adminLoading)) {
