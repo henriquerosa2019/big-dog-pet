@@ -2790,88 +2790,94 @@ function Admin() {
         <TabsContent value="hoje" className="mt-4 space-y-4">
           {/* Resumo de Agendamentos e Faturamento do Dia (Posicionado no Topo) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="rounded-2xl bg-card p-3 shadow-card border border-border/70">
-              <p className="text-xs font-bold uppercase tracking-wide text-foreground">
-                Agendamentos por Categoria
-              </p>
-              <div className="mt-2 overflow-x-auto">
+            {/* Card 1: Agendamentos por Categoria */}
+            <div className="rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 p-3.5 shadow-sm border border-blue-200/80 dark:border-blue-800/60">
+              <div className="border-b border-blue-200/90 dark:border-blue-700/60 pb-2 mb-2">
+                <p className="text-center font-display text-xs sm:text-sm font-extrabold uppercase tracking-wider text-blue-900 dark:text-blue-200 [text-shadow:_0_1px_3px_rgba(59,130,246,0.35)]">
+                  Agendamentos por Categoria
+                </p>
+              </div>
+              <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="text-left text-muted-foreground border-b border-border/60">
-                      <th className="py-1 pr-2 font-medium">Categoria</th>
-                      <th className="px-2 py-1 text-center font-medium">Hoje</th>
-                      <th className="px-2 py-1 text-center font-medium">Semana</th>
-                      <th className="px-2 py-1 text-center font-medium">Mês</th>
+                    <tr className="border-b-2 border-blue-300/80 dark:border-blue-700/70">
+                      <th className="py-1.5 pr-2 text-left font-bold uppercase tracking-wider text-blue-900 dark:text-blue-200">Categoria</th>
+                      <th className="px-2 py-1.5 text-center font-bold uppercase tracking-wider text-blue-900 dark:text-blue-200">Hoje</th>
+                      <th className="px-2 py-1.5 text-center font-bold uppercase tracking-wider text-blue-900 dark:text-blue-200">Semana</th>
+                      <th className="px-2 py-1.5 text-center font-bold uppercase tracking-wider text-blue-900 dark:text-blue-200">Mês</th>
                     </tr>
                   </thead>
                   <tbody>
                     {serviceCategories.map((cat) => (
-                      <tr key={cat} className="border-t border-border/40">
-                        <td className="py-1.5 pr-2">{serviceCategoryLabels[cat]}</td>
-                        <td className="px-2 py-1.5 text-center font-semibold text-foreground">
+                      <tr key={cat} className="border-t border-blue-200/50 dark:border-blue-800/40 hover:bg-blue-100/30 dark:hover:bg-blue-900/20 transition-colors">
+                        <td className="py-1.5 pr-2 font-medium text-blue-950 dark:text-blue-100">{serviceCategoryLabels[cat]}</td>
+                        <td className="px-2 py-1.5 text-center font-bold text-slate-800 dark:text-slate-100">
                           {Math.max(dashboardStats.apptByCategory[cat]?.day ?? 0, todayCategoryCounts[cat] ?? 0)}
                         </td>
-                        <td className="px-2 py-1.5 text-center font-semibold">
+                        <td className="px-2 py-1.5 text-center font-semibold text-slate-700 dark:text-slate-200">
                           {dashboardStats.apptByCategory[cat]?.week ?? 0}
                         </td>
-                        <td className="px-2 py-1.5 text-center font-semibold">
+                        <td className="px-2 py-1.5 text-center font-semibold text-slate-700 dark:text-slate-200">
                           {dashboardStats.apptByCategory[cat]?.month ?? 0}
                         </td>
                       </tr>
                     ))}
-                    <tr className="border-t border-border font-bold text-primary">
-                      <td className="py-1.5 pr-2">Total</td>
-                      <td className="px-2 py-1.5 text-center">
+                    <tr className="border-t-2 border-blue-300 dark:border-blue-700 font-black text-blue-700 dark:text-blue-300 bg-blue-100/40 dark:bg-blue-900/20">
+                      <td className="py-1.5 pr-2 font-black text-blue-700 dark:text-blue-300">Total</td>
+                      <td className="px-2 py-1.5 text-center font-black text-blue-700 dark:text-blue-300">
                         {Math.max(
                           dashboardStats.apptTotal.day,
                           kanbanStats.totalActive,
                           todayCategoryCounts.banho + todayCategoryCounts.tosa + todayCategoryCounts.veterinario
                         )}
                       </td>
-                      <td className="px-2 py-1.5 text-center">{dashboardStats.apptTotal.week}</td>
-                      <td className="px-2 py-1.5 text-center">{dashboardStats.apptTotal.month}</td>
+                      <td className="px-2 py-1.5 text-center font-black text-blue-700 dark:text-blue-300">{dashboardStats.apptTotal.week}</td>
+                      <td className="px-2 py-1.5 text-center font-black text-blue-700 dark:text-blue-300">{dashboardStats.apptTotal.month}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
             </div>
 
-            <div className="rounded-2xl bg-card p-3 shadow-card border border-border/70">
-              <p className="text-xs font-bold uppercase tracking-wide text-foreground">
-                Produtos por Categoria
-              </p>
-              <div className="mt-2 overflow-x-auto">
+            {/* Card 2: Produtos por Categoria */}
+            <div className="rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 p-3.5 shadow-sm border border-blue-200/80 dark:border-blue-800/60">
+              <div className="border-b border-blue-200/90 dark:border-blue-700/60 pb-2 mb-2">
+                <p className="text-center font-display text-xs sm:text-sm font-extrabold uppercase tracking-wider text-blue-900 dark:text-blue-200 [text-shadow:_0_1px_3px_rgba(59,130,246,0.35)]">
+                  Produtos por Categoria
+                </p>
+              </div>
+              <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="text-left text-muted-foreground border-b border-border/60">
-                      <th className="py-1 pr-2 font-medium">Categoria</th>
-                      <th className="px-2 py-1 text-center font-medium">Hoje</th>
-                      <th className="px-2 py-1 text-center font-medium">Semana</th>
-                      <th className="px-2 py-1 text-center font-medium">Mês</th>
+                    <tr className="border-b-2 border-blue-300/80 dark:border-blue-700/70">
+                      <th className="py-1.5 pr-2 text-left font-bold uppercase tracking-wider text-blue-900 dark:text-blue-200">Categoria</th>
+                      <th className="px-2 py-1.5 text-center font-bold uppercase tracking-wider text-blue-900 dark:text-blue-200">Hoje</th>
+                      <th className="px-2 py-1.5 text-center font-bold uppercase tracking-wider text-blue-900 dark:text-blue-200">Semana</th>
+                      <th className="px-2 py-1.5 text-center font-bold uppercase tracking-wider text-blue-900 dark:text-blue-200">Mês</th>
                     </tr>
                   </thead>
                   <tbody>
                     {dashboardProductCategories.map((cat) => (
-                      <tr key={cat} className="border-t border-border/40">
-                        <td className="py-1.5 pr-2">
+                      <tr key={cat} className="border-t border-blue-200/50 dark:border-blue-800/40 hover:bg-blue-100/30 dark:hover:bg-blue-900/20 transition-colors">
+                        <td className="py-1.5 pr-2 font-medium text-blue-950 dark:text-blue-100">
                           {productCategoryLabels[cat] || capitalizeWords(cat)}
                         </td>
-                        <td className="px-2 py-1.5 text-center font-semibold text-foreground">
+                        <td className="px-2 py-1.5 text-center font-bold text-slate-800 dark:text-slate-100">
                           {productStats.byCategory[cat]?.day ?? 0}
                         </td>
-                        <td className="px-2 py-1.5 text-center font-semibold">
+                        <td className="px-2 py-1.5 text-center font-semibold text-slate-700 dark:text-slate-200">
                           {productStats.byCategory[cat]?.week ?? 0}
                         </td>
-                        <td className="px-2 py-1.5 text-center font-semibold">
+                        <td className="px-2 py-1.5 text-center font-semibold text-slate-700 dark:text-slate-200">
                           {productStats.byCategory[cat]?.month ?? 0}
                         </td>
                       </tr>
                     ))}
-                    <tr className="border-t border-border font-bold text-primary">
-                      <td className="py-1.5 pr-2">Total</td>
-                      <td className="px-2 py-1.5 text-center">{productStats.total.day}</td>
-                      <td className="px-2 py-1.5 text-center">{productStats.total.week}</td>
-                      <td className="px-2 py-1.5 text-center">{productStats.total.month}</td>
+                    <tr className="border-t-2 border-blue-300 dark:border-blue-700 font-black text-blue-700 dark:text-blue-300 bg-blue-100/40 dark:bg-blue-900/20">
+                      <td className="py-1.5 pr-2 font-black text-blue-700 dark:text-blue-300">Total</td>
+                      <td className="px-2 py-1.5 text-center font-black text-blue-700 dark:text-blue-300">{productStats.total.day}</td>
+                      <td className="px-2 py-1.5 text-center font-black text-blue-700 dark:text-blue-300">{productStats.total.week}</td>
+                      <td className="px-2 py-1.5 text-center font-black text-blue-700 dark:text-blue-300">{productStats.total.month}</td>
                     </tr>
                   </tbody>
                 </table>
