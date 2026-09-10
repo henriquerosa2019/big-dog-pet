@@ -3082,7 +3082,7 @@ function Admin() {
                 + Novo Cliente
               </TabsTrigger>
               <TabsTrigger value="relatorios" className="rounded-xl text-xs font-bold shrink-0 text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/50 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-sm cursor-pointer">
-                Relatórios (Curva ABC)
+                Auditoria Gerencial/Relatórios
               </TabsTrigger>
               <TabsTrigger value="pedidos" className="rounded-xl text-xs font-bold shrink-0 text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/50 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-sm cursor-pointer">
                 Pedidos Loja
