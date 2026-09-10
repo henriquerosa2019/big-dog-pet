@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   CalendarPlus,
@@ -19,7 +19,7 @@ import { useAuth, useIsAdmin, useIsDriver } from "@/hooks/useAuth";
 import { CLINIC, whatsappLink } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { StatusAlertNotifier } from "@/components/StatusAlertNotifier";
-import { testSoundAlert } from "@/lib/soundAlerts";
+import { testSoundAlert, playChatNotificationSound } from "@/lib/soundAlerts";
 import { InAppChatDrawer, openInAppChat } from "@/components/InAppChatDrawer";
 import { useInAppChat } from "@/lib/inAppChat";
 import { Button } from "@/components/ui/button";
@@ -79,7 +79,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         { to: "/loja", label: "Loja", icon: ShoppingBag },
       ]
     : [...baseTabs, ...(isDriver ? [driverTab] : [])];
-  const { hasNewMessage } = useInAppChat({ role: isAdmin && !isPreviewClient ? "loja" : "tutor" });
+
+  const isStoreContext = pathname.startsWith("/admin") || (isAdmin && !isPreviewClient);
+  const currentChatRole: "loja" | "tutor" = isStoreContext ? "loja" : "tutor";
+  const { hasNewMessage, unreadCount } = useInAppChat({ role: currentChatRole });
+
+  const prevUnreadRef = useRef(unreadCount);
+  useEffect(() => {
+    if (unreadCount > prevUnreadRef.current) {
+      playChatNotificationSound();
+    }
+    prevUnreadRef.current = unreadCount;
+  }, [unreadCount]);
 
   const [isMuted, setIsMuted] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -236,19 +247,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               type="button"
               onClick={() => openInAppChat()}
               className={cn(
-                "relative flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all",
-                hasNewMessage
-                  ? "bg-amber-500 text-white shadow-md shadow-amber-500/20"
+                "relative flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer",
+                unreadCount > 0
+                  ? "bg-rose-600 text-white shadow-md shadow-rose-600/30 ring-2 ring-rose-400/50 animate-pulse hover:bg-rose-700"
                   : "bg-primary text-primary-foreground hover:bg-primary/90"
               )}
             >
-              <MessageCircle className="h-3.5 w-3.5" />
+              <MessageCircle className="h-3.5 w-3.5 fill-current" />
               <span>Chat</span>
-              {hasNewMessage && (
-                <span className="ml-1 rounded-full bg-red-600 px-1.5 py-0.5 text-[9px] font-bold text-white animate-pulse">
-                  (Msg Nova)
+              {unreadCount > 0 ? (
+                <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-white px-1.5 text-[10px] font-black text-rose-700 shadow-xs animate-pulse">
+                  {unreadCount}
                 </span>
-              )}
+              ) : null}
             </button>
           </div>
         </div>

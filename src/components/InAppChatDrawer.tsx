@@ -541,8 +541,8 @@ export function InAppChatDrawer() {
                               🏁 Finalizado
                             </Badge>
                           ) : hasUnread ? (
-                            <Badge className="bg-emerald-600 text-white text-[9px] py-0 px-1.5 font-bold">
-                              Nova ({conv.unreadCountStore})
+                            <Badge className="bg-emerald-600 text-white text-[9px] py-0 px-1.5 font-black animate-pulse shadow-xs">
+                              {conv.unreadCountStore} nova{conv.unreadCountStore > 1 ? "s" : ""}
                             </Badge>
                           ) : isAberto ? (
                             <Badge variant="outline" className="text-[9px] py-0 px-1.5 text-amber-600 border-amber-500/40">

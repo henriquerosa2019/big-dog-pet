@@ -15,6 +15,7 @@ import {
   ChevronDown,
   ChevronUp,
   Layers,
+  Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,8 @@ import {
   digitsOnly,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { useTutorChatAlerts, replyToTutorFromStore } from "@/lib/inAppChat";
 
 export interface KanbanItem {
   id: string;
@@ -208,10 +211,15 @@ export function AdminOperationalKanban({
     });
   };
 
-  const handleOpenChat = (item: KanbanItem) => {
+  const handleOpenChat = (item: KanbanItem, overrideConvId?: string) => {
     openInAppChat({
+      conversationId: overrideConvId || item.userId,
+      tutorId: item.userId,
       tutorName: item.tutorName,
+      tutorPhone: item.tutorPhone,
+      petId: item.petId,
       petName: item.petName,
+      petSpecies: item.petSpecies,
       contextTag: item.serviceName,
     });
   };
@@ -443,14 +451,49 @@ function KanbanGroupCard({
   onAdvance?: ((item: KanbanItem) => void) | undefined;
   onConfirm?: ((id: string) => void) | undefined;
   onCancel?: ((id: string) => void) | undefined;
-  onOpenChat: (item: KanbanItem) => void;
+  onOpenChat: (item: KanbanItem, overrideConvId?: string) => void;
   onWhatsApp: (item: KanbanItem) => void;
   onOpenPetRecord?: ((petId: string) => void) | undefined;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [inlineReplyText, setInlineReplyText] = useState("");
+  const [isSendingReply, setIsSendingReply] = useState(false);
+
+  const { checkUnread } = useTutorChatAlerts();
+  const alertInfo = checkUnread({
+    userId: group.userId,
+    petId: group.petId,
+    tutorName: group.tutorName,
+    petName: group.petName,
+  });
+
   const isMultiple = group.items.length > 1;
   const primaryItem = group.items[0];
   if (!primaryItem) return null;
+
+  const handleSendInlineReply = () => {
+    const text = inlineReplyText.trim();
+    if (!text || isSendingReply) return;
+    setIsSendingReply(true);
+    try {
+      replyToTutorFromStore({
+        conversationId: alertInfo.conversationId || group.userId || "geral",
+        tutorId: group.userId,
+        tutorName: group.tutorName,
+        petId: group.petId,
+        petName: group.petName,
+        petSpecies: group.petSpecies,
+        contextTag: primaryItem.serviceName,
+        text,
+      });
+      setInlineReplyText("");
+      toast.success(`Resposta enviada para ${capitalizeWords(group.tutorName)}!`);
+    } catch (e) {
+      toast.error("Erro ao enviar resposta.");
+    } finally {
+      setIsSendingReply(false);
+    }
+  };
 
   // Emoji inteligente por espécie
   const isCat =
@@ -470,7 +513,14 @@ function KanbanGroupCard({
   }, [primaryItem.scheduledAt]);
 
   return (
-    <div className="rounded-xl border border-border/70 bg-card p-3 shadow-xs hover:shadow-sm transition-all space-y-2">
+    <div
+      className={cn(
+        "rounded-xl border bg-card p-3 shadow-xs hover:shadow-sm transition-all space-y-2",
+        alertInfo.hasUnread
+          ? "border-rose-500/70 ring-2 ring-rose-400/30 dark:ring-rose-950/50"
+          : "border-border/70"
+      )}
+    >
       {/* Linha 1: Foto/Avatar do Pet (40x40px), Horário, Nome do Pet, Raça, Badges e Menu ⋮ */}
       <div className="flex items-start justify-between gap-2.5">
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -518,6 +568,25 @@ function KanbanGroupCard({
                   {group.items.length} serviços
                 </Badge>
               )}
+
+              {/* Badge Pulsante MSG Tutor */}
+              {alertInfo.hasUnread && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenChat(primaryItem, alertInfo.conversationId);
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full bg-rose-600 hover:bg-rose-700 px-2 py-0.5 text-[10px] font-black uppercase text-white shadow-xs animate-pulse cursor-pointer ring-2 ring-rose-400/50 transition-all shrink-0"
+                  title="Mensagem nova do tutor! Clique para abrir no Chat ou responda abaixo"
+                >
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-80"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                  </span>
+                  <span>MSG Tutor{alertInfo.unreadCount > 1 ? ` (${alertInfo.unreadCount})` : ""}</span>
+                </button>
+              )}
             </div>
 
             <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
@@ -538,7 +607,7 @@ function KanbanGroupCard({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 text-xs">
-            <DropdownMenuItem onClick={() => onOpenChat(primaryItem)} className="gap-2 cursor-pointer">
+            <DropdownMenuItem onClick={() => onOpenChat(primaryItem, alertInfo.conversationId)} className="gap-2 cursor-pointer">
               <MessageCircle className="h-3.5 w-3.5 text-primary" />
               <span>Abrir no Chat</span>
             </DropdownMenuItem>
@@ -582,6 +651,63 @@ function KanbanGroupCard({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Alerta Destacado & Resposta Direta no Kanban quando há mensagem do Tutor */}
+      {alertInfo.hasUnread && (
+        <div className="rounded-xl bg-rose-50/90 dark:bg-rose-950/45 border-2 border-rose-500/50 p-2.5 space-y-2 shadow-xs transition-all animate-in fade-in-50 duration-200">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="font-extrabold text-rose-700 dark:text-rose-300 flex items-center gap-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600"></span>
+              </span>
+              <MessageCircle className="h-3.5 w-3.5 text-rose-600" />
+              <span>Mensagem do Tutor:</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => onOpenChat(primaryItem, alertInfo.conversationId)}
+              className="text-[10px] font-bold text-rose-700 dark:text-rose-300 hover:underline flex items-center gap-0.5 cursor-pointer"
+            >
+              <span>Abrir no Chat</span>
+              <ChevronRight className="h-3 w-3" />
+            </button>
+          </div>
+
+          {alertInfo.lastMessage?.text && (
+            <p className="text-xs text-foreground bg-card/95 p-2 rounded-lg border border-rose-200 dark:border-rose-900/50 italic leading-relaxed shadow-2xs">
+              "{alertInfo.lastMessage.text}"
+            </p>
+          )}
+
+          {/* Campo de Resposta Direta no Próprio Kanban */}
+          <div className="flex items-center gap-1.5 pt-0.5">
+            <input
+              type="text"
+              value={inlineReplyText}
+              onChange={(e) => setInlineReplyText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendInlineReply();
+                }
+              }}
+              placeholder="Responder ao tutor aqui no Kanban..."
+              className="flex-1 h-8 rounded-lg border border-rose-300 dark:border-rose-800 bg-background px-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-rose-500"
+            />
+            <Button
+              size="sm"
+              type="button"
+              onClick={handleSendInlineReply}
+              disabled={!inlineReplyText.trim() || isSendingReply}
+              className="h-8 px-3 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shrink-0 shadow-xs cursor-pointer"
+            >
+              <Send className="h-3.5 w-3.5" />
+              <span>Enviar</span>
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Linha 2: Serviços (Único ou Indentado Compacto para Multi-serviços) */}
       {!isMultiple ? (
@@ -684,7 +810,7 @@ function KanbanGroupCard({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => onOpenChat(primaryItem)}
+              onClick={() => onOpenChat(primaryItem, alertInfo.conversationId)}
               className="h-7 px-2.5 text-xs font-bold text-primary border-primary/30 hover:bg-primary/10 gap-1"
             >
               <MessageCircle className="h-3.5 w-3.5" />

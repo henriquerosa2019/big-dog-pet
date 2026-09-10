@@ -479,7 +479,13 @@ export function markConversationAsRead(
   let changed = false;
 
   const updated = current.map((msg) => {
-    if (msg.conversationId !== conversationId && !(conversationId === "geral" && msg.conversationId === "geral")) {
+    const isTarget =
+      msg.conversationId === conversationId ||
+      (msg.tutorId && msg.tutorId === conversationId) ||
+      (msg.senderId && msg.senderId === conversationId) ||
+      (conversationId === "geral" && !msg.conversationId);
+
+    if (!isTarget) {
       return msg;
     }
 
@@ -489,7 +495,9 @@ export function markConversationAsRead(
     }
     if (role === "loja" && !msg.readByStore) {
       changed = true;
-      return { ...msg, readByStore: true };
+      const nextStatus: ChatMessageStatus =
+        msg.status === "aberto" ? "respondido" : (msg.status ?? "respondido");
+      return { ...msg, readByStore: true, status: nextStatus };
     }
     return msg;
   });
@@ -505,9 +513,15 @@ export function markConversationAsRead(
       });
     } catch {}
 
+    if (broadcastChannel) {
+      try {
+        broadcastChannel.postMessage({ type: "READ_STATUS_UPDATED", conversationId, role });
+      } catch {}
+    }
+
     if (typeof window !== "undefined") {
       window.dispatchEvent(
-        new CustomEvent("bigdog_chat_event", { detail: { type: "READ_STATUS_UPDATED" } })
+        new CustomEvent("bigdog_chat_event", { detail: { type: "READ_STATUS_UPDATED", conversationId, role } })
       );
     }
   }
@@ -533,7 +547,8 @@ export function markChatAsRead(options: {
 export function getUnreadCount(role: "tutor" | "loja", conversationId?: string): number {
   const list = getAllChatMessages();
   return list.filter((m) => {
-    if (conversationId && m.conversationId !== conversationId) {
+    if (m.status === "fechado") return false;
+    if (conversationId && m.conversationId !== conversationId && m.tutorId !== conversationId) {
       return false;
     }
     return role === "tutor" ? !m.readByTutor : !m.readByStore;
@@ -907,3 +922,175 @@ export function useInAppChat(options?: {
     refresh,
   };
 }
+
+export interface TutorUnreadAlert {
+  hasUnread: boolean;
+  unreadCount: number;
+  lastMessage?: ChatMessage | undefined;
+  conversationId: string;
+}
+
+/**
+ * Localiza mensagens não lidas de um tutor ou pet específico para alerta destacado no Kanban da Loja.
+ */
+export function getUnreadStoreMessagesForTutorOrPet(params: {
+  userId?: string | null | undefined;
+  petId?: string | null | undefined;
+  tutorName?: string | null | undefined;
+  petName?: string | null | undefined;
+}): TutorUnreadAlert {
+  const messages = getAllChatMessages();
+  const unreadList: ChatMessage[] = [];
+
+  const targetUserId = params.userId?.trim();
+  const targetPetId = params.petId?.trim();
+  const targetTutorName = params.tutorName?.trim().toLowerCase();
+  const targetPetName = params.petName?.trim().toLowerCase();
+
+  for (const m of messages) {
+    if (m.status === "fechado" || m.readByStore) continue;
+    // Considera apenas mensagens destinadas à loja ou originadas por tutor
+    if (m.recipientRole !== "loja" && m.senderRole !== "tutor") continue;
+
+    let matched = false;
+
+    // Match 1: por userId (tutorId, conversationId ou senderId)
+    if (targetUserId) {
+      if (
+        m.tutorId === targetUserId ||
+        m.conversationId === targetUserId ||
+        m.senderId === targetUserId
+      ) {
+        matched = true;
+      }
+    }
+
+    // Match 2: por petId
+    if (!matched && targetPetId && m.petId === targetPetId) {
+      matched = true;
+    }
+
+    // Match 3: por nome de tutor e/ou pet
+    if (!matched && targetTutorName && m.tutorName) {
+      const msgTutor = m.tutorName.trim().toLowerCase();
+      if (
+        msgTutor === targetTutorName ||
+        targetTutorName.includes(msgTutor) ||
+        msgTutor.includes(targetTutorName)
+      ) {
+        if (targetPetName && m.petName) {
+          const msgPet = m.petName.trim().toLowerCase();
+          if (
+            msgPet === targetPetName ||
+            targetPetName.includes(msgPet) ||
+            msgPet.includes(targetPetName)
+          ) {
+            matched = true;
+          }
+        } else {
+          matched = true;
+        }
+      }
+    }
+
+    if (matched) {
+      unreadList.push(m);
+    }
+  }
+
+  unreadList.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const last = unreadList[unreadList.length - 1];
+
+  const convId =
+    last?.conversationId ||
+    last?.tutorId ||
+    targetUserId ||
+    "geral";
+
+  return {
+    hasUnread: unreadList.length > 0,
+    unreadCount: unreadList.length,
+    lastMessage: last,
+    conversationId: convId,
+  };
+}
+
+/**
+ * Responde diretamente a um tutor a partir da loja (ex: pelo Kanban ou atalho rápido),
+ * marcando as mensagens anteriores como lidas e enviando a resposta com sincronização total.
+ */
+export function replyToTutorFromStore(params: {
+  conversationId: string;
+  text: string;
+  tutorId?: string | null | undefined;
+  tutorName?: string | null | undefined;
+  petId?: string | null | undefined;
+  petName?: string | null | undefined;
+  petSpecies?: string | null | undefined;
+  contextTag?: string | null | undefined;
+}): ChatMessage {
+  // 1. Marca mensagens anteriores da conversa como lidas pela loja
+  markConversationAsRead(params.conversationId, "loja");
+  if (params.tutorId && params.tutorId !== params.conversationId) {
+    markConversationAsRead(params.tutorId, "loja");
+  }
+
+  // 2. Envia a mensagem de resposta da loja
+  const msg = sendChatMessage({
+    conversationId: params.conversationId,
+    senderId: "loja",
+    senderName: "Equipe Big Dog",
+    senderRole: "loja",
+    recipientRole: "tutor",
+    tutorId: params.tutorId ?? params.conversationId,
+    tutorName: params.tutorName ?? "Tutor",
+    petId: params.petId ?? null,
+    petName: params.petName ?? null,
+    petSpecies: params.petSpecies ?? null,
+    contextTag: params.contextTag ?? null,
+    text: params.text.trim(),
+    status: "respondido",
+    playSound: true,
+  });
+
+  return msg;
+}
+
+/**
+ * Hook reativo que escuta alterações no chat para alimentar o status "MSG Tutor" no Kanban operacional
+ */
+export function useTutorChatAlerts() {
+  const [version, setVersion] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+    const handleEvent = () => {
+      if (!mounted) return;
+      setVersion((v) => v + 1);
+    };
+
+    window.addEventListener("bigdog_chat_event", handleEvent);
+    window.addEventListener("storage", handleEvent);
+    broadcastChannel?.addEventListener("message", handleEvent);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener("bigdog_chat_event", handleEvent);
+      window.removeEventListener("storage", handleEvent);
+      broadcastChannel?.removeEventListener("message", handleEvent);
+    };
+  }, []);
+
+  const checkUnread = (params: {
+    userId?: string | null | undefined;
+    petId?: string | null | undefined;
+    tutorName?: string | null | undefined;
+    petName?: string | null | undefined;
+  }): TutorUnreadAlert => {
+    void version;
+    return getUnreadStoreMessagesForTutorOrPet(params);
+  };
+
+  return { checkUnread, version };
+}
+
