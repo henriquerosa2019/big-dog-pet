@@ -126,12 +126,15 @@ function groupItemsByPet(items: KanbanItem[]): KanbanPetGroup[] {
     });
 }
 
-interface AdminOperationalKanbanProps {
+export interface AdminOperationalKanbanProps {
   items: KanbanItem[];
   onAdvanceStatus?: ((item: KanbanItem) => void) | undefined;
   onCancelAppointment?: ((appointmentId: string) => void) | undefined;
   onConfirmAppointment?: ((appointmentId: string) => void) | undefined;
   onOpenPetRecord?: ((petId: string) => void) | undefined;
+  filterType?: ("todos" | "banho" | "delivery") | undefined;
+  onFilterTypeChange?: ((filter: "todos" | "banho" | "delivery") => void) | undefined;
+  hideTopFilterBar?: boolean | undefined;
 }
 
 export function AdminOperationalKanban({
@@ -140,9 +143,17 @@ export function AdminOperationalKanban({
   onCancelAppointment,
   onConfirmAppointment,
   onOpenPetRecord,
+  filterType: externalFilterType,
+  onFilterTypeChange,
+  hideTopFilterBar = false,
 }: AdminOperationalKanbanProps) {
-  // Filtro rápido de categoria
-  const [filterType, setFilterType] = useState<"todos" | "banho" | "delivery">("todos");
+  // Filtro rápido de categoria (interno ou externo)
+  const [internalFilterType, setInternalFilterType] = useState<"todos" | "banho" | "delivery">("todos");
+  const filterType = externalFilterType !== undefined ? externalFilterType : internalFilterType;
+  const setFilterType = (newFilter: "todos" | "banho" | "delivery") => {
+    setInternalFilterType(newFilter);
+    if (onFilterTypeChange) onFilterTypeChange(newFilter);
+  };
   // Aba ativa para mobile (indicador e rolagem com snap)
   const [activeMobileStage, setActiveMobileStage] = useState<"aguardando" | "andamento" | "concluido">("aguardando");
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -238,38 +249,80 @@ export function AdminOperationalKanban({
   return (
     <div className="space-y-3">
       {/* 1. Barra de Controles e Filtros Rápidos */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 bg-card p-3 rounded-2xl border border-border/70 shadow-xs">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <Button
-            size="sm"
-            variant={filterType === "todos" ? "default" : "outline"}
-            onClick={() => setFilterType("todos")}
-            className="h-8 rounded-xl text-xs font-semibold px-3"
-          >
-            Todos ({totalActiveItems})
-          </Button>
-          <Button
-            size="sm"
-            variant={filterType === "banho" ? "default" : "outline"}
-            onClick={() => setFilterType("banho")}
-            className="h-8 rounded-xl text-xs font-semibold px-3 gap-1"
-          >
-            <Scissors className="h-3.5 w-3.5" />
-            Banho & Tosa
-          </Button>
-          <Button
-            size="sm"
-            variant={filterType === "delivery" ? "default" : "outline"}
-            onClick={() => setFilterType("delivery")}
-            className="h-8 rounded-xl text-xs font-semibold px-3 gap-1"
-          >
-            <Truck className="h-3.5 w-3.5" />
-            Táxi Pet
-          </Button>
-        </div>
+      {!hideTopFilterBar ? (
+        <div className="flex flex-wrap items-center justify-between gap-2.5 bg-card p-3 rounded-2xl border border-border/70 shadow-xs">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Button
+              size="sm"
+              variant={filterType === "todos" ? "default" : "outline"}
+              onClick={() => setFilterType("todos")}
+              className="h-8 rounded-xl text-xs font-semibold px-3"
+            >
+              Todos ({totalActiveItems})
+            </Button>
+            <Button
+              size="sm"
+              variant={filterType === "banho" ? "default" : "outline"}
+              onClick={() => setFilterType("banho")}
+              className="h-8 rounded-xl text-xs font-semibold px-3 gap-1"
+            >
+              <Scissors className="h-3.5 w-3.5" />
+              Banho & Tosa
+            </Button>
+            <Button
+              size="sm"
+              variant={filterType === "delivery" ? "default" : "outline"}
+              onClick={() => setFilterType("delivery")}
+              className="h-8 rounded-xl text-xs font-semibold px-3 gap-1"
+            >
+              <Truck className="h-3.5 w-3.5" />
+              Táxi Pet
+            </Button>
+          </div>
 
-        {/* Pílulas de Navegação Rápida no Mobile */}
-        <div className="flex md:hidden items-center gap-1 w-full pt-2 border-t border-border/40">
+          {/* Pílulas de Navegação Rápida no Mobile */}
+          <div className="flex md:hidden items-center gap-1 w-full pt-2 border-t border-border/40">
+            <button
+              type="button"
+              onClick={() => scrollToStage("aguardando")}
+              className={cn(
+                "flex-1 py-1.5 px-2 rounded-xl text-xs font-bold text-center transition-all",
+                activeMobileStage === "aguardando"
+                  ? "bg-amber-500/15 text-amber-950 dark:text-amber-300 ring-1 ring-amber-500/40"
+                  : "text-muted-foreground hover:bg-muted/40",
+              )}
+            >
+              Aguardando ({stages.aguardandoRaw.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollToStage("andamento")}
+              className={cn(
+                "flex-1 py-1.5 px-2 rounded-xl text-xs font-bold text-center transition-all",
+                activeMobileStage === "andamento"
+                  ? "bg-sky-500/15 text-sky-950 dark:text-sky-300 ring-1 ring-sky-500/40"
+                  : "text-muted-foreground hover:bg-muted/40",
+              )}
+            >
+              Andamento ({stages.andamentoRaw.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollToStage("concluido")}
+              className={cn(
+                "flex-1 py-1.5 px-2 rounded-xl text-xs font-bold text-center transition-all",
+                activeMobileStage === "concluido"
+                  ? "bg-emerald-500/15 text-emerald-950 dark:text-emerald-300 ring-1 ring-emerald-500/40"
+                  : "text-muted-foreground hover:bg-muted/40",
+              )}
+            >
+              Pronto ({stages.concluidoRaw.length})
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* Quando os filtros principais estão posicionados no topo acima das abas, no mobile mantemos o seletor rápido de coluna */
+        <div className="flex md:hidden items-center gap-1 w-full p-1 bg-card rounded-2xl border border-border/60 shadow-xs">
           <button
             type="button"
             onClick={() => scrollToStage("aguardando")}
@@ -307,7 +360,7 @@ export function AdminOperationalKanban({
             Pronto ({stages.concluidoRaw.length})
           </button>
         </div>
-      </div>
+      )}
 
       {/* 2. Colunas do Kanban (3 Colunas no Desktop / Swipe Horizontal Touch com Snap no Celular) */}
       <div

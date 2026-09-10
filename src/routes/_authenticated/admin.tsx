@@ -671,7 +671,7 @@ function Admin() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orders")
-        .select("id, created_at, status, total_cents")
+        .select("id, created_at, status, total_cents, order_items(product_id, product_name, quantity, unit_price_cents)")
         .gte("created_at", dashboardBoundaries.earliest.toISOString())
         .neq("status", "cancelado");
       if (error) throw error;
@@ -816,6 +816,123 @@ function Admin() {
     [products],
   );
 
+  const DEFAULT_PRODUCT_CATEGORIES = ["alimentacao", "higiene", "medicamentos", "acessorios"] as const;
+  const productCategoryLabels: Record<string, string> = {
+    alimentacao: "Alimentação / Ração",
+    higiene: "Higiene & Beleza",
+    medicamentos: "Medicamentos / Farmácia",
+    acessorios: "Acessórios & Brinquedos",
+    farmacia: "Medicamentos / Farmácia",
+    brinquedos: "Acessórios & Brinquedos",
+    outros: "Outros Produtos",
+  };
+
+  const dashboardProductCategories = useMemo(() => {
+    const fromProducts = Array.from(
+      new Set(
+        (products ?? [])
+          .map((p) => p.category?.trim().toLowerCase())
+          .filter((c): c is string => Boolean(c))
+      )
+    );
+    const set = new Set<string>([...DEFAULT_PRODUCT_CATEGORIES, ...fromProducts]);
+    return Array.from(set);
+  }, [products]);
+
+  const productStats = useMemo(() => {
+    const { dayStart, weekStart, monthStart } = dashboardBoundaries;
+
+    const prodCatMap = new Map<string, string>();
+    for (const p of products ?? []) {
+      const cat = p.category?.trim().toLowerCase() || "outros";
+      if (p.id) prodCatMap.set(p.id, cat);
+      if (p.name) prodCatMap.set(p.name.trim().toLowerCase(), cat);
+    }
+
+    const byCategory: Record<string, { day: number; week: number; month: number }> = {};
+    for (const cat of dashboardProductCategories) {
+      byCategory[cat] = { day: 0, week: 0, month: 0 };
+    }
+
+    const total = { day: 0, week: 0, month: 0 };
+
+    const ordersList = (dashOrders ?? orders ?? []).filter((o: any) => o.status !== "cancelado");
+
+    for (const order of ordersList) {
+      const orderDate = new Date(order.created_at);
+      const isMonth = orderDate >= monthStart;
+      const isWeek = orderDate >= weekStart;
+      const isDay = orderDate >= dayStart;
+
+      if (!isMonth) continue;
+
+      const items = (order as any).order_items ?? [];
+      for (const item of items) {
+        const qty = Number(item.quantity) || 1;
+        let cat = "outros";
+        if (item.product_id && prodCatMap.has(item.product_id)) {
+          cat = prodCatMap.get(item.product_id)!;
+        } else if (item.product_name && prodCatMap.has(item.product_name.trim().toLowerCase())) {
+          cat = prodCatMap.get(item.product_name.trim().toLowerCase())!;
+        } else {
+          const lower = (item.product_name || "").toLowerCase();
+          if (
+            lower.includes("ração") ||
+            lower.includes("racao") ||
+            lower.includes("alimento") ||
+            lower.includes("petisco")
+          ) {
+            cat = "alimentacao";
+          } else if (
+            lower.includes("shampoo") ||
+            lower.includes("sabonete") ||
+            lower.includes("escova") ||
+            lower.includes("perfume")
+          ) {
+            cat = "higiene";
+          } else if (
+            lower.includes("medicamento") ||
+            lower.includes("remedio") ||
+            lower.includes("pulga") ||
+            lower.includes("carrapato") ||
+            lower.includes("vermifugo")
+          ) {
+            cat = "medicamentos";
+          } else if (
+            lower.includes("coleira") ||
+            lower.includes("guia") ||
+            lower.includes("brinquedo") ||
+            lower.includes("cama") ||
+            lower.includes("roupa")
+          ) {
+            cat = "acessorios";
+          }
+        }
+
+        if (!byCategory[cat]) {
+          byCategory[cat] = { day: 0, week: 0, month: 0 };
+        }
+
+        if (isMonth) {
+          byCategory[cat].month += qty;
+          total.month += qty;
+        }
+        if (isWeek) {
+          byCategory[cat].week += qty;
+          total.week += qty;
+        }
+        if (isDay) {
+          byCategory[cat].day += qty;
+          total.day += qty;
+        }
+      }
+    }
+
+    return { byCategory, total };
+  }, [dashboardBoundaries, products, dashOrders, orders, dashboardProductCategories]);
+
+  const [kanbanFilterType, setKanbanFilterType] = useState<"todos" | "banho" | "delivery">("todos");
+
   const pendingAppointments = useMemo(() => {
     return (appointments ?? [])
       .filter((a) => a.status === "pendente")
@@ -885,7 +1002,8 @@ function Admin() {
   }, [orders]);
 
   const handleNavigateToOrders = useCallback(() => {
-    setCurrentTab("pedidos");
+    setCurrentTab("gestao");
+    setGestaoSubTab("pedidos");
     setTimeout(() => {
       const el =
         document.getElementById("pedidos-loja-topo") ||
@@ -2301,6 +2419,10 @@ function Admin() {
     return counts;
   }, [kanbanItems]);
 
+  const totalActiveKanbanItems = useMemo(() => {
+    return kanbanItems.filter((i) => i.status !== "cancelado" && i.opsStatus !== "cancelado").length;
+  }, [kanbanItems]);
+
   const cancelAppointment = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -2548,6 +2670,48 @@ function Admin() {
         }}
       />
 
+      {/* 3. FILTROS RÁPIDOS: TODOS, BANHO & TOSA, TÁXI PET */}
+      <div className="mt-4 flex items-center justify-between gap-2.5 bg-card p-2.5 sm:p-3 rounded-2xl border border-border/70 shadow-xs">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Button
+            size="sm"
+            variant={kanbanFilterType === "todos" ? "default" : "outline"}
+            onClick={() => {
+              setKanbanFilterType("todos");
+              if (currentTab !== "hoje") setCurrentTab("hoje");
+            }}
+            className="h-8 rounded-xl text-xs font-semibold px-3 cursor-pointer"
+          >
+            Todos ({totalActiveKanbanItems})
+          </Button>
+          <Button
+            size="sm"
+            variant={kanbanFilterType === "banho" ? "default" : "outline"}
+            onClick={() => {
+              setKanbanFilterType("banho");
+              if (currentTab !== "hoje") setCurrentTab("hoje");
+            }}
+            className="h-8 rounded-xl text-xs font-semibold px-3 gap-1 cursor-pointer"
+          >
+            <Scissors className="h-3.5 w-3.5" />
+            Banho & Tosa
+          </Button>
+          <Button
+            size="sm"
+            variant={kanbanFilterType === "delivery" ? "default" : "outline"}
+            onClick={() => {
+              setKanbanFilterType("delivery");
+              if (currentTab !== "hoje") setCurrentTab("hoje");
+            }}
+            className="h-8 rounded-xl text-xs font-semibold px-3 gap-1 cursor-pointer"
+          >
+            <Truck className="h-3.5 w-3.5" />
+            Táxi Pet
+          </Button>
+        </div>
+      </div>
+
+      {/* 4. ABAS PRINCIPAIS DE NAVEGAÇÃO */}
       <Tabs
         value={currentTab}
         onValueChange={(val) => {
@@ -2556,7 +2720,7 @@ function Admin() {
             window.scrollTo({ top: 0, behavior: "smooth" });
           }
         }}
-        className="mt-4"
+        className="mt-3"
       >
         <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full h-auto p-1 bg-muted/70 rounded-2xl gap-1">
           <TabsTrigger
@@ -2590,18 +2754,18 @@ function Admin() {
           </TabsTrigger>
 
           <TabsTrigger
-            value="pedidos"
+            value="saude"
             className="group h-11 rounded-xl text-xs font-bold gap-1.5 px-3 transition-all text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/40 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-md [&[data-state=active]>svg]:text-white [&[data-state=active]>span]:text-white cursor-pointer"
           >
-            <ShoppingBag className="h-4 w-4 text-primary transition-colors shrink-0" />
-            <span>Pedidos na Loja (Produtos)</span>
-            {pendingOrdersCount > 0 ? (
-              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-blue-600 text-white shadow-xs animate-pulse">
-                {pendingOrdersCount}
+            <Syringe className="h-4 w-4 text-primary transition-colors shrink-0" />
+            <span>Saúde & Retornos</span>
+            {urgentHealthPetsCount > 0 ? (
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white shadow-xs">
+                {urgentHealthPetsCount}
               </span>
-            ) : (orders ?? []).length > 0 ? (
+            ) : healthAlertItems.length > 0 ? (
               <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-800 group-data-[state=active]:bg-white group-data-[state=active]:text-primary transition-colors">
-                {(orders ?? []).length}
+                {healthAlertItems.length}
               </span>
             ) : null}
           </TabsTrigger>
@@ -2672,38 +2836,53 @@ function Admin() {
 
             <div className="rounded-2xl bg-card p-3 shadow-card border border-border/70">
               <p className="text-xs font-bold uppercase tracking-wide text-foreground">
-                Faturamento de Serviços Executados
+                Produtos por Categoria
               </p>
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                {(
-                  [
-                    [
-                      "Hoje",
-                      Math.max(dashboardStats.serviceCounts.day, kanbanStats.completedCount),
-                      Math.max(dashboardStats.serviceRevenue.day, kanbanStats.completedRevenueCents),
-                    ],
-                    ["Semana", dashboardStats.serviceCounts.week, dashboardStats.serviceRevenue.week],
-                    ["Mês", dashboardStats.serviceCounts.month, dashboardStats.serviceRevenue.month],
-                  ] as const
-                ).map(([label, count, cents]) => (
-                  <div key={label} className="rounded-xl surface-paper p-2 text-center border border-border/40">
-                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">{label}</p>
-                    <p className="font-display text-base sm:text-lg font-bold text-primary mt-0.5">{formatBRL(cents)}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {count} serviço{count === 1 ? "" : "s"}
-                    </p>
-                  </div>
-                ))}
+              <div className="mt-2 overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-muted-foreground border-b border-border/60">
+                      <th className="py-1 pr-2 font-medium">Categoria</th>
+                      <th className="px-2 py-1 text-center font-medium">Hoje</th>
+                      <th className="px-2 py-1 text-center font-medium">Semana</th>
+                      <th className="px-2 py-1 text-center font-medium">Mês</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dashboardProductCategories.map((cat) => (
+                      <tr key={cat} className="border-t border-border/40">
+                        <td className="py-1.5 pr-2">
+                          {productCategoryLabels[cat] || capitalizeWords(cat)}
+                        </td>
+                        <td className="px-2 py-1.5 text-center font-semibold text-foreground">
+                          {productStats.byCategory[cat]?.day ?? 0}
+                        </td>
+                        <td className="px-2 py-1.5 text-center font-semibold">
+                          {productStats.byCategory[cat]?.week ?? 0}
+                        </td>
+                        <td className="px-2 py-1.5 text-center font-semibold">
+                          {productStats.byCategory[cat]?.month ?? 0}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="border-t border-border font-bold text-primary">
+                      <td className="py-1.5 pr-2">Total</td>
+                      <td className="px-2 py-1.5 text-center">{productStats.total.day}</td>
+                      <td className="px-2 py-1.5 text-center">{productStats.total.week}</td>
+                      <td className="px-2 py-1.5 text-center">{productStats.total.month}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-              <p className="mt-2.5 text-[11px] text-muted-foreground">
-                Concluídos hoje: <strong>{Math.max(dashboardStats.executedToday.length, kanbanStats.completedCount)}</strong> atendimento(s).
-              </p>
             </div>
           </div>
 
           {/* Kanban Operacional do Dia (3 Etapas: Aguardando -> Em Andamento -> Pronto/Concluído) */}
           <AdminOperationalKanban
             items={kanbanItems}
+            filterType={kanbanFilterType}
+            onFilterTypeChange={setKanbanFilterType}
+            hideTopFilterBar={true}
             onAdvanceStatus={handleKanbanAdvance}
             onConfirmAppointment={(appointmentId) => {
               const appt = (appointments ?? []).find((a) => a.id === appointmentId);
