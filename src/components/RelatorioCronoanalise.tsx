@@ -1198,22 +1198,22 @@ export function RelatorioCronoanalise() {
           {/* TABELA 1: DETALHADO POR CORRIDA (COM AS 5 ETAPAS E ORDENAÇÃO) */}
           {taxiViewMode === "corridas" && (
             <div className="rounded-2xl border border-blue-200/80 bg-white shadow-sm overflow-hidden dark:border-blue-800 dark:bg-card">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="border-b border-blue-200 bg-blue-100/70 text-blue-950 font-bold dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-100">
-                    <tr>
-                      <th className="py-2.5 px-3">Cliente / Tutor</th>
-                      <th className="py-2.5 px-3">Pet</th>
-                      <th className="py-2.5 px-3">Bairro / Endereço</th>
-                      <th className="py-2.5 px-3">Motorista</th>
-                      <th className="py-2.5 px-3 text-center">1. Recebimento</th>
-                      <th className="py-2.5 px-3 text-center">2. Chegar ao Cliente</th>
-                      <th className="py-2.5 px-3 text-center">3. Voltar ao Petshop</th>
-                      <th className="py-2.5 px-3 text-center">4. Retorno ao Cliente</th>
-                      <th className="py-2.5 px-3 text-center bg-blue-200/50 dark:bg-blue-900/40 font-extrabold">
+              <div className="overflow-auto max-h-[560px] relative">
+                <table className="w-full text-left text-xs border-separate border-spacing-0">
+                  <thead className="sticky top-0 z-20 shadow-sm">
+                    <tr className="border-b-2 border-blue-300 dark:border-blue-700">
+                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Cliente / Tutor</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Pet</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Bairro / Endereço</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Motorista</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">1. Recebimento</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">2. Chegar ao Cliente</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">3. Voltar ao Petshop</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">4. Retorno ao Cliente</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-200 dark:bg-blue-900 text-blue-950 dark:text-blue-100 font-black border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">
                         5. Tempo Geral do Pet
                       </th>
-                      <th className="py-2.5 px-3 text-center">Ações</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-blue-100 dark:divide-blue-900/40">
@@ -1339,22 +1339,22 @@ export function RelatorioCronoanalise() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="border-b border-blue-200 bg-blue-100/70 text-blue-950 font-bold dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-100">
-                    <tr>
-                      <th className="py-2.5 px-3">Cliente / Tutor</th>
-                      <th className="py-2.5 px-3">Telefone</th>
-                      <th className="py-2.5 px-3 text-center">Total de Corridas</th>
-                      <th className="py-2.5 px-3">Pets Atendidos</th>
-                      <th className="py-2.5 px-3">Bairros</th>
-                      <th className="py-2.5 px-3 text-center">Média Chegar ao Cliente</th>
-                      <th className="py-2.5 px-3 text-center">Média Voltar ao Pet</th>
-                      <th className="py-2.5 px-3 text-center">Média Retorno ao Lar</th>
-                      <th className="py-2.5 px-3 text-center bg-blue-200/50 dark:bg-blue-900/40 font-black">
+              <div className="overflow-auto max-h-[560px] relative">
+                <table className="w-full text-left text-xs border-separate border-spacing-0">
+                  <thead className="sticky top-0 z-20 shadow-sm">
+                    <tr className="border-b-2 border-blue-300 dark:border-blue-700">
+                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Cliente / Tutor</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Telefone</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Total de Corridas</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Pets Atendidos</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Bairros</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Média Chegar ao Cliente</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Média Voltar ao Pet</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Média Retorno ao Lar</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-200 dark:bg-blue-900 text-blue-950 dark:text-blue-100 font-black border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">
                         Média Tempo Geral do Pet
                       </th>
-                      <th className="py-2.5 px-3 text-center">Ações</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-blue-100 dark:divide-blue-900/40">
@@ -1565,21 +1565,21 @@ export function RelatorioCronoanalise() {
           {/* TABELA DE ATENDIMENTOS NA LOJA */}
           {atendimentoSubTab === "bancada" && (
             <div className="rounded-2xl border border-blue-200/80 bg-white shadow-sm overflow-hidden dark:border-blue-800 dark:bg-card">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="border-b border-blue-200 bg-blue-100/70 text-blue-950 font-bold dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-100">
-                    <tr>
-                      <th className="py-2.5 px-3">Cliente / Tutor</th>
-                      <th className="py-2.5 px-3">Pet</th>
-                      <th className="py-2.5 px-3">Serviço & Categoria</th>
-                      <th className="py-2.5 px-3">Data / Horário</th>
-                      <th className="py-2.5 px-3 text-center">Tempo de Espera na Loja</th>
-                      <th className="py-2.5 px-3 text-center bg-blue-200/50 dark:bg-blue-900/40 font-black">
+              <div className="overflow-auto max-h-[560px] relative">
+                <table className="w-full text-left text-xs border-separate border-spacing-0">
+                  <thead className="sticky top-0 z-20 shadow-sm">
+                    <tr className="border-b-2 border-blue-300 dark:border-blue-700">
+                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Cliente / Tutor</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Pet</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Serviço & Categoria</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Data / Horário</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Tempo de Espera na Loja</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-200 dark:bg-blue-900 text-blue-950 dark:text-blue-100 font-black border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">
                         Duração Real na Bancada
                       </th>
-                      <th className="py-2.5 px-3 text-center">Tempo Previsto</th>
-                      <th className="py-2.5 px-3 text-center">Pontualidade (Real vs Previsto)</th>
-                      <th className="py-2.5 px-3 text-center">Ações</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Tempo Previsto</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Pontualidade (Real vs Previsto)</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-blue-100 dark:divide-blue-900/40">
@@ -1696,20 +1696,20 @@ export function RelatorioCronoanalise() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="border-b border-blue-200 bg-blue-100/70 text-blue-950 font-bold dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-100">
-                    <tr>
-                      <th className="py-2.5 px-3">Cliente / Tutor</th>
-                      <th className="py-2.5 px-3">Pet</th>
-                      <th className="py-2.5 px-3">Assunto</th>
-                      <th className="py-2.5 px-3">Início do Chamado</th>
-                      <th className="py-2.5 px-3 text-center bg-blue-200/50 dark:bg-blue-900/40 font-black">
+              <div className="overflow-auto max-h-[560px] relative">
+                <table className="w-full text-left text-xs border-separate border-spacing-0">
+                  <thead className="sticky top-0 z-20 shadow-sm">
+                    <tr className="border-b-2 border-blue-300 dark:border-blue-700">
+                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Cliente / Tutor</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Pet</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Assunto</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Início do Chamado</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-200 dark:bg-blue-900 text-blue-950 dark:text-blue-100 font-black border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">
                         Tempo de Espera p/ 1ª Resposta
                       </th>
-                      <th className="py-2.5 px-3 text-center">Avaliação</th>
-                      <th className="py-2.5 px-3 text-center">Status</th>
-                      <th className="py-2.5 px-3 text-center">Ações</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Avaliação</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Status</th>
+                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-blue-100 dark:divide-blue-900/40">
