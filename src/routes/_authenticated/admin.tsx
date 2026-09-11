@@ -665,10 +665,9 @@ function Admin() {
       const { data, error } = await supabase
         .from("appointments")
         .select(
-          "id, scheduled_at, status, ops_status, origin, total_cents, service_price_cents, transport_price_cents, services(category, name, price_cents), pets(name)",
+          "id, user_id, pet_id, scheduled_at, status, ops_status, origin, notes, total_cents, service_price_cents, transport_price_cents, services(category, name, price_cents), pets(name)",
         )
-        .gte("scheduled_at", dashboardBoundaries.earliest.toISOString())
-        .neq("status", "cancelado");
+        .gte("scheduled_at", dashboardBoundaries.earliest.toISOString());
       if (error) throw error;
       return data;
     },
@@ -681,8 +680,7 @@ function Admin() {
       const { data, error } = await supabase
         .from("orders")
         .select("id, created_at, status, total_cents, order_items(product_id, product_name, quantity, unit_price_cents)")
-        .gte("created_at", dashboardBoundaries.earliest.toISOString())
-        .neq("status", "cancelado");
+        .gte("created_at", dashboardBoundaries.earliest.toISOString());
       if (error) throw error;
       return data;
     },
@@ -701,6 +699,8 @@ function Admin() {
     },
   });
 
+  const [showCancelledTodayModal, setShowCancelledTodayModal] = useState(false);
+
   const dashboardStats = useMemo(() => {
     const { dayStart, weekStart, monthStart } = dashboardBoundaries;
 
@@ -717,21 +717,47 @@ function Admin() {
       return { day, week, month };
     }
 
+    const allAppts = dashAppointments ?? [];
+    const activeAppts = allAppts.filter(
+      (a) => a.status !== "cancelado" && a.ops_status !== "cancelado",
+    );
+    const cancelledAppts = allAppts.filter(
+      (a) => a.status === "cancelado" || a.ops_status === "cancelado",
+    );
+
     const apptByCategory = {} as Record<
       (typeof serviceCategories)[number],
       { day: number; week: number; month: number }
     >;
+    const cancelledByCategory = {} as Record<
+      (typeof serviceCategories)[number],
+      { day: number; week: number; month: number }
+    >;
     for (const cat of serviceCategories) {
-      const items = (dashAppointments ?? []).filter((a) => a.services?.category === cat);
+      const items = activeAppts.filter((a) => a.services?.category === cat);
       apptByCategory[cat] = bucketCounts(items, (a) => a.scheduled_at);
-    }
-    const apptTotal = bucketCounts(dashAppointments ?? [], (a) => a.scheduled_at);
 
-    // Receita de produtos = pedido efetivamente entregue. "novo"/"em_preparo"
-    // ainda nao viraram dinheiro no caixa, entao aparecem separados como
-    // "em aberto" em vez de inflar o faturamento do periodo.
-    const deliveredOrders = (dashOrders ?? []).filter((o) => o.status === "entregue");
-    const openOrders = (dashOrders ?? []).filter((o) => o.status !== "entregue");
+      const cItems = cancelledAppts.filter((a) => a.services?.category === cat);
+      cancelledByCategory[cat] = bucketCounts(cItems, (a) => a.scheduled_at);
+    }
+    const apptTotal = bucketCounts(activeAppts, (a) => a.scheduled_at);
+    const cancelledTotal = bucketCounts(cancelledAppts, (a) => a.scheduled_at);
+
+    // Cancelamentos de hoje
+    const cancelledTodayList = cancelledAppts.filter(
+      (a) => new Date(a.scheduled_at) >= dayStart,
+    );
+    const cancelledUnder2hTodayCount = cancelledTodayList.filter(
+      (a) => (a.notes || "").includes("menos de 2h"),
+    ).length;
+
+    // Pedidos (ativos vs cancelados)
+    const allOrders = dashOrders ?? [];
+    const deliveredOrders = allOrders.filter((o) => o.status === "entregue");
+    const openOrders = allOrders.filter((o) => o.status !== "entregue" && o.status !== "cancelado");
+    const cancelledOrders = allOrders.filter((o) => o.status === "cancelado");
+    const cancelledOrdersTotal = bucketCounts(cancelledOrders, (o) => o.created_at);
+
     const orderCounts = bucketCounts(deliveredOrders, (o) => o.created_at);
     function sumOrders(rows: typeof deliveredOrders, since: Date) {
       return rows
@@ -749,7 +775,7 @@ function Admin() {
       month: sumOrders(openOrders, monthStart),
     };
 
-    const executedAppointments = (dashAppointments ?? []).filter(isServiceExecuted);
+    const executedAppointments = activeAppts.filter(isServiceExecuted);
     const serviceCounts = bucketCounts(executedAppointments, (a) => a.scheduled_at);
 
     function getApptRevenue(a: {
@@ -776,7 +802,7 @@ function Admin() {
       week: sumServiceRevenue(weekStart),
       month: sumServiceRevenue(monthStart),
     };
-    const openAppointments = (dashAppointments ?? []).filter((a) => !isServiceExecuted(a));
+    const openAppointments = activeAppts.filter((a) => !isServiceExecuted(a));
     function sumOpenServiceRevenue(since: Date) {
       return openAppointments
         .filter((a) => new Date(a.scheduled_at) >= since)
@@ -793,7 +819,7 @@ function Admin() {
 
     const newClients = bucketCounts(dashProfiles ?? [], (p) => p.created_at);
 
-    const campaignAppointments = (dashAppointments ?? []).filter(
+    const campaignAppointments = activeAppts.filter(
       (a) => a.origin === "campanha_niver",
     );
     const campaignNiver = bucketCounts(campaignAppointments, (a) => a.scheduled_at);
@@ -801,6 +827,11 @@ function Admin() {
     return {
       apptByCategory,
       apptTotal,
+      cancelledByCategory,
+      cancelledTotal,
+      cancelledTodayList,
+      cancelledUnder2hTodayCount,
+      cancelledOrdersTotal,
       orderCounts,
       orderRevenue,
       orderOpenRevenue,
@@ -979,8 +1010,48 @@ function Admin() {
     }, 150);
   }, []);
 
+  const [agendaStatusFilter, setAgendaStatusFilter] = useState<
+    "todos" | "pendente" | "confirmado" | "em_atendimento" | "concluido" | "cancelado"
+  >("todos");
+
+  const agendaCounts = useMemo(() => {
+    const list = appointments ?? [];
+    let pendente = 0;
+    let confirmado = 0;
+    let em_atendimento = 0;
+    let concluido = 0;
+    let cancelado = 0;
+    for (const a of list) {
+      if (a.status === "cancelado" || a.ops_status === "cancelado") cancelado++;
+      else if (a.status === "pendente") pendente++;
+      else if (isAppointmentInService(a)) em_atendimento++;
+      else if (a.status === "concluido") concluido++;
+      else confirmado++;
+    }
+    return {
+      total: list.length,
+      pendente,
+      confirmado,
+      em_atendimento,
+      concluido,
+      cancelado,
+    };
+  }, [appointments]);
+
   const sortedAgendaAppointments = useMemo(() => {
-    const list = [...(appointments ?? [])];
+    let list = [...(appointments ?? [])];
+    if (agendaStatusFilter === "pendente") {
+      list = list.filter((a) => a.status === "pendente");
+    } else if (agendaStatusFilter === "em_atendimento") {
+      list = list.filter((a) => isAppointmentInService(a) && a.status !== "cancelado");
+    } else if (agendaStatusFilter === "concluido") {
+      list = list.filter((a) => a.status === "concluido" && a.status !== "cancelado");
+    } else if (agendaStatusFilter === "confirmado") {
+      list = list.filter((a) => a.status === "confirmado" && !isAppointmentInService(a));
+    } else if (agendaStatusFilter === "cancelado") {
+      list = list.filter((a) => a.status === "cancelado" || a.ops_status === "cancelado");
+    }
+
     return list.sort((a, b) => {
       // 1. Agendamentos pendentes ("Aguardando Loja") vão para o topo absoluto!
       const aPending = a.status === "pendente" ? 1 : 0;
@@ -1002,7 +1073,7 @@ function Admin() {
       // 3. Os demais ordenados por scheduled_at decrescente
       return new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime();
     });
-  }, [appointments]);
+  }, [appointments, agendaStatusFilter]);
 
   const sortedOrders = useMemo(() => {
     return sortInServiceFirst(orders ?? [], isOrderInService);
@@ -2964,8 +3035,9 @@ function Admin() {
                         </td>
                       </tr>
                     ))}
+                    {/* Linha Total Ativos / Confirmados */}
                     <tr className="border-t-2 border-blue-300 dark:border-blue-700 font-black text-blue-700 dark:text-blue-300 bg-blue-100/40 dark:bg-blue-900/20">
-                      <td className="py-1.5 pr-2 font-black text-blue-700 dark:text-blue-300">Total</td>
+                      <td className="py-1.5 pr-2 font-black text-blue-700 dark:text-blue-300">Total Confirmados</td>
                       <td className="px-2 py-1.5 text-center font-black text-blue-700 dark:text-blue-300">
                         {Math.max(
                           dashboardStats.apptTotal.day,
@@ -2976,9 +3048,69 @@ function Admin() {
                       <td className="px-2 py-1.5 text-center font-black text-blue-700 dark:text-blue-300">{dashboardStats.apptTotal.week}</td>
                       <td className="px-2 py-1.5 text-center font-black text-blue-700 dark:text-blue-300">{dashboardStats.apptTotal.month}</td>
                     </tr>
+
+                    {/* Linha Cancelados */}
+                    <tr className="border-t border-rose-200 dark:border-rose-900/50 font-bold text-rose-600 dark:text-rose-400 bg-rose-50/70 dark:bg-rose-950/30">
+                      <td className="py-1.5 pr-2 font-bold flex items-center gap-1">
+                        <span>🚫 (-) Cancelados</span>
+                        {dashboardStats.cancelledUnder2hTodayCount > 0 && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-200 text-amber-950 dark:bg-amber-900 dark:text-amber-200 font-extrabold" title="Cancelamentos feitos com menos de 2 horas de antecedência">
+                            ⚠️ {dashboardStats.cancelledUnder2hTodayCount} &lt;2h
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-2 py-1.5 text-center font-extrabold">
+                        {dashboardStats.cancelledTotal.day}
+                      </td>
+                      <td className="px-2 py-1.5 text-center font-bold">
+                        {dashboardStats.cancelledTotal.week}
+                      </td>
+                      <td className="px-2 py-1.5 text-center font-bold">
+                        {dashboardStats.cancelledTotal.month}
+                      </td>
+                    </tr>
+
+                    {/* Linha Total Geral Agendado */}
+                    <tr className="border-t border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-semibold bg-slate-50/60 dark:bg-slate-900/40">
+                      <td className="py-1 pr-2">Total Geral Agendado</td>
+                      <td className="px-2 py-1 text-center font-bold">
+                        {Math.max(
+                          dashboardStats.apptTotal.day,
+                          kanbanStats.totalActive,
+                          todayCategoryCounts.banho + todayCategoryCounts.tosa + todayCategoryCounts.veterinario
+                        ) + dashboardStats.cancelledTotal.day}
+                      </td>
+                      <td className="px-2 py-1 text-center">
+                        {dashboardStats.apptTotal.week + dashboardStats.cancelledTotal.week}
+                      </td>
+                      <td className="px-2 py-1 text-center">
+                        {dashboardStats.apptTotal.month + dashboardStats.cancelledTotal.month}
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
+
+              {dashboardStats.cancelledTodayList.length > 0 && (
+                <div className="mt-2.5 pt-2 border-t border-blue-200/60 dark:border-blue-800/50 flex items-center justify-between">
+                  <p className="text-[11px] font-bold text-rose-700 dark:text-rose-300 flex items-center gap-1">
+                    <span>🚫</span> {dashboardStats.cancelledTodayList.length} cancelamento{dashboardStats.cancelledTodayList.length > 1 ? "s" : ""} hoje
+                    {dashboardStats.cancelledUnder2hTodayCount > 0 && (
+                      <span className="text-amber-800 dark:text-amber-300 font-bold">
+                        ({dashboardStats.cancelledUnder2hTodayCount} de última hora)
+                      </span>
+                    )}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 px-2 text-[10px] font-bold border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/50 rounded-lg"
+                    onClick={() => setShowCancelledTodayModal(true)}
+                  >
+                    Ver Detalhes
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Card 2: Produtos por Categoria */}
@@ -3016,10 +3148,16 @@ function Admin() {
                       </tr>
                     ))}
                     <tr className="border-t-2 border-blue-300 dark:border-blue-700 font-black text-blue-700 dark:text-blue-300 bg-blue-100/40 dark:bg-blue-900/20">
-                      <td className="py-1.5 pr-2 font-black text-blue-700 dark:text-blue-300">Total</td>
+                      <td className="py-1.5 pr-2 font-black text-blue-700 dark:text-blue-300">Total Entregues</td>
                       <td className="px-2 py-1.5 text-center font-black text-blue-700 dark:text-blue-300">{productStats.total.day}</td>
                       <td className="px-2 py-1.5 text-center font-black text-blue-700 dark:text-blue-300">{productStats.total.week}</td>
                       <td className="px-2 py-1.5 text-center font-black text-blue-700 dark:text-blue-300">{productStats.total.month}</td>
+                    </tr>
+                    <tr className="border-t border-rose-200 dark:border-rose-900/50 font-bold text-rose-600 dark:text-rose-400 bg-rose-50/70 dark:bg-rose-950/30">
+                      <td className="py-1.5 pr-2 font-bold">🚫 (-) Pedidos Cancelados</td>
+                      <td className="px-2 py-1.5 text-center font-extrabold">{dashboardStats.cancelledOrdersTotal.day}</td>
+                      <td className="px-2 py-1.5 text-center font-bold">{dashboardStats.cancelledOrdersTotal.week}</td>
+                      <td className="px-2 py-1.5 text-center font-bold">{dashboardStats.cancelledOrdersTotal.month}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -4864,15 +5002,65 @@ function Admin() {
             </div>
           )}
 
+          {/* Filtros Rápidos de Status da Agenda */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 pt-1">
+            {[
+              { id: "todos", label: "Todos", count: agendaCounts.total },
+              { id: "pendente", label: "Aguardando Loja", count: agendaCounts.pendente, highlight: agendaCounts.pendente > 0 ? "amber" : undefined },
+              { id: "confirmado", label: "Confirmados", count: agendaCounts.confirmado },
+              { id: "em_atendimento", label: "Em Atendimento", count: agendaCounts.em_atendimento, highlight: agendaCounts.em_atendimento > 0 ? "emerald" : undefined },
+              { id: "concluido", label: "Concluídos", count: agendaCounts.concluido },
+              { id: "cancelado", label: "🚫 Cancelados", count: agendaCounts.cancelado, highlight: agendaCounts.cancelado > 0 ? "rose" : undefined },
+            ].map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setAgendaStatusFilter(f.id as any)}
+                className={cn(
+                  "rounded-xl px-2.5 py-1 text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 border cursor-pointer",
+                  agendaStatusFilter === f.id
+                    ? f.id === "cancelado"
+                      ? "bg-rose-600 text-white border-rose-600 shadow-sm"
+                      : "bg-primary text-primary-foreground border-primary shadow-sm"
+                    : f.id === "cancelado" && f.count > 0
+                    ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900"
+                    : "bg-card text-muted-foreground border-border/70 hover:text-foreground hover:bg-muted/50"
+                )}
+              >
+                <span>{f.label}</span>
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.2 text-[10px] font-black",
+                    agendaStatusFilter === f.id
+                      ? "bg-white/20 text-white"
+                      : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {f.count}
+                </span>
+              </button>
+            ))}
+          </div>
+
           <p className="text-xs text-muted-foreground">
-            Confirme os agendamentos pendentes para avisar o cliente automaticamente pelo Chat.
+            {agendaStatusFilter === "cancelado"
+              ? "Exibindo todos os agendamentos cancelados pelos tutores ou recepção."
+              : "Confirme os agendamentos pendentes para avisar o cliente automaticamente pelo Chat."}
           </p>
+
+          {sortedAgendaAppointments.length === 0 && (
+            <div className="p-8 text-center rounded-2xl border border-dashed border-border/80 text-xs text-muted-foreground bg-muted/20">
+              Nenhum agendamento encontrado para o filtro selecionado.
+            </div>
+          )}
 
           {sortedAgendaAppointments.map((item, idx) => {
             const clientInfo = getClientAbcInfo(item.user_id);
             const clientName = profileById.get(item.user_id)?.full_name || clientInfo?.name;
             const inService = isAppointmentInService(item);
             const isPending = item.status === "pendente";
+            const isCancelled = item.status === "cancelado" || item.ops_status === "cancelado";
+            const isUnder2h = (item.notes || "").includes("menos de 2h");
 
             return (
               <div
@@ -4882,6 +5070,8 @@ function Admin() {
                   "rounded-2xl p-3 shadow-card transition-all",
                   isPending
                     ? "border-2 border-amber-500 bg-amber-50/50 dark:border-amber-500/70 dark:bg-amber-950/30 ring-2 ring-amber-400/30 shadow-md"
+                    : isCancelled
+                    ? "border-2 border-rose-300 bg-rose-50/40 dark:border-rose-900/60 dark:bg-rose-950/20 shadow-sm"
                     : inService
                     ? "border-2 border-emerald-500/80 bg-emerald-50/50 dark:border-emerald-500/60 dark:bg-emerald-950/30 ring-1 ring-emerald-400/40 shadow-md"
                     : clientInfo?.abcClass === "A"
@@ -4919,6 +5109,21 @@ function Admin() {
                     </span>
                   </div>
                 )}
+                {isCancelled && (
+                  <div className="mb-2 flex items-center justify-between gap-1.5 rounded-lg bg-rose-500/15 border border-rose-300 dark:border-rose-900/60 px-2.5 py-1 text-xs font-black text-rose-700 dark:text-rose-300">
+                    <span className="flex items-center gap-1.5">
+                      🚫 AGENDAMENTO CANCELADO
+                      {isUnder2h && (
+                        <span className="ml-1 px-1.5 py-0.2 rounded-md bg-amber-200 text-amber-950 text-[10px] font-extrabold">
+                          ⚠️ Menos de 2h de antecedência
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                      Vaga liberada
+                    </span>
+                  </div>
+                )}
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <p className="text-sm font-semibold">{item.services?.name ?? "Serviço"}</p>
@@ -4946,7 +5151,11 @@ function Admin() {
                     💡 Sugestão Comercial: {clientInfo.suggestion.suggestedOffer} · {clientInfo.suggestion.actionSummary}
                   </p>
                 )}
-                {item.notes && <p className="mt-1 text-xs text-muted-foreground">{item.notes}</p>}
+                {item.notes && (
+                  <div className={cn("mt-1.5 text-xs rounded-lg p-2 font-mono whitespace-pre-line", isCancelled ? "bg-rose-100/70 dark:bg-rose-950/40 text-rose-950 dark:text-rose-200 border border-rose-200 dark:border-rose-900/60" : "bg-muted/40 text-muted-foreground")}>
+                    {item.notes}
+                  </div>
+                )}
                 {item.status === "pendente" && (
                   <Button
                     size="sm"
@@ -4959,76 +5168,87 @@ function Admin() {
                   </Button>
                 )}
 
-              {/* Recebimento no Balcão da Loja (1 Toque) */}
-              <div className="mt-2 rounded-xl border border-border/70 bg-background/60 p-2.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold flex items-center gap-1 text-foreground">
-                    <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
-                    Pagamento no Balcão:
+              {/* Recebimento no Balcão da Loja (1 Toque) - Oculto se cancelado */}
+              {!isCancelled ? (
+                <div className="mt-2 rounded-xl border border-border/70 bg-background/60 p-2.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold flex items-center gap-1 text-foreground">
+                      <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
+                      Pagamento no Balcão:
+                    </span>
+                    <span className="font-bold text-primary">
+                      {item.total_cents ? formatBRL(item.total_cents) : "Valor sob consulta"}
+                    </span>
+                  </div>
+
+                  {item.payment_status === "pago" ? (
+                    <div className="mt-1.5 flex items-center justify-between text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-1 rounded-lg">
+                      <span className="flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                        ✓ Pago no Caixa via {item.payment_method?.toUpperCase() || "BALCÃO"}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {item.paid_at ? new Date(item.paid_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "Confirmado"}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="mt-1.5 space-y-1">
+                      <p className="text-[10px] text-muted-foreground">Receber no caixa com 1 toque:</p>
+                      <div className="grid grid-cols-4 gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={registerStorePayment.isPending}
+                          className="h-7 rounded-lg text-[10px] font-bold border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/10"
+                          onClick={() => registerStorePayment.mutate({ appointmentId: item.id, method: "credito" })}
+                        >
+                          <CreditCard className="h-2.5 w-2.5 mr-0.5" />
+                          Crédito
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={registerStorePayment.isPending}
+                          className="h-7 rounded-lg text-[10px] font-bold border-blue-500/30 text-blue-700 hover:bg-blue-500/10"
+                          onClick={() => registerStorePayment.mutate({ appointmentId: item.id, method: "debito" })}
+                        >
+                          <CreditCard className="h-2.5 w-2.5 mr-0.5" />
+                          Débito
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={registerStorePayment.isPending}
+                          className="h-7 rounded-lg text-[10px] font-bold border-teal-500/30 text-teal-700 hover:bg-teal-500/10"
+                          onClick={() => registerStorePayment.mutate({ appointmentId: item.id, method: "pix" })}
+                        >
+                          <QrCode className="h-2.5 w-2.5 mr-0.5" />
+                          Pix
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={registerStorePayment.isPending}
+                          className="h-7 rounded-lg text-[10px] font-bold border-amber-500/30 text-amber-700 hover:bg-amber-500/10"
+                          onClick={() => registerStorePayment.mutate({ appointmentId: item.id, method: "dinheiro" })}
+                        >
+                          <DollarSign className="h-2.5 w-2.5 mr-0.5" />
+                          Dinheiro
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="mt-2 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 p-2.5 flex items-center justify-between text-xs">
+                  <span className="text-[11px] font-medium text-rose-800 dark:text-rose-300">
+                    Horário liberado na agenda.
                   </span>
-                  <span className="font-bold text-primary">
-                    {item.total_cents ? formatBRL(item.total_cents) : "Valor sob consulta"}
+                  <span className="text-[11px] font-bold text-rose-700 dark:text-rose-400">
+                    {item.total_cents ? `Valor liberado: ${formatBRL(item.total_cents)}` : ""}
                   </span>
                 </div>
-
-                {item.payment_status === "pago" ? (
-                  <div className="mt-1.5 flex items-center justify-between text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-1 rounded-lg">
-                    <span className="flex items-center gap-1">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                      ✓ Pago no Caixa via {item.payment_method?.toUpperCase() || "BALCÃO"}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">
-                      {item.paid_at ? new Date(item.paid_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "Confirmado"}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="mt-1.5 space-y-1">
-                    <p className="text-[10px] text-muted-foreground">Receber no caixa com 1 toque:</p>
-                    <div className="grid grid-cols-4 gap-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={registerStorePayment.isPending}
-                        className="h-7 rounded-lg text-[10px] font-bold border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/10"
-                        onClick={() => registerStorePayment.mutate({ appointmentId: item.id, method: "credito" })}
-                      >
-                        <CreditCard className="h-2.5 w-2.5 mr-0.5" />
-                        Crédito
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={registerStorePayment.isPending}
-                        className="h-7 rounded-lg text-[10px] font-bold border-blue-500/30 text-blue-700 hover:bg-blue-500/10"
-                        onClick={() => registerStorePayment.mutate({ appointmentId: item.id, method: "debito" })}
-                      >
-                        <CreditCard className="h-2.5 w-2.5 mr-0.5" />
-                        Débito
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={registerStorePayment.isPending}
-                        className="h-7 rounded-lg text-[10px] font-bold border-teal-500/30 text-teal-700 hover:bg-teal-500/10"
-                        onClick={() => registerStorePayment.mutate({ appointmentId: item.id, method: "pix" })}
-                      >
-                        <QrCode className="h-2.5 w-2.5 mr-0.5" />
-                        Pix
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={registerStorePayment.isPending}
-                        className="h-7 rounded-lg text-[10px] font-bold border-amber-500/30 text-amber-700 hover:bg-amber-500/10"
-                        onClick={() => registerStorePayment.mutate({ appointmentId: item.id, method: "dinheiro" })}
-                      >
-                        <DollarSign className="h-2.5 w-2.5 mr-0.5" />
-                        Dinheiro
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              )}
 
               {/* Botão de Chat Interno no App (Substituição do WhatsApp) */}
               <button
@@ -5955,7 +6175,83 @@ function Admin() {
       </Tabs>
     </TabsContent>
   </Tabs>
-</div>
+
+      {/* Dialog: Detalhes dos Cancelamentos do Dia */}
+      <Dialog open={showCancelledTodayModal} onOpenChange={setShowCancelledTodayModal}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600 dark:text-rose-400 text-base">
+              <AlertTriangle className="h-5 w-5" />
+              Cancelamentos de Hoje ({dashboardStats.cancelledTodayList.length})
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Agendamentos cancelados hoje. Acompanhe os motivos ou use o Chat da loja para alinhar com os tutores.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2.5 max-h-[60vh] overflow-y-auto pr-1">
+            {dashboardStats.cancelledTodayList.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">Nenhum cancelamento hoje.</p>
+            ) : (
+              dashboardStats.cancelledTodayList.map((c) => {
+                const petName = c.pets?.name || "Pet";
+                const isUnder2h = (c.notes || "").includes("menos de 2h");
+                const tutorName = profileById.get(c.user_id)?.full_name || "Tutor";
+                return (
+                  <div
+                    key={c.id}
+                    className="rounded-xl border border-rose-200 dark:border-rose-900/70 bg-rose-50/50 dark:bg-rose-950/30 p-3 text-xs space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between gap-1.5">
+                      <span className="font-bold text-foreground truncate">
+                        🐾 {petName} · {c.services?.name || "Serviço"}
+                      </span>
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          "text-[10px] font-bold shrink-0",
+                          isUnder2h
+                            ? "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 border-amber-300"
+                            : "bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-200 border-rose-200"
+                        )}
+                      >
+                        {isUnder2h ? "⚠️ Menos de 2h (<2h)" : "Com antecedência"}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Tutor(a): <strong>{tutorName}</strong> · Horário previsto: <strong>{formatDateTime(c.scheduled_at)}</strong>
+                    </p>
+                    {c.notes && (
+                      <p className="text-[10px] text-rose-950 dark:text-rose-200 bg-white/70 dark:bg-black/40 p-2 rounded-lg font-mono whitespace-pre-line border border-rose-200/60 dark:border-rose-900/40">
+                        {c.notes}
+                      </p>
+                    )}
+                    <div className="pt-1 flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs font-bold gap-1 rounded-lg border-primary/40 text-primary hover:bg-primary/10"
+                        onClick={() => {
+                          setShowCancelledTodayModal(false);
+                          openInAppChat({
+                            petName,
+                            tutorName,
+                            contextTag: `Cancelamento: ${c.services?.name || "Serviço"}`,
+                            defaultText: `Olá, ${tutorName}! Vimos o cancelamento do agendamento de ${c.services?.name || "serviço"} do(a) ${petName}. Podemos ajudar com reagendamento ou alguma dúvida?`,
+                          });
+                        }}
+                      >
+                        <MessageCircle className="h-3.5 w-3.5" />
+                        Falar no Chat
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 

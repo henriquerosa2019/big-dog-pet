@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  AlertTriangle,
   Calendar,
   ChevronLeft,
   ChevronRight,
@@ -14,6 +15,7 @@ import {
   TrendingUp,
   User,
   Users,
+  XCircle,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,6 +40,7 @@ interface PeriodBucket {
 interface ClientBucketStats {
   count: number;
   revenueCents: number;
+  cancelledCount: number;
 }
 
 interface ClientRow {
@@ -48,6 +51,7 @@ interface ClientRow {
   buckets: Record<string, ClientBucketStats>;
   totalCount: number;
   totalRevenueCents: number;
+  totalCancelledCount: number;
 }
 
 const MONTH_NAMES_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
@@ -60,7 +64,7 @@ const WEEKDAY_NAMES = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 export function RelatorioAtendimentosPeriodo() {
   const [period, setPeriod] = useState<PeriodFilter>("trimestre");
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"executados" | "todos">("executados");
+  const [statusFilter, setStatusFilter] = useState<"executados" | "ativos" | "cancelados" | "todos">("executados");
   const [categoryFilter, setCategoryFilter] = useState<string>("todos");
   const [sortBy, setSortBy] = useState<"faturamento" | "atendimentos" | "nome">("faturamento");
 
@@ -247,6 +251,7 @@ export function RelatorioAtendimentosPeriodo() {
           scheduled_at,
           status,
           ops_status,
+          notes,
           total_cents,
           service_price_cents,
           transport_price_cents,
@@ -300,116 +305,161 @@ export function RelatorioAtendimentosPeriodo() {
   }, [rawAppointments]);
 
   // Agrega dados de agendamentos por Cliente e por Balde/Coluna
-  const { clientRows, bucketTotals, maxCellRevenue, maxBucketTotalRevenue, grandTotalCount, grandTotalRevenue } =
-    useMemo(() => {
-      const clientMap = new Map<string, ClientRow>();
+  const {
+    clientRows,
+    bucketTotals,
+    maxCellRevenue,
+    maxBucketTotalRevenue,
+    grandTotalCount,
+    grandTotalRevenue,
+    periodCancelledCount,
+    periodUnder2hCount,
+    periodCancellationRate,
+  } = useMemo(() => {
+    const clientMap = new Map<string, ClientRow>();
 
-      // Inicializa totais de baldes
-      const bTotals: Record<string, ClientBucketStats> = {};
-      for (const b of buckets) {
-        bTotals[b.id] = { count: 0, revenueCents: 0 };
+    // Inicializa totais de baldes
+    const bTotals: Record<string, ClientBucketStats> = {};
+    for (const b of buckets) {
+      bTotals[b.id] = { count: 0, revenueCents: 0, cancelledCount: 0 };
+    }
+
+    let grandCount = 0;
+    let grandRevenue = 0;
+    let periodTotalCount = 0;
+    let periodCancelled = 0;
+    let periodUnder2h = 0;
+
+    for (const a of rawAppointments ?? []) {
+      const isCancelled = a.status === "cancelado" || a.ops_status === "cancelado";
+      const isExecuted = isServiceExecuted({ status: a.status, ops_status: a.ops_status });
+      const isUnder2h = (a.notes || "").includes("menos de 2h");
+
+      periodTotalCount++;
+      if (isCancelled) {
+        periodCancelled++;
+        if (isUnder2h) periodUnder2h++;
       }
 
-      let grandCount = 0;
-      let grandRevenue = 0;
+      // Filtro de status: executados vs ativos vs cancelados vs todos
+      if (statusFilter === "cancelados" && !isCancelled) continue;
+      if (statusFilter === "executados" && (!isExecuted || isCancelled)) continue;
+      if (statusFilter === "ativos" && (isExecuted || isCancelled)) continue;
 
-      for (const a of rawAppointments ?? []) {
-        // Filtro de status: executados vs todos
-        if (a.status === "cancelado" || a.ops_status === "cancelado") continue;
-        if (statusFilter === "executados" && !isServiceExecuted({ status: a.status, ops_status: a.ops_status })) {
-          continue;
+      // Filtro de categoria de serviço
+      if (categoryFilter !== "todos" && a.services?.category !== categoryFilter) {
+        continue;
+      }
+
+      const apptDate = new Date(a.scheduled_at);
+      const apptTime = apptDate.getTime();
+
+      // Encontra o balde em que o agendamento cai
+      const bucket = buckets.find((b) => apptTime >= b.start.getTime() && apptTime <= b.end.getTime());
+      if (!bucket) continue;
+
+      const userId = a.user_id || "anon";
+      const profile = a.user_id ? profileById.get(a.user_id) : undefined;
+      const tutorName = profile?.full_name?.trim() || (a.user_id ? `Cliente ${a.user_id.slice(0, 5)}` : "Cliente Avulso");
+      const phone = profile?.phone || null;
+      const petName = a.pets?.name || null;
+
+      const cents = (a.total_cents && a.total_cents > 0)
+        ? a.total_cents
+        : (a.service_price_cents || 0) + (a.transport_price_cents || 0);
+
+      if (!clientMap.has(userId)) {
+        const initBuckets: Record<string, ClientBucketStats> = {};
+        for (const b of buckets) {
+          initBuckets[b.id] = { count: 0, revenueCents: 0, cancelledCount: 0 };
         }
 
-        // Filtro de categoria de serviço
-        if (categoryFilter !== "todos" && a.services?.category !== categoryFilter) {
-          continue;
+        clientMap.set(userId, {
+          userId,
+          tutorName,
+          phone,
+          petNames: petName ? [petName] : [],
+          buckets: initBuckets,
+          totalCount: 0,
+          totalRevenueCents: 0,
+          totalCancelledCount: 0,
+        });
+      }
+
+      const row = clientMap.get(userId)!;
+      if (petName && !row.petNames.includes(petName)) {
+        row.petNames.push(petName);
+      }
+
+      if (!row.buckets[bucket.id]) {
+        row.buckets[bucket.id] = { count: 0, revenueCents: 0, cancelledCount: 0 };
+      }
+
+      if (!bTotals[bucket.id]) {
+        bTotals[bucket.id] = { count: 0, revenueCents: 0, cancelledCount: 0 };
+      }
+
+      if (isCancelled) {
+        row.buckets[bucket.id]!.cancelledCount += 1;
+        row.totalCancelledCount += 1;
+        bTotals[bucket.id]!.cancelledCount += 1;
+
+        if (statusFilter === "cancelados") {
+          row.buckets[bucket.id]!.count += 1;
+          row.buckets[bucket.id]!.revenueCents += cents;
+          row.totalCount += 1;
+          row.totalRevenueCents += cents;
+
+          bTotals[bucket.id]!.count += 1;
+          bTotals[bucket.id]!.revenueCents += cents;
+          grandCount += 1;
+          grandRevenue += cents;
         }
-
-        const apptDate = new Date(a.scheduled_at);
-        const apptTime = apptDate.getTime();
-
-        // Encontra o balde em que o agendamento cai
-        const bucket = buckets.find((b) => apptTime >= b.start.getTime() && apptTime <= b.end.getTime());
-        if (!bucket) continue;
-
-        const userId = a.user_id || "anon";
-        const profile = a.user_id ? profileById.get(a.user_id) : undefined;
-        const tutorName = profile?.full_name?.trim() || (a.user_id ? `Cliente ${a.user_id.slice(0, 5)}` : "Cliente Avulso");
-        const phone = profile?.phone || null;
-        const petName = a.pets?.name || null;
-
-        const cents = (a.total_cents && a.total_cents > 0)
-          ? a.total_cents
-          : (a.service_price_cents || 0) + (a.transport_price_cents || 0);
-
-        if (!clientMap.has(userId)) {
-          const initBuckets: Record<string, ClientBucketStats> = {};
-          for (const b of buckets) {
-            initBuckets[b.id] = { count: 0, revenueCents: 0 };
-          }
-
-          clientMap.set(userId, {
-            userId,
-            tutorName,
-            phone,
-            petNames: petName ? [petName] : [],
-            buckets: initBuckets,
-            totalCount: 0,
-            totalRevenueCents: 0,
-          });
-        }
-
-        const row = clientMap.get(userId)!;
-        if (petName && !row.petNames.includes(petName)) {
-          row.petNames.push(petName);
-        }
-
-        // Soma no cliente
-        if (!row.buckets[bucket.id]) {
-          row.buckets[bucket.id] = { count: 0, revenueCents: 0 };
-        }
+      } else {
         row.buckets[bucket.id]!.count += 1;
         row.buckets[bucket.id]!.revenueCents += cents;
         row.totalCount += 1;
         row.totalRevenueCents += cents;
 
-        // Soma nos totais da coluna e gerais
-        if (!bTotals[bucket.id]) {
-          bTotals[bucket.id] = { count: 0, revenueCents: 0 };
-        }
         bTotals[bucket.id]!.count += 1;
         bTotals[bucket.id]!.revenueCents += cents;
         grandCount += 1;
         grandRevenue += cents;
       }
+    }
 
-      let maxCell = 0;
-      for (const row of clientMap.values()) {
-        for (const b of buckets) {
-          const rev = row.buckets[b.id]?.revenueCents || 0;
-          if (rev > maxCell) {
-            maxCell = rev;
-          }
-        }
-      }
-
-      let maxBucketTotal = 0;
+    let maxCell = 0;
+    for (const row of clientMap.values()) {
       for (const b of buckets) {
-        const bRev = bTotals[b.id]?.revenueCents || 0;
-        if (bRev > maxBucketTotal) {
-          maxBucketTotal = bRev;
+        const rev = row.buckets[b.id]?.revenueCents || 0;
+        if (rev > maxCell) {
+          maxCell = rev;
         }
       }
+    }
 
-      return {
-        clientRows: Array.from(clientMap.values()),
-        bucketTotals: bTotals,
-        maxCellRevenue: maxCell || 1,
-        maxBucketTotalRevenue: maxBucketTotal || 1,
-        grandTotalCount: grandCount,
-        grandTotalRevenue: grandRevenue,
-      };
-    }, [rawAppointments, statusFilter, categoryFilter, buckets, profileById]);
+    let maxBucketTotal = 0;
+    for (const b of buckets) {
+      const bRev = bTotals[b.id]?.revenueCents || 0;
+      if (bRev > maxBucketTotal) {
+        maxBucketTotal = bRev;
+      }
+    }
+
+    const cancellationRate = periodTotalCount > 0 ? (periodCancelled / periodTotalCount) * 100 : 0;
+
+    return {
+      clientRows: Array.from(clientMap.values()),
+      bucketTotals: bTotals,
+      maxCellRevenue: maxCell || 1,
+      maxBucketTotalRevenue: maxBucketTotal || 1,
+      grandTotalCount: grandCount,
+      grandTotalRevenue: grandRevenue,
+      periodCancelledCount: periodCancelled,
+      periodUnder2hCount: periodUnder2h,
+      periodCancellationRate: cancellationRate,
+    };
+  }, [rawAppointments, statusFilter, categoryFilter, buckets, profileById]);
 
   // Filtragem e ordenação das linhas
   const filteredRows = useMemo(() => {
@@ -441,11 +491,18 @@ export function RelatorioAtendimentosPeriodo() {
     const wb = XLSX.utils.book_new();
 
     // Monta cabeçalhos da planilha
+    const isCanc = statusFilter === "cancelados";
     const headerRow: string[] = ["Cliente / Tutor", "Telefone", "Pets"];
     for (const b of buckets) {
-      headerRow.push(`Qtde (${b.label})`, `Valor R$ (${b.label})`);
+      headerRow.push(
+        isCanc ? `Qtde Canc. (${b.label})` : `Qtde (${b.label})`,
+        isCanc ? `Valor Estimado R$ (${b.label})` : `Valor R$ (${b.label})`
+      );
     }
-    headerRow.push("Total Atendimentos", "Total Faturamento (R$)");
+    headerRow.push(
+      isCanc ? "Total Cancelamentos" : "Total Atendimentos",
+      isCanc ? "Total Estimado (R$)" : "Total Faturamento (R$)"
+    );
 
     const dataRows: (string | number)[][] = [headerRow];
 
@@ -641,31 +698,31 @@ export function RelatorioAtendimentosPeriodo() {
           </div>
 
           {/* Filtro de Status */}
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setStatusFilter("executados")}
-              className={cn(
-                "flex-1 h-8 rounded-xl text-xs font-semibold px-2 transition-all border",
-                statusFilter === "executados"
-                  ? "bg-primary text-primary-foreground border-primary font-bold shadow-xs"
-                  : "bg-muted/40 text-muted-foreground border-border/60 hover:bg-muted"
-              )}
-            >
-              Apenas Concluídos
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatusFilter("todos")}
-              className={cn(
-                "flex-1 h-8 rounded-xl text-xs font-semibold px-2 transition-all border",
-                statusFilter === "todos"
-                  ? "bg-primary text-primary-foreground border-primary font-bold shadow-xs"
-                  : "bg-muted/40 text-muted-foreground border-border/60 hover:bg-muted"
-              )}
-            >
-              Todos (Agendados)
-            </button>
+          <div className="flex items-center gap-1 overflow-x-auto">
+            {[
+              { id: "executados", label: "Concluídos" },
+              { id: "ativos", label: "Confirmados / Abertos" },
+              { id: "cancelados", label: "🚫 Cancelados" },
+              { id: "todos", label: "Todos" },
+            ].map((st) => (
+              <button
+                key={st.id}
+                type="button"
+                onClick={() => setStatusFilter(st.id as any)}
+                className={cn(
+                  "flex-1 h-8 rounded-xl text-xs font-semibold px-2 transition-all border whitespace-nowrap cursor-pointer",
+                  statusFilter === st.id
+                    ? st.id === "cancelados"
+                      ? "bg-rose-600 text-white border-rose-600 font-bold shadow-xs"
+                      : "bg-primary text-primary-foreground border-primary font-bold shadow-xs"
+                    : st.id === "cancelados" && periodCancelledCount > 0
+                    ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300"
+                    : "bg-muted/40 text-muted-foreground border-border/60 hover:bg-muted"
+                )}
+              >
+                {st.label}
+              </button>
+            ))}
           </div>
 
           {/* Filtro de Categoria de Serviço */}
@@ -696,11 +753,11 @@ export function RelatorioAtendimentosPeriodo() {
       </div>
 
       {/* 2. Cards de KPIs Resumidos do Período */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
         <div className="rounded-2xl p-3 border border-border/80 bg-card shadow-xs flex items-center justify-between">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              Atendimentos no Período
+              {statusFilter === "cancelados" ? "Cancelados no Período" : "Atendimentos no Período"}
             </p>
             <p className="text-lg font-black font-display text-foreground mt-0.5">
               {grandTotalCount}
@@ -714,13 +771,19 @@ export function RelatorioAtendimentosPeriodo() {
         <div className="rounded-2xl p-3 border border-border/80 bg-card shadow-xs flex items-center justify-between">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              Faturamento Total
+              {statusFilter === "cancelados" ? "Valor Cancelado" : "Faturamento Total"}
             </p>
-            <p className="text-lg font-black font-display text-emerald-600 dark:text-emerald-400 mt-0.5">
+            <p className={cn(
+              "text-lg font-black font-display mt-0.5",
+              statusFilter === "cancelados" ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"
+            )}>
               {formatBRL(grandTotalRevenue)}
             </p>
           </div>
-          <div className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-500/10 text-emerald-600 font-bold">
+          <div className={cn(
+            "grid h-8 w-8 place-items-center rounded-xl font-bold",
+            statusFilter === "cancelados" ? "bg-rose-500/10 text-rose-600" : "bg-emerald-500/10 text-emerald-600"
+          )}>
             <TrendingUp className="h-4 w-4" />
           </div>
         </div>
@@ -750,6 +813,33 @@ export function RelatorioAtendimentosPeriodo() {
           </div>
           <div className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500/10 text-amber-600 font-bold">
             <Filter className="h-4 w-4" />
+          </div>
+        </div>
+
+        {/* Card 5: Taxa e Total de Cancelamentos */}
+        <div className="rounded-2xl p-3 border border-rose-200/80 bg-rose-50/40 dark:bg-rose-950/20 dark:border-rose-900/60 shadow-xs flex items-center justify-between col-span-2 sm:col-span-1">
+          <div>
+            <div className="flex items-center gap-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-300">
+                Cancelamentos
+              </p>
+              {periodUnder2hCount > 0 && (
+                <span className="text-[9px] font-bold px-1 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300" title="Cancelados com menos de 2h">
+                  {periodUnder2hCount} &lt;2h
+                </span>
+              )}
+            </div>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <p className="text-lg font-black font-display text-rose-700 dark:text-rose-400">
+                {periodCancelledCount}
+              </p>
+              <span className="text-[10px] font-bold text-rose-600/80 dark:text-rose-400/80">
+                ({periodCancellationRate.toFixed(1)}%)
+              </span>
+            </div>
+          </div>
+          <div className="grid h-8 w-8 place-items-center rounded-xl bg-rose-500/15 text-rose-600 font-bold">
+            <XCircle className="h-4 w-4" />
           </div>
         </div>
       </div>
@@ -866,10 +956,13 @@ export function RelatorioAtendimentosPeriodo() {
 
                       {/* Colunas dos Períodos (Qtde / R$ / Barra Horizontal) */}
                       {buckets.map((b) => {
-                        const cell = row.buckets[b.id] || { count: 0, revenueCents: 0 };
+                        const cell = row.buckets[b.id] || { count: 0, revenueCents: 0, cancelledCount: 0 };
                         const hasValue = cell.count > 0;
+                        const isCanc = statusFilter === "cancelados";
                         const barWidthPercent = hasValue
-                          ? Math.min(100, Math.max(10, Math.round((cell.revenueCents / maxCellRevenue) * 100)))
+                          ? isCanc
+                            ? 100
+                            : Math.min(100, Math.max(10, Math.round((cell.revenueCents / maxCellRevenue) * 100)))
                           : 0;
 
                         return (
@@ -879,11 +972,19 @@ export function RelatorioAtendimentosPeriodo() {
                                 <div className="flex items-center justify-between gap-1.5">
                                   <Badge
                                     variant="secondary"
-                                    className="text-[10px] font-black px-1.5 py-0 h-4 bg-primary/15 text-primary"
+                                    className={cn(
+                                      "text-[10px] font-black px-1.5 py-0 h-4",
+                                      isCanc
+                                        ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
+                                        : "bg-primary/15 text-primary"
+                                    )}
                                   >
-                                    {cell.count} {cell.count === 1 ? "atend." : "atend."}
+                                    {cell.count} {isCanc ? "canc." : "atend."}
                                   </Badge>
-                                  <span className="text-xs font-black text-foreground">
+                                  <span className={cn(
+                                    "text-xs font-black",
+                                    isCanc ? "text-rose-600 dark:text-rose-400 line-through opacity-80" : "text-foreground"
+                                  )}>
                                     {formatBRL(cell.revenueCents)}
                                   </span>
                                 </div>
@@ -891,10 +992,13 @@ export function RelatorioAtendimentosPeriodo() {
                                 {/* Barra Horizontal de Valor Proporcional */}
                                 <div
                                   className="w-full bg-muted/70 rounded-full h-2 overflow-hidden flex"
-                                  title={`${row.tutorName} - ${b.label}: ${cell.count} atendimentos (${formatBRL(cell.revenueCents)})`}
+                                  title={`${row.tutorName} - ${b.label}: ${cell.count} ${isCanc ? "cancelamentos" : "atendimentos"} (${formatBRL(cell.revenueCents)})`}
                                 >
                                   <div
-                                    className="bg-primary h-full rounded-full transition-all duration-300"
+                                    className={cn(
+                                      "h-full rounded-full transition-all duration-300",
+                                      isCanc ? "bg-rose-500" : "bg-primary"
+                                    )}
                                     style={{ width: `${barWidthPercent}%` }}
                                   />
                                 </div>
@@ -909,11 +1013,14 @@ export function RelatorioAtendimentosPeriodo() {
                       {/* Coluna Total Acumulado do Cliente */}
                       <td className="p-3 border-l border-border/60 bg-muted/20 text-right align-middle">
                         <div className="flex flex-col items-end">
-                          <span className="text-xs font-black text-foreground font-display">
+                          <span className={cn(
+                            "text-xs font-black font-display",
+                            statusFilter === "cancelados" ? "text-rose-600 dark:text-rose-400 line-through opacity-80" : "text-foreground"
+                          )}>
                             {formatBRL(row.totalRevenueCents)}
                           </span>
                           <span className="text-[10px] font-bold text-muted-foreground mt-0.5">
-                            {row.totalCount} atendimento{row.totalCount === 1 ? "" : "s"}
+                            {row.totalCount} {statusFilter === "cancelados" ? (row.totalCount === 1 ? "cancelamento" : "cancelamentos") : (row.totalCount === 1 ? "atendimento" : "atendimentos")}
                           </span>
                         </div>
                       </td>
@@ -932,38 +1039,53 @@ export function RelatorioAtendimentosPeriodo() {
                         TOTAL MÊS / PERÍODO
                       </span>
                       <span className="text-[10px] font-bold text-muted-foreground">
-                        {filteredRows.length} clientes ativos
+                        {filteredRows.length} clientes {statusFilter === "cancelados" ? "com cancelamentos" : "ativos"}
                       </span>
                     </div>
                   </td>
 
                   {/* Totais de Cada Coluna com Barra Comparativa de Volume */}
                   {buckets.map((b) => {
-                    const bTotal = bucketTotals[b.id] || { count: 0, revenueCents: 0 };
+                    const bTotal = bucketTotals[b.id] || { count: 0, revenueCents: 0, cancelledCount: 0 };
+                    const isCanc = statusFilter === "cancelados";
                     const barWidthPercent =
                       bTotal.revenueCents > 0
                         ? Math.min(100, Math.max(12, Math.round((bTotal.revenueCents / maxBucketTotalRevenue) * 100)))
+                        : isCanc && bTotal.count > 0
+                        ? 100
                         : 0;
 
                     return (
                       <td key={b.id} className="p-3.5 border-l border-border/50 align-middle">
                         <div className="space-y-1">
                           <div className="flex items-center justify-between gap-1">
-                            <span className="text-xs font-black text-primary">
-                              {bTotal.count} atend.
+                            <span className={cn(
+                              "text-xs font-black",
+                              isCanc ? "text-rose-600 dark:text-rose-400" : "text-primary"
+                            )}>
+                              {bTotal.count} {isCanc ? "canc." : "atend."}
                             </span>
-                            <span className="text-xs font-black text-foreground font-display">
+                            <span className={cn(
+                              "text-xs font-black font-display",
+                              isCanc ? "text-rose-600 dark:text-rose-400 line-through opacity-80" : "text-foreground"
+                            )}>
                               {formatBRL(bTotal.revenueCents)}
                             </span>
                           </div>
 
                           {/* Barra Horizontal Comparativa dos Totais de Cada Mês */}
                           <div
-                            className="w-full bg-primary/20 rounded-full h-2.5 overflow-hidden flex"
-                            title={`Total ${b.label}: ${bTotal.count} atendimentos | ${formatBRL(bTotal.revenueCents)}`}
+                            className={cn(
+                              "w-full rounded-full h-2.5 overflow-hidden flex",
+                              isCanc ? "bg-rose-500/20" : "bg-primary/20"
+                            )}
+                            title={`Total ${b.label}: ${bTotal.count} ${isCanc ? "cancelamentos" : "atendimentos"} | ${formatBRL(bTotal.revenueCents)}`}
                           >
                             <div
-                              className="bg-primary h-full rounded-full transition-all duration-300"
+                              className={cn(
+                                "h-full rounded-full transition-all duration-300",
+                                isCanc ? "bg-rose-500" : "bg-primary"
+                              )}
                               style={{ width: `${barWidthPercent}%` }}
                             />
                           </div>
@@ -973,13 +1095,19 @@ export function RelatorioAtendimentosPeriodo() {
                   })}
 
                   {/* Super Total Acumulado */}
-                  <td className="p-3.5 border-l border-border/70 bg-primary/10 text-right align-middle">
+                  <td className={cn(
+                    "p-3.5 border-l border-border/70 text-right align-middle",
+                    statusFilter === "cancelados" ? "bg-rose-500/10" : "bg-primary/10"
+                  )}>
                     <div className="flex flex-col items-end">
-                      <span className="text-sm font-black text-primary font-display">
+                      <span className={cn(
+                        "text-sm font-black font-display",
+                        statusFilter === "cancelados" ? "text-rose-600 dark:text-rose-400 line-through opacity-80" : "text-primary"
+                      )}>
                         {formatBRL(grandTotalRevenue)}
                       </span>
                       <span className="text-[10px] font-extrabold text-foreground">
-                        {grandTotalCount} atendimentos
+                        {grandTotalCount} {statusFilter === "cancelados" ? (grandTotalCount === 1 ? "cancelamento" : "cancelamentos") : (grandTotalCount === 1 ? "atendimento" : "atendimentos")}
                       </span>
                     </div>
                   </td>
