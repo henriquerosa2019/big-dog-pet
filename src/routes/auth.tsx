@@ -202,7 +202,7 @@ function Auth() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => navigate({ to: "/motorista" })}
+              onClick={() => navigate({ to: "/motorista", search: { driverId: undefined } })}
               className="h-11 w-full rounded-xl font-semibold gap-2 border-border/80"
             >
               <Truck className="h-4 w-4 text-amber-500" />

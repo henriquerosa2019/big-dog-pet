@@ -34,6 +34,7 @@ import {
   isAppointmentInService,
   sortInServiceFirst,
   statusToneClass,
+  whatsappLinkTo,
 } from "@/lib/format";
 import { openInAppChat } from "@/components/InAppChatDrawer";
 import { formatFullAddress, getGoogleMapsUrl, getWazeUrl } from "@/lib/navigation";
@@ -62,7 +63,7 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/motorista")({
   validateSearch: (search: Record<string, unknown>) => ({
-    driverId: typeof search.driverId === "string" ? search.driverId : undefined,
+    driverId: typeof search["driverId"] === "string" ? (search["driverId"] as string) : undefined,
   }),
   ssr: false,
   head: () => ({

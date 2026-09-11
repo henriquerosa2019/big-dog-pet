@@ -254,11 +254,28 @@ export function findZoneForDistrict(
   zones: DeliveryZone[] | undefined,
   district: string | undefined,
 ): DeliveryZone | null {
-  if (!zones || !district) return null;
-  const normalized = normalize(district);
-  return (
-    zones.find((z) => z.active && z.districts.some((d) => normalize(d) === normalized)) ?? null
-  );
+  if (!zones || zones.length === 0) return null;
+  const activeZones = zones.filter((z) => z.active);
+  if (activeZones.length === 0) return null;
+
+  if (district) {
+    const normalized = normalize(district);
+    const directMatch = activeZones.find(
+      (z) =>
+        z.districts.some((d) => normalize(d) === normalized || d === "*") ||
+        normalize(z.name).includes(normalized),
+    );
+    if (directMatch) return directMatch;
+  }
+
+  // Fallback: se houver zona coringa cadastrada com '*'
+  const wildcardZone = activeZones.find((z) => z.districts.some((d) => d === "*"));
+  if (wildcardZone) return wildcardZone;
+
+  // Se houver apenas uma única zona ativa cadastrada, usa ela como padrão para a cidade
+  if (activeZones.length === 1) return activeZones[0]!;
+
+  return null;
 }
 
 function normalize(value: string): string {

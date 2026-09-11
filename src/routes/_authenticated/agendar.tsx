@@ -86,6 +86,16 @@ const categories = [
   { value: "veterinario", label: "Veterinário" },
 ];
 
+function isCategoryMatch(serviceCat: string | null | undefined, tabCat: string): boolean {
+  const sc = (serviceCat ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+  const tc = (tabCat ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+  if (sc === tc) return true;
+  if (tc === "veterinario" && (sc.includes("vet") || sc.includes("clinic") || sc.includes("consulta"))) return true;
+  if (tc === "banho" && sc.includes("banho")) return true;
+  if (tc === "tosa" && sc.includes("tosa")) return true;
+  return false;
+}
+
 const hours = ["08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
 
 const petSchema = z.object({
@@ -685,7 +695,7 @@ function Agendar() {
           <TabsContent key={c.value} value={c.value} className="mt-3">
             <ul className="space-y-2">
               {(services ?? [])
-                .filter((s) => s.category === c.value)
+                .filter((s) => isCategoryMatch(s.category, c.value))
                 .map((service) => {
                   const isSelected = serviceId === service.id;
                   return (
@@ -737,7 +747,7 @@ function Agendar() {
                     </li>
                   );
                 })}
-              {(services ?? []).filter((s) => s.category === c.value).length === 0 && (
+              {(services ?? []).filter((s) => isCategoryMatch(s.category, c.value)).length === 0 && (
                 <li className="text-xs text-muted-foreground">
                   Nenhum serviço nessa categoria no momento.
                 </li>

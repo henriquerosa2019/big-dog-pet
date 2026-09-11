@@ -73,7 +73,7 @@ function Carrinho() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("addresses")
-        .select("id, label, street, number, district, is_default")
+        .select("id, label, street, number, district, city, state, is_default")
         .order("is_default", { ascending: false })
         .order("created_at", { ascending: false });
       if (error) throw error;
