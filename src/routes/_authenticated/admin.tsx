@@ -257,11 +257,13 @@ const returnTypeLabels: Record<ReturnType, string> = {
   outro: "Outro",
 };
 
-const serviceCategories = ["banho", "tosa", "veterinario"] as const;
+const serviceCategories = ["banho", "tosa", "veterinario", "cirurgia", "tratamento"] as const;
 const serviceCategoryLabels: Record<(typeof serviceCategories)[number], string> = {
   banho: "Banho",
   tosa: "Tosa",
   veterinario: "Veterinário",
+  cirurgia: "Cirurgia Veterinária",
+  tratamento: "Tratamento / Hidratação",
 };
 
 function todayISODate() {
@@ -814,7 +816,14 @@ function Admin() {
   // os nomes em vez de inventar variacoes ("banho" x "Banho").
   const serviceCategoryOptions = useMemo(
     () =>
-      Array.from(new Set([...serviceCategories, ...(services ?? []).map((x) => x.category)])).sort(),
+      Array.from(
+        new Set([
+          ...serviceCategories,
+          ...(services ?? []).map((x) => x.category?.trim().toLowerCase()),
+        ]),
+      )
+        .filter(Boolean)
+        .sort() as string[],
     [services],
   );
   const productCategoryOptions = useMemo(

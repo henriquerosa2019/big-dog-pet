@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { Image as ImageIcon, Search, Sparkles, Check, Globe, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,35 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { searchProductImages } from "@/lib/productImageSuggestions";
+
+export const CATEGORY_LABELS: Record<string, string> = {
+  banho: "Banho",
+  tosa: "Tosa",
+  veterinario: "Veterinário (Clínica Geral)",
+  cirurgia: "Cirurgia Veterinária",
+  tratamento: "Tratamento / Hidratação",
+  consulta: "Consulta Veterinária",
+  vacina: "Vacinação / Imunização",
+  alimentacao: "Alimentação / Ração",
+  higiene: "Higiene & Beleza",
+  medicamentos: "Medicamentos / Farmácia",
+  farmacia: "Medicamentos / Farmácia",
+  acessorios: "Acessórios & Brinquedos",
+  brinquedos: "Acessórios & Brinquedos",
+  geral: "Geral / Outros",
+};
+
+export const DURATION_OPTIONS = [
+  { value: "15", label: "15 min (Procedimento rápido)" },
+  { value: "30", label: "30 min (Vacinação / Retorno)" },
+  { value: "40", label: "40 min (Hidratação / Escovação)" },
+  { value: "45", label: "45 min (Consulta Clínica Geral)" },
+  { value: "60", label: "60 min / 1 hora (Banho / Castração / Profilaxia)" },
+  { value: "90", label: "90 min / 1h 30 (Banho e Tosa / Nodulectomia)" },
+  { value: "120", label: "120 min / 2 horas (Tosa Tesoura / Cirurgias)" },
+  { value: "150", label: "150 min / 2h 30 min" },
+  { value: "180", label: "180 min / 3 horas" },
+];
 
 export type VetProcedureTemplate = {
   label: string;
@@ -171,14 +200,38 @@ export function CatalogForm({
   const [name, setName] = useState(initial.name);
   const [description, setDescription] = useState(initial.description);
   const [category, setCategory] = useState(initial.category);
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [price, setPrice] = useState(centsToInput(initial.priceCents));
   const [durationMin, setDurationMin] = useState(String(initial.durationMin));
+  const [isCustomDuration, setIsCustomDuration] = useState(false);
   const [stock, setStock] = useState(String(initial.stock));
   const [criticalStock, setCriticalStockInput] = useState(String(initial.criticalStock ?? 5));
   const [imageUrl, setImageUrl] = useState(initial.imageUrl ?? "");
   const [showImageSuggestions, setShowImageSuggestions] = useState(false);
   const [webSearchQuery, setWebSearchQuery] = useState(initial.name);
   const [active, setActive] = useState(initial.active);
+
+  const allCategoryOptions = useMemo(() => {
+    const base = isService
+      ? ["banho", "tosa", "veterinario", "cirurgia", "tratamento"]
+      : ["alimentacao", "higiene", "medicamentos", "acessorios", "geral"];
+    const combined = Array.from(
+      new Set([...base, ...categories.map((c) => c.trim().toLowerCase())]),
+    ).filter(Boolean);
+    if (category && !combined.includes(category.trim().toLowerCase())) {
+      combined.push(category.trim().toLowerCase());
+    }
+    return combined;
+  }, [isService, categories, category]);
+
+  const durationOptions = useMemo(() => {
+    const list = [...DURATION_OPTIONS];
+    if (durationMin && !list.some((o) => o.value === durationMin)) {
+      list.push({ value: durationMin, label: `${durationMin} min (Personalizado)` });
+      list.sort((a, b) => Number(a.value) - Number(b.value));
+    }
+    return list;
+  }, [durationMin]);
 
   function handleSubmit() {
     const trimmedName = name.trim();
@@ -291,15 +344,52 @@ export function CatalogForm({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <Label htmlFor={`${listId}-categoria`}>Categoria</Label>
-          <Input
-            id={`${listId}-categoria`}
-            list={listId}
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            placeholder={isService ? "banho" : "higiene"}
-            className="mt-1 h-10 rounded-xl"
-          />
+          <div className="flex items-center justify-between">
+            <Label htmlFor={`${listId}-categoria`}>Categoria</Label>
+            {isCustomCategory && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCustomCategory(false);
+                  setCategory(allCategoryOptions[0] ?? (isService ? "banho" : "geral"));
+                }}
+                className="text-[11px] text-primary hover:underline font-semibold"
+              >
+                Voltar para lista
+              </button>
+            )}
+          </div>
+          {!isCustomCategory ? (
+            <select
+              id={`${listId}-categoria`}
+              value={category.trim().toLowerCase()}
+              onChange={(e) => {
+                if (e.target.value === "__nova__") {
+                  setIsCustomCategory(true);
+                  setCategory("");
+                } else {
+                  setCategory(e.target.value);
+                }
+              }}
+              className="mt-1 h-10 w-full rounded-xl border border-border bg-background px-3 text-xs font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
+            >
+              {allCategoryOptions.map((c) => (
+                <option key={c} value={c}>
+                  {CATEGORY_LABELS[c] ?? c.charAt(0).toUpperCase() + c.slice(1)}
+                </option>
+              ))}
+              <option value="__nova__">➕ Outra categoria (digitar nova)...</option>
+            </select>
+          ) : (
+            <Input
+              id={`${listId}-categoria-custom`}
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="Digite o nome da nova categoria..."
+              className="mt-1 h-10 rounded-xl text-xs"
+              autoFocus
+            />
+          )}
         </div>
         <div>
           <Label htmlFor={`${listId}-preco`}>Preço (R$)</Label>
@@ -316,14 +406,53 @@ export function CatalogForm({
       <div className="grid gap-3 sm:grid-cols-2">
         {isService ? (
           <div>
-            <Label htmlFor={`${listId}-duracao`}>Duração (minutos)</Label>
-            <Input
-              id={`${listId}-duracao`}
-              inputMode="numeric"
-              value={durationMin}
-              onChange={(e) => setDurationMin(e.target.value)}
-              className="mt-1 h-10 rounded-xl"
-            />
+            <div className="flex items-center justify-between">
+              <Label htmlFor={`${listId}-duracao`}>Duração</Label>
+              {isCustomDuration && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCustomDuration(false);
+                    setDurationMin("30");
+                  }}
+                  className="text-[11px] text-primary hover:underline font-semibold"
+                >
+                  Voltar para lista
+                </button>
+              )}
+            </div>
+            {!isCustomDuration ? (
+              <select
+                id={`${listId}-duracao`}
+                value={durationMin}
+                onChange={(e) => {
+                  if (e.target.value === "__custom__") {
+                    setIsCustomDuration(true);
+                    setDurationMin("");
+                  } else {
+                    setDurationMin(e.target.value);
+                  }
+                }}
+                className="mt-1 h-10 w-full rounded-xl border border-border bg-background px-3 text-xs font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
+              >
+                {durationOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+                <option value="__custom__">⏱️ Outro período (digitar minutos)...</option>
+              </select>
+            ) : (
+              <Input
+                id={`${listId}-duracao-custom`}
+                inputMode="numeric"
+                value={durationMin}
+                onChange={(e) => setDurationMin(e.target.value)}
+                placeholder="Ex: 50 minutos"
+                className="mt-1 h-10 rounded-xl text-xs"
+                autoFocus
+              />
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2">
