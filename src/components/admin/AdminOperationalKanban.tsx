@@ -17,6 +17,10 @@ import {
   ChevronRight,
   Layers,
   Send,
+  DollarSign,
+  CreditCard,
+  QrCode,
+  Stethoscope,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +31,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { openInAppChat } from "@/components/InAppChatDrawer";
 import {
   formatDateTime,
@@ -37,6 +48,8 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useTutorChatAlerts, replyToTutorFromStore } from "@/lib/inAppChat";
+
+export type PaymentMethod = "credito" | "debito" | "pix" | "dinheiro";
 
 export interface KanbanItem {
   id: string;
@@ -57,6 +70,9 @@ export interface KanbanItem {
   totalCents?: number;
   transportOrderId?: string | null;
   addressSummary?: string | null;
+  paymentStatus?: string | null;
+  paymentMethod?: string | null;
+  paidAt?: string | null;
 }
 
 export interface KanbanPetGroup {
@@ -72,6 +88,9 @@ export interface KanbanPetGroup {
   hasTaxi: boolean;
   totalCents: number;
   items: KanbanItem[];
+  isPaid: boolean;
+  paymentMethod?: string | null | undefined;
+  paidAt?: string | null | undefined;
 }
 
 function groupItemsByPet(items: KanbanItem[]): KanbanPetGroup[] {
@@ -86,6 +105,7 @@ function groupItemsByPet(items: KanbanItem[]): KanbanPetGroup[] {
     const hasTaxi = Boolean(item.logisticsType && item.logisticsType !== "levar");
 
     if (!existing) {
+      const isPaid = item.paymentStatus === "pago";
       map.set(key, {
         groupKey: key,
         petId: item.petId,
@@ -99,6 +119,9 @@ function groupItemsByPet(items: KanbanItem[]): KanbanPetGroup[] {
         hasTaxi,
         totalCents: item.totalCents || 0,
         items: [item],
+        isPaid,
+        paymentMethod: item.paymentMethod || null,
+        paidAt: item.paidAt || null,
       });
     } else {
       existing.items.push(item);
@@ -107,6 +130,22 @@ function groupItemsByPet(items: KanbanItem[]): KanbanPetGroup[] {
       if (!existing.tutorPhone && item.tutorPhone) existing.tutorPhone = item.tutorPhone;
       if (!existing.petPhotoUrl && item.petPhotoUrl) existing.petPhotoUrl = item.petPhotoUrl;
       if (!existing.petBreed && item.petBreed) existing.petBreed = item.petBreed;
+      if (item.paymentStatus === "pago") {
+        if (!existing.paymentMethod && item.paymentMethod) existing.paymentMethod = item.paymentMethod;
+        if (!existing.paidAt && item.paidAt) existing.paidAt = item.paidAt;
+      }
+    }
+  }
+
+  // Recalcular status de pagamento consolidado do grupo
+  for (const group of map.values()) {
+    group.isPaid = group.items.length > 0 && group.items.every((it) => it.paymentStatus === "pago");
+    if (!group.paymentMethod) {
+      const paidItem = group.items.find((it) => it.paymentStatus === "pago" && it.paymentMethod);
+      if (paidItem) {
+        group.paymentMethod = paidItem.paymentMethod;
+        group.paidAt = paidItem.paidAt;
+      }
     }
   }
 
@@ -128,17 +167,21 @@ function groupItemsByPet(items: KanbanItem[]): KanbanPetGroup[] {
 export interface AdminOperationalKanbanProps {
   items: KanbanItem[];
   onAdvanceStatus?: ((item: KanbanItem) => void) | undefined;
+  onAdvanceGroup?: ((group: KanbanPetGroup, paymentMethod?: PaymentMethod) => Promise<void> | void) | undefined;
+  onRegisterPayment?: ((appointmentIds: string[], method: PaymentMethod) => Promise<void> | void) | undefined;
   onCancelAppointment?: ((appointmentId: string) => void) | undefined;
   onConfirmAppointment?: ((appointmentId: string) => void) | undefined;
   onOpenPetRecord?: ((petId: string) => void) | undefined;
-  filterType?: ("todos" | "banho" | "delivery") | undefined;
-  onFilterTypeChange?: ((filter: "todos" | "banho" | "delivery") => void) | undefined;
+  filterType?: ("todos" | "banho" | "delivery" | "vet") | undefined;
+  onFilterTypeChange?: ((filter: "todos" | "banho" | "delivery" | "vet") => void) | undefined;
   hideTopFilterBar?: boolean | undefined;
 }
 
 export function AdminOperationalKanban({
   items,
   onAdvanceStatus,
+  onAdvanceGroup,
+  onRegisterPayment,
   onCancelAppointment,
   onConfirmAppointment,
   onOpenPetRecord,
@@ -147,15 +190,40 @@ export function AdminOperationalKanban({
   hideTopFilterBar = false,
 }: AdminOperationalKanbanProps) {
   // Filtro rápido de categoria (interno ou externo)
-  const [internalFilterType, setInternalFilterType] = useState<"todos" | "banho" | "delivery">("todos");
+  const [internalFilterType, setInternalFilterType] = useState<"todos" | "banho" | "delivery" | "vet">("todos");
   const filterType = externalFilterType !== undefined ? externalFilterType : internalFilterType;
-  const setFilterType = (newFilter: "todos" | "banho" | "delivery") => {
+  const setFilterType = (newFilter: "todos" | "banho" | "delivery" | "vet") => {
     setInternalFilterType(newFilter);
     if (onFilterTypeChange) onFilterTypeChange(newFilter);
   };
   // Aba ativa para mobile (indicador e rolagem com snap)
   const [activeMobileStage, setActiveMobileStage] = useState<"aguardando" | "andamento" | "concluido">("aguardando");
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Modal de Finalização de Atendimento com Recebimento de Pagamento
+  const [checkoutGroup, setCheckoutGroup] = useState<KanbanPetGroup | null>(null);
+  const [isFinishingPayment, setIsFinishingPayment] = useState(false);
+
+  const handleFinishWithPayment = async (group: KanbanPetGroup, method?: PaymentMethod) => {
+    setIsFinishingPayment(true);
+    try {
+      if (onAdvanceGroup) {
+        await onAdvanceGroup(group, method);
+      } else {
+        if (method && onRegisterPayment) {
+          await onRegisterPayment(group.items.map((it) => it.id), method);
+        }
+        if (onAdvanceStatus) {
+          onAdvanceStatus(group.items[0]);
+        }
+      }
+      setCheckoutGroup(null);
+    } catch (err) {
+      toast.error("Erro ao concluir atendimento com pagamento");
+    } finally {
+      setIsFinishingPayment(false);
+    }
+  };
 
   // Classifica os itens em 3 etapas operacionais e agrupa por Pet/Tutor
   const stages = useMemo(() => {
@@ -170,8 +238,15 @@ export function AdminOperationalKanban({
       if (filterType === "delivery" && (!item.logisticsType || item.logisticsType === "levar")) {
         continue;
       }
-      if (filterType === "banho" && item.serviceCategory && !["banho", "tosa"].includes(item.serviceCategory)) {
-        continue;
+      if (filterType === "banho") {
+        const isBath = (item.serviceCategory && ["banho", "tosa"].includes(item.serviceCategory.toLowerCase())) ||
+          /banho|tosa|estética|estetica/i.test(item.serviceName);
+        if (!isBath) continue;
+      }
+      if (filterType === "vet") {
+        const isVet = (item.serviceCategory && ["veterinario", "veterinaria", "clinica", "consulta", "vacina", "vet"].includes(item.serviceCategory.toLowerCase())) ||
+          /vet|consulta|vacina|clínica|clinica|exame|retorno/i.test(item.serviceName);
+        if (!isVet) continue;
       }
 
       const ops = item.opsStatus;
@@ -283,6 +358,15 @@ export function AdminOperationalKanban({
             >
               <Truck className="h-3.5 w-3.5" />
               Táxi Pet
+            </Button>
+            <Button
+              size="sm"
+              variant={filterType === "vet" ? "default" : "outline"}
+              onClick={() => setFilterType("vet")}
+              className="h-8 rounded-xl text-xs font-semibold px-3 gap-1"
+            >
+              <Stethoscope className="h-3.5 w-3.5" />
+              Veterinário
             </Button>
           </div>
 
@@ -399,6 +483,9 @@ export function AdminOperationalKanban({
                   group={group}
                   stage="aguardando"
                   onAdvance={onAdvanceStatus}
+                  onAdvanceGroup={onAdvanceGroup}
+                  onRequestCheckout={(g) => setCheckoutGroup(g)}
+                  onRegisterPayment={onRegisterPayment}
                   onConfirm={onConfirmAppointment}
                   onCancel={onCancelAppointment}
                   onOpenChat={handleOpenChat}
@@ -439,6 +526,9 @@ export function AdminOperationalKanban({
                   group={group}
                   stage="andamento"
                   onAdvance={onAdvanceStatus}
+                  onAdvanceGroup={onAdvanceGroup}
+                  onRequestCheckout={(g) => setCheckoutGroup(g)}
+                  onRegisterPayment={onRegisterPayment}
                   onConfirm={onConfirmAppointment}
                   onCancel={onCancelAppointment}
                   onOpenChat={handleOpenChat}
@@ -476,6 +566,9 @@ export function AdminOperationalKanban({
                   group={group}
                   stage="concluido"
                   onAdvance={onAdvanceStatus}
+                  onAdvanceGroup={onAdvanceGroup}
+                  onRequestCheckout={(g) => setCheckoutGroup(g)}
+                  onRegisterPayment={onRegisterPayment}
                   onConfirm={onConfirmAppointment}
                   onCancel={onCancelAppointment}
                   onOpenChat={handleOpenChat}
@@ -487,6 +580,184 @@ export function AdminOperationalKanban({
           </div>
         </div>
       </div>
+
+      {/* Modal de Finalização de Atendimento e Recebimento de Pagamento */}
+      <Dialog open={Boolean(checkoutGroup)} onOpenChange={(open) => !open && setCheckoutGroup(null)}>
+        <DialogContent className="max-w-md w-[95vw] rounded-2xl p-5 sm:p-6 bg-card border-border shadow-xl">
+          <DialogHeader className="space-y-1.5 pb-2 border-b border-border/60">
+            <DialogTitle className="text-base sm:text-lg font-black tracking-tight flex items-center gap-2 text-foreground">
+              <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              Finalizar Atendimento & Recebimento
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Conclua o atendimento e registre a forma de pagamento recebida no caixa.
+            </DialogDescription>
+          </DialogHeader>
+
+          {checkoutGroup && (
+            <div className="space-y-4 py-2">
+              {/* Resumo do Pet e Tutor */}
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 border border-border/60">
+                <div className="relative h-12 w-12 shrink-0">
+                  {checkoutGroup.petPhotoUrl ? (
+                    <img
+                      src={checkoutGroup.petPhotoUrl}
+                      alt={checkoutGroup.petName}
+                      className="h-12 w-12 rounded-full object-cover border-2 border-primary/30"
+                    />
+                  ) : (
+                    <div className="grid h-12 w-12 place-items-center rounded-full bg-primary/10 border-2 border-primary/20 text-xl font-bold">
+                      {checkoutGroup.petSpecies?.toLowerCase().includes("gato") ? "🐱" : "🐶"}
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-extrabold text-sm text-foreground truncate">
+                      {capitalizeWords(checkoutGroup.petName)}
+                    </span>
+                    {checkoutGroup.petBreed && (
+                      <span className="text-xs text-muted-foreground truncate">
+                        ({capitalizeWords(checkoutGroup.petBreed)})
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Tutor: <strong className="text-foreground/90">{capitalizeWords(checkoutGroup.tutorName)}</strong>
+                  </p>
+                </div>
+              </div>
+
+              {/* Lista de Serviços e Valor Total */}
+              <div className="rounded-xl border border-border/70 p-3 bg-card space-y-2">
+                <div className="space-y-1 text-xs">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Serviços Realizados:
+                  </p>
+                  {checkoutGroup.items.map((it) => (
+                    <div key={it.id} className="flex items-center justify-between text-muted-foreground">
+                      <span className="truncate">{it.serviceName}</span>
+                      <span className="font-semibold text-foreground shrink-0 ml-2">
+                        {it.totalCents ? formatBRL(it.totalCents) : "--"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="pt-2 border-t border-border/60 flex items-center justify-between font-black text-sm">
+                  <span className="text-foreground">Total a Receber:</span>
+                  <span className="text-base sm:text-lg text-emerald-600 dark:text-emerald-400 font-display">
+                    {formatBRL(checkoutGroup.totalCents)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Se já estiver pago */}
+              {checkoutGroup.isPaid ? (
+                <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-3 space-y-2 text-center">
+                  <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <span>Atendimento já consta como PAGO no Caixa</span>
+                  </div>
+                  {checkoutGroup.paymentMethod && (
+                    <p className="text-[11px] text-emerald-600/90 font-medium">
+                      Forma: {checkoutGroup.paymentMethod.toUpperCase()}
+                      {checkoutGroup.paidAt ? ` às ${new Date(checkoutGroup.paidAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : ""}
+                    </p>
+                  )}
+                  <Button
+                    type="button"
+                    disabled={isFinishingPayment}
+                    onClick={async () => {
+                      await handleFinishWithPayment(checkoutGroup);
+                    }}
+                    className="w-full h-10 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm cursor-pointer"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                    Concluir Atendimento Agora
+                  </Button>
+                </div>
+              ) : (
+                /* Seletor com os 4 Botões de 1 Toque */
+                <div className="space-y-2.5">
+                  <p className="text-xs font-bold text-foreground flex items-center gap-1">
+                    <CreditCard className="h-3.5 w-3.5 text-primary" />
+                    Selecione a forma de pagamento recebida no balcão:
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={isFinishingPayment}
+                      onClick={async () => {
+                        await handleFinishWithPayment(checkoutGroup, "credito");
+                      }}
+                      className="h-14 rounded-xl border-2 border-emerald-500/30 hover:border-emerald-500 hover:bg-emerald-500/10 dark:hover:bg-emerald-950/30 flex flex-col items-center justify-center gap-1 font-bold text-emerald-700 dark:text-emerald-300 transition-all cursor-pointer"
+                    >
+                      <CreditCard className="h-5 w-5 text-emerald-600" />
+                      <span className="text-xs">Cartão de Crédito</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={isFinishingPayment}
+                      onClick={async () => {
+                        await handleFinishWithPayment(checkoutGroup, "debito");
+                      }}
+                      className="h-14 rounded-xl border-2 border-sky-500/30 hover:border-sky-500 hover:bg-sky-500/10 dark:hover:bg-sky-950/30 flex flex-col items-center justify-center gap-1 font-bold text-sky-700 dark:text-sky-300 transition-all cursor-pointer"
+                    >
+                      <CreditCard className="h-5 w-5 text-sky-600" />
+                      <span className="text-xs">Cartão de Débito</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={isFinishingPayment}
+                      onClick={async () => {
+                        await handleFinishWithPayment(checkoutGroup, "pix");
+                      }}
+                      className="h-14 rounded-xl border-2 border-teal-500/30 hover:border-teal-500 hover:bg-teal-500/10 dark:hover:bg-teal-950/30 flex flex-col items-center justify-center gap-1 font-bold text-teal-700 dark:text-teal-300 transition-all cursor-pointer"
+                    >
+                      <QrCode className="h-5 w-5 text-teal-600" />
+                      <span className="text-xs">PIX</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={isFinishingPayment}
+                      onClick={async () => {
+                        await handleFinishWithPayment(checkoutGroup, "dinheiro");
+                      }}
+                      className="h-14 rounded-xl border-2 border-amber-500/30 hover:border-amber-500 hover:bg-amber-500/10 dark:hover:bg-amber-950/30 flex flex-col items-center justify-center gap-1 font-bold text-amber-700 dark:text-amber-300 transition-all cursor-pointer"
+                    >
+                      <DollarSign className="h-5 w-5 text-amber-600" />
+                      <span className="text-xs">Dinheiro</span>
+                    </Button>
+                  </div>
+
+                  {/* Opção secundária: concluir sem registrar pagamento */}
+                  <div className="pt-2 border-t border-border/40 text-center">
+                    <button
+                      type="button"
+                      disabled={isFinishingPayment}
+                      onClick={async () => {
+                        await handleFinishWithPayment(checkoutGroup);
+                      }}
+                      className="text-xs text-muted-foreground hover:text-foreground font-medium underline underline-offset-4 cursor-pointer"
+                    >
+                      Concluir sem registrar pagamento agora (deixar pendente)
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -500,6 +771,9 @@ function KanbanGroupCard({
   group,
   stage,
   onAdvance,
+  onAdvanceGroup,
+  onRequestCheckout,
+  onRegisterPayment,
   onConfirm,
   onCancel,
   onOpenChat,
@@ -509,6 +783,9 @@ function KanbanGroupCard({
   group: KanbanPetGroup;
   stage: "aguardando" | "andamento" | "concluido";
   onAdvance?: ((item: KanbanItem) => void) | undefined;
+  onAdvanceGroup?: ((group: KanbanPetGroup, paymentMethod?: PaymentMethod) => Promise<void> | void) | undefined;
+  onRequestCheckout: (group: KanbanPetGroup) => void;
+  onRegisterPayment?: ((appointmentIds: string[], method: PaymentMethod) => Promise<void> | void) | undefined;
   onConfirm?: ((id: string) => void) | undefined;
   onCancel?: ((id: string) => void) | undefined;
   onOpenChat: (item: KanbanItem, overrideConvId?: string) => void;
@@ -698,6 +975,14 @@ function KanbanGroupCard({
               </DropdownMenuItem>
             )}
 
+            <DropdownMenuItem
+              onClick={() => onRequestCheckout(group)}
+              className="gap-2 text-emerald-600 dark:text-emerald-400 font-semibold cursor-pointer"
+            >
+              <DollarSign className="h-3.5 w-3.5" />
+              <span>{group.isPaid ? "Ver Pagamento no Caixa" : "Receber / Finalizar Pagamento"}</span>
+            </DropdownMenuItem>
+
             <DropdownMenuSeparator />
 
             {onCancel && (
@@ -853,11 +1138,11 @@ function KanbanGroupCard({
         {stage === "andamento" && (
           <Button
             size="sm"
-            onClick={() => onAdvance?.(primaryItem)}
-            className="w-full h-8 rounded-lg text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white gap-1.5 shadow-xs"
+            onClick={() => onRequestCheckout(group)}
+            className="w-full h-8 rounded-lg text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white gap-1.5 shadow-xs cursor-pointer"
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
-            Concluir {isMultiple ? `(${primaryItem.serviceName})` : "Atendimento"}
+            Concluir {isMultiple ? `(${group.items.length} Serviços)` : "Atendimento"}
           </Button>
         )}
 
@@ -879,6 +1164,77 @@ function KanbanGroupCard({
           </div>
         )}
       </div>
+
+      {/* Informações e Recebimento de Pagamento no Balcão */}
+      {(stage === "andamento" || stage === "concluido") && (
+        group.isPaid ? (
+          <div className="flex items-center justify-between text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+            <span className="flex items-center gap-1">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              ✓ Pago via {group.paymentMethod?.toUpperCase() || "CAIXA"}
+            </span>
+            <span className="text-[10px] text-muted-foreground font-normal">
+              {group.paidAt
+                ? new Date(group.paidAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+                : "Confirmado"}
+            </span>
+          </div>
+        ) : group.totalCents > 0 ? (
+          <div className="rounded-xl bg-muted/40 border border-border/60 p-2 space-y-1.5">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-bold flex items-center gap-1 text-foreground">
+                <DollarSign className="h-3 w-3 text-emerald-600" />
+                Receber no Caixa:
+              </span>
+              <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
+                {formatBRL(group.totalCents)}
+              </span>
+            </div>
+            <div className="grid grid-cols-4 gap-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => onRegisterPayment?.(group.items.map((i) => i.id), "credito")}
+                className="h-6 rounded-md text-[9px] font-bold px-1 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 cursor-pointer"
+              >
+                <CreditCard className="h-2.5 w-2.5 mr-0.5" />
+                Crédito
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => onRegisterPayment?.(group.items.map((i) => i.id), "debito")}
+                className="h-6 rounded-md text-[9px] font-bold px-1 border-sky-500/30 text-sky-700 dark:text-sky-300 hover:bg-sky-500/10 cursor-pointer"
+              >
+                <CreditCard className="h-2.5 w-2.5 mr-0.5" />
+                Débito
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => onRegisterPayment?.(group.items.map((i) => i.id), "pix")}
+                className="h-6 rounded-md text-[9px] font-bold px-1 border-teal-500/30 text-teal-700 dark:text-teal-300 hover:bg-teal-500/10 cursor-pointer"
+              >
+                <QrCode className="h-2.5 w-2.5 mr-0.5" />
+                Pix
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => onRegisterPayment?.(group.items.map((i) => i.id), "dinheiro")}
+                className="h-6 rounded-md text-[9px] font-bold px-1 border-amber-500/30 text-amber-700 dark:text-amber-300 hover:bg-amber-500/10 cursor-pointer"
+              >
+                <DollarSign className="h-2.5 w-2.5 mr-0.5" />
+                Dinheiro
+              </Button>
+            </div>
+          </div>
+        ) : null
+      )}
     </div>
   );
 }

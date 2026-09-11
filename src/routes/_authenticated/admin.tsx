@@ -39,6 +39,7 @@ import {
   UserCheck,
   ShoppingBag,
   Package,
+  Stethoscope,
 } from "lucide-react";
 import { getCapacitySettings, saveCapacitySettings, type CapacitySettings } from "@/lib/schedulingCapacity";
 import { playStatusSound, testSoundAlert } from "@/lib/soundAlerts";
@@ -116,7 +117,12 @@ import { openInAppChat } from "@/components/InAppChatDrawer";
 import { useChatQueue } from "@/lib/inAppChat";
 import { AdminChatLogs } from "@/components/AdminChatLogs";
 import { AdminKpiPills } from "@/components/admin/AdminKpiPills";
-import { AdminOperationalKanban, type KanbanItem } from "@/components/admin/AdminOperationalKanban";
+import {
+  AdminOperationalKanban,
+  type KanbanItem,
+  type KanbanPetGroup,
+  type PaymentMethod,
+} from "@/components/admin/AdminOperationalKanban";
 import { AdminHealthAlertsGrouped, type HealthAlertItem } from "@/components/admin/AdminHealthAlertsGrouped";
 import { AdminOrdersManager } from "@/components/admin/AdminOrdersManager";
 import { PetAvatar } from "@/components/PetAvatar";
@@ -931,7 +937,7 @@ function Admin() {
     return { byCategory, total };
   }, [dashboardBoundaries, products, dashOrders, orders, dashboardProductCategories]);
 
-  const [kanbanFilterType, setKanbanFilterType] = useState<"todos" | "banho" | "delivery">("todos");
+  const [kanbanFilterType, setKanbanFilterType] = useState<"todos" | "banho" | "delivery" | "vet">("todos");
 
   const pendingAppointments = useMemo(() => {
     return (appointments ?? [])
@@ -1343,11 +1349,16 @@ function Admin() {
   const registerStorePayment = useMutation({
     mutationFn: async ({
       appointmentId,
+      appointmentIds,
       method,
     }: {
-      appointmentId: string;
-      method: "credito" | "debito" | "pix" | "dinheiro";
+      appointmentId?: string;
+      appointmentIds?: string[];
+      method: PaymentMethod;
     }) => {
+      const ids = appointmentIds ?? (appointmentId ? [appointmentId] : []);
+      if (ids.length === 0) return method;
+
       const { error } = await supabase
         .from("appointments")
         .update({
@@ -1355,13 +1366,15 @@ function Admin() {
           payment_method: method,
           paid_at: new Date().toISOString(),
         })
-        .eq("id", appointmentId);
+        .in("id", ids);
       if (error) throw error;
       return method;
     },
     onSuccess: (method) => {
       queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-dash-appointments"] });
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["driver-routes"] });
       toast.success(`Pagamento no balcão registrado via ${method.toUpperCase()} com sucesso!`);
       playStatusSound("confirmado", 1);
     },
@@ -2263,6 +2276,9 @@ function Admin() {
         addressSummary: tOrder?.addresses
           ? `${tOrder.addresses.street || ""}, ${tOrder.addresses.number || ""}`.trim()
           : null,
+        paymentStatus: appt.payment_status || null,
+        paymentMethod: appt.payment_method || null,
+        paidAt: appt.paid_at || null,
       };
     });
   }, [appointments, transportOrders, getClientAbcInfo, profileById]);
@@ -2441,6 +2457,109 @@ function Admin() {
     },
     onError: () => toast.error("Não foi possível cancelar o agendamento"),
   });
+
+  const handleKanbanAdvanceGroup = async (
+    group: KanbanPetGroup,
+    paymentMethod?: PaymentMethod
+  ) => {
+    const primaryItem = group.items[0];
+    if (!primaryItem) return;
+
+    if (primaryItem.status === "pendente") {
+      for (const item of group.items) {
+        confirmAppointment.mutate({
+          id: item.id,
+          user_id: item.userId,
+          scheduled_at: item.scheduledAt,
+          services: { name: item.serviceName },
+          pets: { name: item.petName },
+        });
+      }
+      return;
+    }
+
+    try {
+      const itemIds = group.items.map((i) => i.id);
+
+      if (primaryItem.opsStatus !== "em_atendimento") {
+        // INICIAR ATENDIMENTO (da coluna Aguardando Início para Em Andamento)
+        const { error: apptError } = await supabase
+          .from("appointments")
+          .update({
+            ops_status: "em_atendimento",
+            status: "confirmado",
+          })
+          .in("id", itemIds);
+        if (apptError) throw apptError;
+
+        if (user?.id) {
+          for (const item of group.items) {
+            await supabase.from("pet_status_history").insert({
+              appointment_id: item.id,
+              status: "em_atendimento",
+              created_by: user.id,
+              note: `Atendimento do ${item.petName} (${item.serviceName}) iniciado`,
+            });
+          }
+        }
+
+        playStatusSound("atendimento", 3);
+        toast.success(`Atendimento do ${primaryItem.petName} iniciado! 🥳✂️`);
+      } else {
+        // CONCLUIR ATENDIMENTO (da coluna Em Andamento para Pronto / Concluído)
+        const hasReturnTransport = group.items.some(
+          (item) => item.logisticsType === "buscar_e_devolver" || item.logisticsType === "devolver"
+        );
+        const nextOps = "servico_concluido";
+        const nextStatus = hasReturnTransport ? "confirmado" : "concluido";
+
+        const updatePayload: Record<string, any> = {
+          ops_status: nextOps,
+          status: nextStatus,
+        };
+
+        if (paymentMethod) {
+          updatePayload.payment_status = "pago";
+          updatePayload.payment_method = paymentMethod;
+          updatePayload.paid_at = new Date().toISOString();
+        }
+
+        const { error: apptError } = await supabase
+          .from("appointments")
+          .update(updatePayload)
+          .in("id", itemIds);
+        if (apptError) throw apptError;
+
+        if (user?.id) {
+          for (const item of group.items) {
+            await supabase.from("pet_status_history").insert({
+              appointment_id: item.id,
+              status: "servico_concluido",
+              created_by: user.id,
+              note: `Atendimento do ${item.petName} (${item.serviceName}) concluído${paymentMethod ? ` - Pago via ${paymentMethod.toUpperCase()}` : ""}`,
+            });
+          }
+        }
+
+        playStatusSound("confirmado", 3);
+        const methodLabel = paymentMethod ? ` e pago via ${paymentMethod.toUpperCase()}` : "";
+        toast.success(
+          hasReturnTransport
+            ? `Atendimento de ${primaryItem.petName} concluído${methodLabel}! Pronto para devolução pelo motorista 🚗✨`
+            : `Atendimento de ${primaryItem.petName} concluído${methodLabel} com sucesso! ✨`
+        );
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["admin-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-dash-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-transport-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["transport-history"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar status do atendimento");
+    }
+  };
 
   const handleKanbanAdvance = async (item: KanbanItem) => {
     if (item.status === "pendente") {
@@ -2710,6 +2829,18 @@ function Admin() {
             <Truck className="h-3.5 w-3.5" />
             Táxi Pet
           </Button>
+          <Button
+            size="sm"
+            variant={kanbanFilterType === "vet" ? "default" : "outline"}
+            onClick={() => {
+              setKanbanFilterType("vet");
+              if (currentTab !== "hoje") setCurrentTab("hoje");
+            }}
+            className="h-8 rounded-xl text-xs font-semibold px-3 gap-1 cursor-pointer"
+          >
+            <Stethoscope className="h-3.5 w-3.5" />
+            Veterinário
+          </Button>
         </div>
       </div>
 
@@ -2891,7 +3022,11 @@ function Admin() {
             filterType={kanbanFilterType}
             onFilterTypeChange={setKanbanFilterType}
             hideTopFilterBar={true}
+            onAdvanceGroup={handleKanbanAdvanceGroup}
             onAdvanceStatus={handleKanbanAdvance}
+            onRegisterPayment={async (appointmentIds, method) => {
+              await registerStorePayment.mutateAsync({ appointmentIds, method });
+            }}
             onConfirmAppointment={(appointmentId) => {
               const appt = (appointments ?? []).find((a) => a.id === appointmentId);
               if (appt) confirmAppointment.mutate(appt);
