@@ -40,6 +40,7 @@ import {
   ShoppingBag,
   Package,
   Stethoscope,
+  AlertTriangle,
 } from "lucide-react";
 import { getCapacitySettings, saveCapacitySettings, type CapacitySettings } from "@/lib/schedulingCapacity";
 import { playStatusSound, testSoundAlert } from "@/lib/soundAlerts";
@@ -87,6 +88,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
