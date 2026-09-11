@@ -279,7 +279,7 @@ function Agendar() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("services")
-        .select("id, name, category, price_cents, duration_min")
+        .select("id, name, category, price_cents, duration_min, description")
         .eq("active", true)
         .order("price_cents");
       if (error) throw error;
@@ -711,21 +711,57 @@ function Agendar() {
                         )}
                       >
                         <span className="min-w-0">
-                          <span
-                            className={cn(
-                              "block truncate text-sm",
-                              isSelected ? "font-bold text-white" : "font-semibold text-foreground",
+                          <span className="flex items-center gap-1.5 flex-wrap">
+                            <span
+                              className={cn(
+                                "block truncate text-sm",
+                                isSelected ? "font-bold text-white" : "font-semibold text-foreground",
+                              )}
+                            >
+                              {service.name}
+                            </span>
+                            {c.value === "veterinario" && (
+                              <span
+                                className={cn(
+                                  "text-[10px] font-bold px-1.5 py-0.5 rounded-md",
+                                  isSelected
+                                    ? "bg-white/20 text-white"
+                                    : (service.name.toLowerCase().includes("cirurg") ||
+                                       service.name.toLowerCase().includes("castra") ||
+                                       service.name.toLowerCase().includes("profilax") ||
+                                       service.name.toLowerCase().includes("nodulec") ||
+                                       service.name.toLowerCase().includes("hernio"))
+                                      ? "bg-rose-500/15 text-rose-700 dark:text-rose-400"
+                                      : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+                                )}
+                              >
+                                {(service.name.toLowerCase().includes("cirurg") ||
+                                  service.name.toLowerCase().includes("castra") ||
+                                  service.name.toLowerCase().includes("profilax") ||
+                                  service.name.toLowerCase().includes("nodulec") ||
+                                  service.name.toLowerCase().includes("hernio"))
+                                  ? "🩺 Cirurgia"
+                                  : "🏥 Clínico"}
+                              </span>
                             )}
-                          >
-                            {service.name}
                           </span>
+                          {service.description && (
+                            <span
+                              className={cn(
+                                "block text-[11px] mt-0.5 line-clamp-1",
+                                isSelected ? "text-white/80 font-normal" : "text-muted-foreground",
+                              )}
+                            >
+                              {service.description}
+                            </span>
+                          )}
                           <span
                             className={cn(
                               "block text-[11px] mt-0.5",
                               isSelected ? "text-white/85 font-medium" : "text-muted-foreground",
                             )}
                           >
-                            {service.duration_min} minutos
+                            ⏱️ {service.duration_min} minutos
                           </span>
                         </span>
                         <div className="shrink-0 flex items-center gap-2">

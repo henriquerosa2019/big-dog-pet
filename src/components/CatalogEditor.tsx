@@ -1,12 +1,97 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Image as ImageIcon, Search, Sparkles, Check, Globe } from "lucide-react";
+import { Image as ImageIcon, Search, Sparkles, Check, Globe, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { searchProductImages } from "@/lib/productImageSuggestions";
+
+export type VetProcedureTemplate = {
+  label: string;
+  name: string;
+  category: string;
+  description: string;
+  priceCents: number;
+  durationMin: number;
+  isSurgery?: boolean;
+};
+
+export const VET_PROCEDURE_TEMPLATES: VetProcedureTemplate[] = [
+  {
+    label: "🩺 [Cirurgia] Castração Eletiva (Cães e Gatos) — R$ 450,00",
+    name: "Castração Eletiva (Cães e Gatos - OSH / Orquiectomia)",
+    category: "veterinario",
+    description: "Esterilização cirúrgica eletiva com anestesia monitorada para prevenção de tumores e controle reprodutivo.",
+    priceCents: 45000,
+    durationMin: 60,
+    isSurgery: true,
+  },
+  {
+    label: "🩺 [Cirurgia] Profilaxia Odontológica / Limpeza de Tártaro — R$ 380,00",
+    name: "Profilaxia Odontológica / Limpeza de Tártaro",
+    category: "veterinario",
+    description: "Remoção ultrassônica de cálculo dentário e placa bacteriana com polimento sob anestesia inalatória monitorada.",
+    priceCents: 38000,
+    durationMin: 60,
+    isSurgery: true,
+  },
+  {
+    label: "🩺 [Cirurgia] Nodulectomia / Remoção de Tumores — R$ 750,00",
+    name: "Nodulectomia / Remoção de Nódulos e Tumores Cutâneos",
+    category: "veterinario",
+    description: "Exérese cirúrgica de nódulos, massas ou tumores de pele e mamas com margem de segurança cirúrgica.",
+    priceCents: 75000,
+    durationMin: 90,
+    isSurgery: true,
+  },
+  {
+    label: "🩺 [Cirurgia] Piometra (Ovariohisterectomia de Emergência) — R$ 1.200,00",
+    name: "Cirurgia de Piometra (Ovariohisterectomia de Emergência)",
+    category: "veterinario",
+    description: "Procedimento cirúrgico de emergência para remoção de infecção uterina grave em cadelas e gatas.",
+    priceCents: 120000,
+    durationMin: 120,
+    isSurgery: true,
+  },
+  {
+    label: "🩺 [Cirurgia] Herniorrafia (Correção de Hérnia) — R$ 550,00",
+    name: "Herniorrafia (Correção de Hérnia Umbilical / Inguinal)",
+    category: "veterinario",
+    description: "Fechamento cirúrgico do anel herniário umbilical ou inguinal com reconstituição da parede muscular abdominal.",
+    priceCents: 55000,
+    durationMin: 60,
+    isSurgery: true,
+  },
+  {
+    label: "🏥 [Clínico] Consulta Veterinária Geral — R$ 120,00",
+    name: "Consulta Veterinária Geral",
+    category: "veterinario",
+    description: "Avaliação clínica completa, anamnese e exame físico do pet.",
+    priceCents: 12000,
+    durationMin: 45,
+    isSurgery: false,
+  },
+  {
+    label: "🏥 [Clínico] Retorno Veterinário — R$ 60,00",
+    name: "Retorno Veterinário",
+    category: "veterinario",
+    description: "Reavaliação clínica e acompanhamento de tratamento em até 30 dias.",
+    priceCents: 6000,
+    durationMin: 30,
+    isSurgery: false,
+  },
+  {
+    label: "💉 [Clínico] Aplicação de Vacina / Imunização — R$ 80,00",
+    name: "Aplicação de Vacina / Imunização",
+    category: "veterinario",
+    description: "Aplicação de vacinas essenciais (V8, V10, Antirrábica) com triagem.",
+    priceCents: 8000,
+    durationMin: 30,
+    isSurgery: false,
+  },
+];
 
 /**
  * Formulário único de catálogo, usado tanto pra criar quanto pra editar um
@@ -143,6 +228,55 @@ export function CatalogForm({
           <option key={c} value={c} />
         ))}
       </datalist>
+
+      {isService && (
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-1.5 shadow-xs">
+          <Label
+            htmlFor={`${listId}-vet-modelos`}
+            className="text-xs font-bold text-primary flex items-center gap-1.5"
+          >
+            <Stethoscope className="h-4 w-4 text-primary shrink-0" />
+            Modelos de Cirurgias e Procedimentos Veterinários (Tabela de Valores)
+          </Label>
+          <select
+            id={`${listId}-vet-modelos`}
+            defaultValue=""
+            onChange={(e) => {
+              const selected = VET_PROCEDURE_TEMPLATES.find((t) => t.name === e.target.value);
+              if (selected) {
+                setName(selected.name);
+                setDescription(selected.description);
+                setCategory(selected.category);
+                setPrice(centsToInput(selected.priceCents));
+                setDurationMin(String(selected.durationMin));
+                toast.success(`Modelo "${selected.name}" aplicado! Você pode editar os campos abaixo.`);
+              }
+            }}
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary shadow-xs cursor-pointer"
+          >
+            <option value="" disabled>
+              ⚡ Escolha uma cirurgia ou procedimento clínico na lista suspensa...
+            </option>
+            <optgroup label="🩺 5 Principais Cirurgias Veterinárias">
+              {VET_PROCEDURE_TEMPLATES.filter((t) => t.isSurgery).map((t) => (
+                <option key={t.name} value={t.name}>
+                  {t.label}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="🏥 Consultas e Procedimentos Clínicos">
+              {VET_PROCEDURE_TEMPLATES.filter((t) => !t.isSurgery).map((t) => (
+                <option key={t.name} value={t.name}>
+                  {t.label}
+                </option>
+              ))}
+            </optgroup>
+          </select>
+          <p className="text-[11px] text-muted-foreground">
+            💡 Ao selecionar uma opção acima, o nome, descrição, categoria, duração e preço de tabela são preenchidos automaticamente para você criar ou editar.
+          </p>
+        </div>
+      )}
 
       <div>
         <Label htmlFor={`${listId}-nome`}>Nome</Label>

@@ -1784,6 +1784,7 @@ function Admin() {
   const [reportGeneratedAt, setReportGeneratedAt] = useState<Date | null>(null);
   const [creatingCatalog, setCreatingCatalog] = useState<CatalogKind | null>(null);
   const [editingCatalogId, setEditingCatalogId] = useState<string | null>(null);
+  const [serviceSectionFilter, setServiceSectionFilter] = useState<"todos" | "banho_tosa" | "veterinario">("todos");
 
   // Alerta de Estoque Crítico de Produtos Curva A
   const curveAProductIds = useMemo(() => {
@@ -5727,7 +5728,49 @@ function Admin() {
           />
         </TabsContent>
 
-        <TabsContent value="servicos" className="mt-4 space-y-2">
+        <TabsContent value="servicos" className="mt-4 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2">
+            <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+              <Button
+                type="button"
+                size="sm"
+                variant={serviceSectionFilter === "todos" ? "default" : "outline"}
+                className="h-8 rounded-xl text-xs font-semibold"
+                onClick={() => setServiceSectionFilter("todos")}
+              >
+                Todos ({(services ?? []).length})
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={serviceSectionFilter === "banho_tosa" ? "default" : "outline"}
+                className="h-8 rounded-xl text-xs font-semibold gap-1"
+                onClick={() => setServiceSectionFilter("banho_tosa")}
+              >
+                🚿 Banho & Tosa (
+                {(services ?? []).filter((s) => {
+                  const cat = (s.category ?? "").toLowerCase();
+                  return !cat.includes("vet") && !cat.includes("clinic") && !cat.includes("cirurg");
+                }).length}
+                )
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={serviceSectionFilter === "veterinario" ? "default" : "outline"}
+                className="h-8 rounded-xl text-xs font-semibold gap-1"
+                onClick={() => setServiceSectionFilter("veterinario")}
+              >
+                🩺 Veterinário & Cirurgias (
+                {(services ?? []).filter((s) => {
+                  const cat = (s.category ?? "").toLowerCase();
+                  return cat.includes("vet") || cat.includes("clinic") || cat.includes("cirurg");
+                }).length}
+                )
+              </Button>
+            </div>
+          </div>
+
           <CatalogCreateBlock
             kind="services"
             label="Novo serviço"
@@ -5742,7 +5785,15 @@ function Admin() {
             onSubmit={(values) => createCatalog.mutate({ table: "services", values })}
           />
 
-          {(services ?? []).map((service) => (
+          {(services ?? [])
+            .filter((s) => {
+              const cat = (s.category ?? "").toLowerCase();
+              const isVet = cat.includes("vet") || cat.includes("clinic") || cat.includes("cirurg");
+              if (serviceSectionFilter === "veterinario") return isVet;
+              if (serviceSectionFilter === "banho_tosa") return !isVet;
+              return true;
+            })
+            .map((service) => (
             <CatalogRow
               key={service.id}
               kind="services"
@@ -5976,12 +6027,33 @@ function CatalogRow({
         ) : null}
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <p className="truncate text-sm font-semibold">{name}</p>
+            <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
+              <p className="truncate text-sm font-semibold">{name}</p>
+              {kind === "services" && initial.category.toLowerCase().includes("vet") && (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] font-bold text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30"
+                >
+                  {name.toLowerCase().includes("cirurg") ||
+                  name.toLowerCase().includes("castra") ||
+                  name.toLowerCase().includes("profilax") ||
+                  name.toLowerCase().includes("nodulec") ||
+                  name.toLowerCase().includes("hernio")
+                    ? "🩺 Cirurgia"
+                    : "🏥 Veterinário"}
+                </Badge>
+              )}
+            </div>
             <Badge variant={active ? "default" : "secondary"} className="shrink-0">
               {active ? "ativo" : "inativo"}
             </Badge>
           </div>
           <p className="truncate text-xs capitalize text-muted-foreground">{subtitle}</p>
+          {initial.description && (
+            <p className="mt-0.5 text-[11px] text-muted-foreground line-clamp-1 italic">
+              {initial.description}
+            </p>
+          )}
         </div>
       </div>
       <div className="mt-2 flex items-center gap-2">
