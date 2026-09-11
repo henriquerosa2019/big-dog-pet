@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   Activity,
   AlertTriangle,
@@ -21,6 +22,7 @@ import {
   Syringe,
   Truck,
   User,
+  XCircle,
 } from "lucide-react";
 import heroImage from "@/assets/hero-pets.jpg";
 import { supabase } from "@/integrations/supabase/client";
@@ -61,6 +63,16 @@ import { DriverLiveMap } from "@/components/DriverLiveMap";
 import { TransportHistoryList } from "@/components/TransportHistoryList";
 import { openInAppChat } from "@/components/InAppChatDrawer";
 import { PetAvatar } from "@/components/PetAvatar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -368,6 +380,71 @@ function Home() {
       window.removeEventListener("bigdog_status_alert", handleCustomAlert);
     };
   }, [user?.id, queryClient]);
+
+  // Estado e mutação para cancelamento de agendamento pelo tutor (TC-17)
+  const [cancellingAppt, setCancellingAppt] = useState<{
+    id: string;
+    scheduled_at: string;
+    notes?: string | null;
+    services?: { name?: string | null } | null;
+    pets?: { name?: string | null } | null;
+  } | null>(null);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+
+  const hoursUntilAppointment = useMemo(() => {
+    if (!cancellingAppt?.scheduled_at) return 999;
+    const diffMs = new Date(cancellingAppt.scheduled_at).getTime() - Date.now();
+    return diffMs / (1000 * 60 * 60);
+  }, [cancellingAppt]);
+
+  const isUnder2Hours = hoursUntilAppointment < 2;
+
+  const cancelAppointmentMutation = useMutation({
+    mutationFn: async ({
+      appointmentId,
+      notes,
+      isUnder2h,
+    }: {
+      appointmentId: string;
+      notes?: string | null;
+      isUnder2h: boolean;
+    }) => {
+      const cancelNote = isUnder2h
+        ? "• Cancelado pelo tutor com menos de 2h de antecedência"
+        : "• Cancelado pelo tutor com antecedência";
+      const updatedNotes = notes ? `${notes.trim()}\n${cancelNote}` : cancelNote;
+
+      const { error } = await supabase
+        .from("appointments")
+        .update({
+          status: "cancelado",
+          ops_status: "cancelado",
+          notes: updatedNotes,
+        })
+        .eq("id", appointmentId);
+
+      if (error) throw error;
+
+      // Histórico de status
+      await supabase.from("pet_status_history").insert({
+        appointment_id: appointmentId,
+        status: "cancelado",
+        notes: cancelNote,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Agendamento cancelado com sucesso. A vaga foi liberada na agenda!");
+      queryClient.invalidateQueries({ queryKey: ["home-active-appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments-capacity"] });
+      setIsCancelModalOpen(false);
+      setCancellingAppt(null);
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : "Erro ao cancelar agendamento";
+      toast.error(msg);
+    },
+  });
 
   // Junta vacinas + retornos + consultas num único conjunto ordenado com prioridade para hoje
   type HomeAlert = {
@@ -833,6 +910,41 @@ function Home() {
                       </div>
                     </div>
                   )}
+
+                  {/* Ações do Tutor no Agendamento Confirmado/Ativo: Chat e Cancelar */}
+                  {!display.isCancelled && item.ops_status !== "finalizado" && item.status !== "concluido" && (
+                    <div className="mt-3 flex items-center justify-end gap-2 pt-2.5 border-t border-current/15">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 rounded-xl text-xs font-bold gap-1.5 bg-background/80 hover:bg-background border-border/80 shadow-xs"
+                        onClick={() =>
+                          openInAppChat({
+                            contextTag: `Agendamento: ${item.services?.name ?? "Serviço"}`,
+                            defaultText: `Olá! Gostaria de falar sobre o agendamento de ${item.services?.name ?? "serviço"}${petNameFormatted ? ` para ${petNameFormatted}` : ""} marcado para ${formatDateTime(item.scheduled_at)}.`,
+                          })
+                        }
+                      >
+                        <MessageCircle className="h-3.5 w-3.5 text-primary" />
+                        Chat da Loja
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/50 gap-1.5"
+                        onClick={() => {
+                          setCancellingAppt(item);
+                          setIsCancelModalOpen(true);
+                        }}
+                      >
+                        <XCircle className="h-3.5 w-3.5" />
+                        Cancelar
+                      </Button>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -1089,6 +1201,98 @@ function Home() {
           </li>
         </ul>
       </section>
+
+      {/* Modal de Cancelamento de Agendamento pelo Tutor (com crítica de < 2h - TC-17) */}
+      <AlertDialog open={isCancelModalOpen} onOpenChange={setIsCancelModalOpen}>
+        <AlertDialogContent className="rounded-3xl max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-base">
+              {isUnder2Hours ? (
+                <>
+                  <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
+                  <span>Atenção: Cancelamento com menos de 2h</span>
+                </>
+              ) : (
+                <>
+                  <Calendar className="h-5 w-5 text-primary shrink-0" />
+                  <span>Confirmar Cancelamento do Horário</span>
+                </>
+              )}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-xs leading-relaxed text-muted-foreground pt-1">
+                {isUnder2Hours ? (
+                  <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3.5 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100 space-y-2">
+                    <p className="font-bold flex items-center gap-1.5 text-amber-900 dark:text-amber-200">
+                      <span>⚠️</span> Seu atendimento está previsto para daqui a menos de 2 horas!
+                    </p>
+                    <p>
+                      <strong>Serviço:</strong> {cancellingAppt?.services?.name ?? "Serviço"} {cancellingAppt?.pets?.name ? `(🐾 ${capitalizeWords(cancellingAppt.pets.name)})` : ""}
+                      <br />
+                      <strong>Horário agendado:</strong> {cancellingAppt?.scheduled_at ? formatDateTime(cancellingAppt.scheduled_at) : "—"}
+                    </p>
+                    <p className="text-[11px] leading-relaxed text-amber-900/90 dark:text-amber-200/90">
+                      Cancelamentos em cima da hora afetam a escala da equipe de banho/tosa e o itinerário dos motoristas do Táxi Pet.
+                      Você pode tirar dúvidas e alinhar com nossa recepção pelo <strong>Chat da loja</strong> ou confirmar a liberação da vaga agora.
+                    </p>
+                  </div>
+                ) : (
+                  <p>
+                    Deseja realmente cancelar o agendamento de{" "}
+                    <strong className="text-foreground">{cancellingAppt?.services?.name ?? "serviço"}</strong> para{" "}
+                    <strong className="text-foreground">{cancellingAppt?.pets?.name ? capitalizeWords(cancellingAppt.pets.name) : "seu pet"}</strong>{" "}
+                    marcado para <strong>{cancellingAppt?.scheduled_at ? formatDateTime(cancellingAppt.scheduled_at) : ""}</strong>?
+                    A vaga será liberada imediatamente na agenda.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 mt-2">
+            <AlertDialogCancel
+              disabled={cancelAppointmentMutation.isPending}
+              className="rounded-xl text-xs font-semibold"
+            >
+              Voltar
+            </AlertDialogCancel>
+
+            {isUnder2Hours && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-xl text-xs font-bold border-primary/40 text-primary hover:bg-primary/10 gap-1.5"
+                onClick={() => {
+                  setIsCancelModalOpen(false);
+                  openInAppChat({
+                    contextTag: `Cancelamento <2h: ${cancellingAppt?.services?.name ?? "Serviço"}`,
+                    defaultText: `Olá! Preciso conversar sobre o cancelamento do agendamento de ${cancellingAppt?.services?.name ?? "serviço"}${cancellingAppt?.pets?.name ? ` para ${cancellingAppt.pets.name}` : ""} marcado para ${cancellingAppt?.scheduled_at ? formatDateTime(cancellingAppt.scheduled_at) : ""} (menos de 2h de antecedência).`,
+                  });
+                }}
+              >
+                <MessageCircle className="h-3.5 w-3.5" />
+                Falar no Chat
+              </Button>
+            )}
+
+            <AlertDialogAction
+              disabled={cancelAppointmentMutation.isPending}
+              onClick={() => {
+                if (cancellingAppt) {
+                  cancelAppointmentMutation.mutate({
+                    appointmentId: cancellingAppt.id,
+                    notes: cancellingAppt.notes,
+                    isUnder2h: isUnder2Hours,
+                  });
+                }
+              }}
+              className="rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              {cancelAppointmentMutation.isPending ? "Cancelando..." : "Confirmar Cancelamento"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

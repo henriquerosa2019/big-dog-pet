@@ -37,7 +37,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { fetchAddressByCep, maskCep } from "@/lib/navigation";
-import { AlertTriangle, Clock, CheckCircle2, Check, Truck } from "lucide-react";
+import { AlertTriangle, Clock, CheckCircle2, Check, Truck, Info } from "lucide-react";
 import { PetAvatar } from "@/components/PetAvatar";
 import { PetPhotoUpload } from "@/components/PetPhotoUpload";
 import { dispatchStatusAlert } from "@/components/StatusAlertNotifier";
@@ -1375,6 +1375,22 @@ function Agendar() {
             </p>
           </div>
         )}
+
+        {/* Aviso da Política de Cancelamento (<2h) */}
+        <div className="rounded-2xl border border-blue-200/80 bg-blue-50/70 p-3 text-[11px] text-blue-950 leading-relaxed dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-100 shadow-xs">
+          <div className="flex items-start gap-2">
+            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-blue-950 dark:text-blue-100">
+                Regra de Cancelamento e Reagendamento:
+              </p>
+              <p className="mt-0.5 text-blue-900/90 dark:text-blue-200/90">
+                Você pode cancelar ou alterar seu horário livremente pelo app. Para cancelamentos com <strong>menos de 2 horas de antecedência</strong>, solicitamos contato prévio pelo Chat da loja para alinhamento com a escala dos banhistas e do Táxi Pet.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <Button
           className="h-12 w-full rounded-2xl font-semibold"
           disabled={
