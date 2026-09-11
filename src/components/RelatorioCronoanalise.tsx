@@ -84,24 +84,24 @@ function formatMinutesExplanatory(min: number | null | undefined): string {
 /** Badge explicativo de agilidade para tempos */
 function renderAgilityBadge(min: number | null | undefined, thresholds: { fast: number; moderate: number }) {
   if (min === null || min === undefined) {
-    return <span className="text-muted-foreground text-xs font-medium">—</span>;
+    return <span className="text-muted-foreground text-[10px] font-medium">—</span>;
   }
   if (min <= thresholds.fast) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 border border-emerald-200">
-        🟢 Rápido ({Math.round(min)} min)
+      <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200 whitespace-nowrap">
+        🟢 Rápido ({Math.round(min)}m)
       </span>
     );
   }
   if (min <= thresholds.moderate) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700 border border-amber-200">
-        🟡 Moderado ({Math.round(min)} min)
+      <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200 whitespace-nowrap">
+        🟡 Moderado ({Math.round(min)}m)
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700 border border-rose-200">
+    <span className="inline-flex items-center gap-0.5 rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-700 border border-rose-200 whitespace-nowrap">
       🔴 Demorado ({formatMinutesExplanatory(min)})
     </span>
   );
@@ -111,28 +111,28 @@ function renderAgilityBadge(min: number | null | undefined, thresholds: { fast: 
 function renderPaceBadge(diffMin: number | null | undefined) {
   if (diffMin === null || diffMin === undefined) {
     return (
-      <Badge variant="outline" className="text-muted-foreground text-[10px]">
+      <Badge variant="outline" className="text-muted-foreground text-[10px] px-1 py-0">
         Em andamento
       </Badge>
     );
   }
   if (diffMin <= 0) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 border border-emerald-200">
-        🟢 No Prazo ({diffMin === 0 ? "Exato" : `${Math.abs(Math.round(diffMin))} min antes`})
+      <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200 whitespace-nowrap">
+        🟢 No Prazo {diffMin < 0 ? `(${Math.abs(Math.round(diffMin))}m antes)` : ""}
       </span>
     );
   }
   if (diffMin <= 15) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700 border border-amber-200">
-        🟡 Variação Leve (+{Math.round(diffMin)} min)
+      <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200 whitespace-nowrap">
+        🟡 +{Math.round(diffMin)}m
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700 border border-rose-200">
-      🔴 Acima do Previsto (+{Math.round(diffMin)} min)
+    <span className="inline-flex items-center gap-0.5 rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-700 border border-rose-200 whitespace-nowrap">
+      🔴 +{formatMinutesExplanatory(diffMin)}
     </span>
   );
 }
@@ -1202,18 +1202,46 @@ export function RelatorioCronoanalise() {
                 <table className="w-full text-left text-xs border-separate border-spacing-0">
                   <thead className="sticky top-0 z-20 shadow-sm">
                     <tr className="border-b-2 border-blue-300 dark:border-blue-700">
-                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Cliente / Tutor</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Pet</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Bairro / Endereço</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Motorista</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">1. Recebimento</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">2. Chegar ao Cliente</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">3. Voltar ao Petshop</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">4. Retorno ao Cliente</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-200 dark:bg-blue-900 text-blue-950 dark:text-blue-100 font-black border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">
-                        5. Tempo Geral do Pet
+                      <th className="sticky top-0 z-20 py-2 px-2 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Cliente</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Tutor</div>
                       </th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Ações</th>
+                      <th className="sticky top-0 z-20 py-2 px-2 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Pet</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Nome</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-2 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Bairro</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Região</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-2 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Motorista</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Escalado</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-1.5 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">1. Recebimento</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">da Corrida</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-1.5 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">2. Chegada</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">ao Cliente</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-1.5 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">3. Volta</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">ao Petshop</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-1.5 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">4. Retorno</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">ao Cliente</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-2 text-center bg-blue-200 dark:bg-blue-900 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-black leading-tight">5. Tempo Geral</div>
+                        <div className="text-[10px] font-extrabold text-blue-800 dark:text-blue-200 leading-tight">(Total Pet)</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-1.5 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Ações</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Chat</div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-blue-100 dark:divide-blue-900/40">
@@ -1224,14 +1252,14 @@ export function RelatorioCronoanalise() {
                         </td>
                       </tr>
                     ) : (
-                      taxiAnalysis.rides.map((ride, idx) => (
+                      taxiAnalysis.rides.map((ride) => (
                         <tr
                           key={ride.id}
                           className="hover:bg-blue-50/50 transition-colors dark:hover:bg-blue-950/30"
                         >
                           {/* Cliente */}
-                          <td className="py-2.5 px-3">
-                            <span className="font-bold text-blue-950 dark:text-blue-100 block">
+                          <td className="py-2 px-2">
+                            <span className="font-bold text-blue-950 dark:text-blue-100 block leading-tight">
                               {ride.tutorName}
                             </span>
                             <span className="text-[10px] text-muted-foreground">
@@ -1240,8 +1268,8 @@ export function RelatorioCronoanalise() {
                           </td>
 
                           {/* Pet */}
-                          <td className="py-2.5 px-3">
-                            <span className="font-semibold text-blue-900 dark:text-blue-200 block">
+                          <td className="py-2 px-2">
+                            <span className="font-semibold text-blue-900 dark:text-blue-200 block leading-tight">
                               🐾 {ride.petName}
                             </span>
                             {ride.petSpecies && (
@@ -1252,52 +1280,49 @@ export function RelatorioCronoanalise() {
                           </td>
 
                           {/* Bairro */}
-                          <td className="py-2.5 px-3">
-                            <span className="font-medium text-foreground flex items-center gap-1">
-                              <MapPin className="h-3 w-3 text-blue-500" />
-                              {ride.district}
+                          <td className="py-2 px-2">
+                            <span className="font-medium text-foreground flex items-center gap-1 text-[11px] leading-tight">
+                              <MapPin className="h-3 w-3 text-blue-500 shrink-0" />
+                              <span className="truncate max-w-[110px]">{ride.district}</span>
                             </span>
                           </td>
 
                           {/* Motorista */}
-                          <td className="py-2.5 px-3">
-                            <span className="font-medium text-muted-foreground">
+                          <td className="py-2 px-2">
+                            <span className="font-medium text-muted-foreground text-[11px] leading-tight block truncate max-w-[100px]">
                               {ride.driverName}
                             </span>
                           </td>
 
                           {/* 1. Recebimento da corrida */}
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-2 px-1.5 text-center">
                             {renderAgilityBadge(ride.tempoRecebimentoCorridaMin, { fast: 10, moderate: 30 })}
                           </td>
 
                           {/* 2. Chegar ao cliente */}
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-2 px-1.5 text-center">
                             {renderAgilityBadge(ride.tempoChegarAoClienteMin, { fast: 15, moderate: 25 })}
                           </td>
 
                           {/* 3. Voltar ao petshop */}
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-2 px-1.5 text-center">
                             {renderAgilityBadge(ride.tempoVoltarAoPetshopMin, { fast: 15, moderate: 25 })}
                           </td>
 
                           {/* 4. Retorno ao cliente */}
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-2 px-1.5 text-center">
                             {renderAgilityBadge(ride.tempoRetornoAoClienteMin, { fast: 15, moderate: 25 })}
                           </td>
 
                           {/* 5. Tempo Geral do Pet (Maior destaque e ordenação) */}
-                          <td className="py-2.5 px-3 text-center bg-blue-50/80 dark:bg-blue-950/40">
-                            <span className="text-xs font-black text-blue-950 dark:text-blue-100 block">
+                          <td className="py-2 px-2 text-center bg-blue-50/80 dark:bg-blue-950/40">
+                            <span className="text-xs font-black text-blue-950 dark:text-blue-100 block leading-tight">
                               {formatMinutesExplanatory(ride.tempoGeralDoPetMin)}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground">
-                              retirada à entrega
                             </span>
                           </td>
 
                           {/* Ações */}
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-2 px-1.5 text-center">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1309,10 +1334,9 @@ export function RelatorioCronoanalise() {
                                   contextTag: `Táxi Pet ${ride.code}`,
                                 });
                               }}
-                              className="h-7 text-xs font-bold text-blue-700 hover:bg-blue-100 hover:text-blue-900"
+                              className="h-6 px-2 text-xs font-bold text-blue-700 hover:bg-blue-100 hover:text-blue-900"
                             >
-                              <MessageCircle className="mr-1 h-3.5 w-3.5" />
-                              Chat
+                              <MessageCircle className="h-3.5 w-3.5" />
                             </Button>
                           </td>
                         </tr>
@@ -1343,18 +1367,46 @@ export function RelatorioCronoanalise() {
                 <table className="w-full text-left text-xs border-separate border-spacing-0">
                   <thead className="sticky top-0 z-20 shadow-sm">
                     <tr className="border-b-2 border-blue-300 dark:border-blue-700">
-                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Cliente / Tutor</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Telefone</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Total de Corridas</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Pets Atendidos</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Bairros</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Média Chegar ao Cliente</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Média Voltar ao Pet</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Média Retorno ao Lar</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-200 dark:bg-blue-900 text-blue-950 dark:text-blue-100 font-black border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">
-                        Média Tempo Geral do Pet
+                      <th className="sticky top-0 z-20 py-2 px-2 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Cliente</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Tutor</div>
                       </th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Ações</th>
+                      <th className="sticky top-0 z-20 py-2 px-2 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Contato</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Telefone</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-1.5 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Total</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Corridas</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-2 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Pets</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Atendidos</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-2 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Bairros</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Região</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-1.5 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Média Chegar</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">ao Cliente</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-1.5 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Média Voltar</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">ao Petshop</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-1.5 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Média Retorno</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">ao Lar</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-2 text-center bg-blue-200 dark:bg-blue-900 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-black leading-tight">Média Geral</div>
+                        <div className="text-[10px] font-extrabold text-blue-800 dark:text-blue-200 leading-tight">(Tempo Pet)</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-1.5 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Ações</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Chat</div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-blue-100 dark:divide-blue-900/40">
@@ -1370,34 +1422,34 @@ export function RelatorioCronoanalise() {
                           key={client.userId}
                           className="hover:bg-blue-50/50 transition-colors dark:hover:bg-blue-950/30"
                         >
-                          <td className="py-2.5 px-3 font-bold text-blue-950 dark:text-blue-100">
+                          <td className="py-2 px-2 font-bold text-blue-950 dark:text-blue-100">
                             {client.tutorName}
                           </td>
-                          <td className="py-2.5 px-3 text-muted-foreground">
+                          <td className="py-2 px-2 text-muted-foreground text-[11px]">
                             {client.tutorPhone || "—"}
                           </td>
-                          <td className="py-2.5 px-3 text-center font-bold">
+                          <td className="py-2 px-1.5 text-center font-bold">
                             {client.totalCorridas}
                           </td>
-                          <td className="py-2.5 px-3 font-medium text-blue-900 dark:text-blue-200">
+                          <td className="py-2 px-2 font-medium text-blue-900 dark:text-blue-200 text-[11px]">
                             🐾 {client.petsList || "—"}
                           </td>
-                          <td className="py-2.5 px-3 text-muted-foreground">
+                          <td className="py-2 px-2 text-muted-foreground text-[11px]">
                             {client.districtsList || "—"}
                           </td>
-                          <td className="py-2.5 px-3 text-center font-semibold">
+                          <td className="py-2 px-1.5 text-center font-semibold text-[11px]">
                             {formatMinutesExplanatory(client.mediaChegarClienteMin)}
                           </td>
-                          <td className="py-2.5 px-3 text-center font-semibold">
+                          <td className="py-2 px-1.5 text-center font-semibold text-[11px]">
                             {formatMinutesExplanatory(client.mediaVoltarPetMin)}
                           </td>
-                          <td className="py-2.5 px-3 text-center font-semibold">
+                          <td className="py-2 px-1.5 text-center font-semibold text-[11px]">
                             {formatMinutesExplanatory(client.mediaRetornoClienteMin)}
                           </td>
-                          <td className="py-2.5 px-3 text-center bg-blue-50/80 dark:bg-blue-950/40 font-black text-blue-950 dark:text-blue-100">
+                          <td className="py-2 px-2 text-center bg-blue-50/80 dark:bg-blue-950/40 font-black text-blue-950 dark:text-blue-100 text-[11px]">
                             {formatMinutesExplanatory(client.mediaTempoGeralMin)}
                           </td>
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-2 px-1.5 text-center">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1408,9 +1460,9 @@ export function RelatorioCronoanalise() {
                                   contextTag: "Táxi Pet - Histórico",
                                 });
                               }}
-                              className="h-7 text-xs font-bold text-blue-700 hover:bg-blue-100 hover:text-blue-900"
+                              className="h-6 px-2 text-xs font-bold text-blue-700 hover:bg-blue-100 hover:text-blue-900"
                             >
-                              <MessageCircle className="mr-1 h-3.5 w-3.5" />
+                              <MessageCircle className="h-3.5 w-3.5 mr-1" />
                               Chat
                             </Button>
                           </td>
@@ -1569,17 +1621,42 @@ export function RelatorioCronoanalise() {
                 <table className="w-full text-left text-xs border-separate border-spacing-0">
                   <thead className="sticky top-0 z-20 shadow-sm">
                     <tr className="border-b-2 border-blue-300 dark:border-blue-700">
-                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Cliente / Tutor</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Pet</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Serviço & Categoria</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Data / Horário</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Tempo de Espera na Loja</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-200 dark:bg-blue-900 text-blue-950 dark:text-blue-100 font-black border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">
-                        Duração Real na Bancada
+                      <th className="sticky top-0 z-20 py-2 px-2 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Cliente</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Tutor</div>
                       </th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Tempo Previsto</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Pontualidade (Real vs Previsto)</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Ações</th>
+                      <th className="sticky top-0 z-20 py-2 px-2 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Pet</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Nome</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-2 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Serviço</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Categoria</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-2 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Data</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Horário</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-1.5 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Espera Loja</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">(Fila)</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-2 text-center bg-blue-200 dark:bg-blue-900 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-black leading-tight">Duração Real</div>
+                        <div className="text-[10px] font-extrabold text-blue-800 dark:text-blue-200 leading-tight">(Bancada)</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-1.5 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Tempo</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Previsto</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-2 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Pontualidade</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">(Real vs Prev.)</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-1.5 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Ações</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Chat</div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-blue-100 dark:divide-blue-900/40">
@@ -1595,8 +1672,8 @@ export function RelatorioCronoanalise() {
                           key={item.id}
                           className="hover:bg-blue-50/50 transition-colors dark:hover:bg-blue-950/30"
                         >
-                          <td className="py-2.5 px-3">
-                            <span className="font-bold text-blue-950 dark:text-blue-100 block">
+                          <td className="py-2 px-2">
+                            <span className="font-bold text-blue-950 dark:text-blue-100 block leading-tight">
                               {item.tutorName}
                             </span>
                             <span className="text-[10px] text-muted-foreground">
@@ -1604,18 +1681,18 @@ export function RelatorioCronoanalise() {
                             </span>
                           </td>
 
-                          <td className="py-2.5 px-3 font-semibold text-blue-900 dark:text-blue-200">
+                          <td className="py-2 px-2 font-semibold text-blue-900 dark:text-blue-200">
                             🐾 {item.petName}
                           </td>
 
-                          <td className="py-2.5 px-3">
-                            <span className="font-semibold text-foreground block">
+                          <td className="py-2 px-2">
+                            <span className="font-semibold text-foreground block leading-tight">
                               {item.serviceName}
                             </span>
                             <Badge
                               variant="outline"
                               className={cn(
-                                "text-[10px] px-1.5 py-0 mt-0.5",
+                                "text-[9px] px-1 py-0 mt-0.5",
                                 item.category === "Cirurgia"
                                   ? "border-purple-300 text-purple-700 bg-purple-50 dark:border-purple-800 dark:text-purple-300"
                                   : item.category === "Veterinário"
@@ -1627,34 +1704,34 @@ export function RelatorioCronoanalise() {
                             </Badge>
                           </td>
 
-                          <td className="py-2.5 px-3 text-muted-foreground">
+                          <td className="py-2 px-2 text-[11px] text-muted-foreground leading-tight">
                             {formatDateTime(item.scheduledAt)}
                           </td>
 
                           {/* Tempo de espera na loja */}
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-2 px-1.5 text-center">
                             {renderAgilityBadge(item.tempoEsperaLojaMin, { fast: 15, moderate: 25 })}
                           </td>
 
-                          {/* Duração real na bancada (com maior destaque) */}
-                          <td className="py-2.5 px-3 text-center bg-blue-50/80 dark:bg-blue-950/40">
+                          {/* Duração real na bancada */}
+                          <td className="py-2 px-2 text-center bg-blue-50/80 dark:bg-blue-950/40">
                             <span className="font-black text-blue-950 dark:text-blue-100 text-xs block">
                               {formatMinutesExplanatory(item.tempoDuracaoRealMin)}
                             </span>
                           </td>
 
                           {/* Tempo previsto */}
-                          <td className="py-2.5 px-3 text-center font-semibold text-muted-foreground">
+                          <td className="py-2 px-1.5 text-center font-semibold text-muted-foreground text-[11px]">
                             {formatMinutesExplanatory(item.durationPrevistaMin)}
                           </td>
 
                           {/* Pontualidade */}
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-2 px-2 text-center">
                             {renderPaceBadge(item.desvioMin)}
                           </td>
 
                           {/* Ações */}
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-2 px-1.5 text-center">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1666,10 +1743,9 @@ export function RelatorioCronoanalise() {
                                   contextTag: item.serviceName,
                                 });
                               }}
-                              className="h-7 text-xs font-bold text-blue-700 hover:bg-blue-100 hover:text-blue-900"
+                              className="h-6 px-2 text-xs font-bold text-blue-700 hover:bg-blue-100 hover:text-blue-900"
                             >
-                              <MessageCircle className="mr-1 h-3.5 w-3.5" />
-                              Chat
+                              <MessageCircle className="h-3.5 w-3.5" />
                             </Button>
                           </td>
                         </tr>
@@ -1700,16 +1776,38 @@ export function RelatorioCronoanalise() {
                 <table className="w-full text-left text-xs border-separate border-spacing-0">
                   <thead className="sticky top-0 z-20 shadow-sm">
                     <tr className="border-b-2 border-blue-300 dark:border-blue-700">
-                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Cliente / Tutor</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Pet</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Assunto</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Início do Chamado</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-200 dark:bg-blue-900 text-blue-950 dark:text-blue-100 font-black border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">
-                        Tempo de Espera p/ 1ª Resposta
+                      <th className="sticky top-0 z-20 py-2 px-2 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Cliente</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Tutor</div>
                       </th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Avaliação</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Status</th>
-                      <th className="sticky top-0 z-20 py-2.5 px-3 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 font-bold border-b-2 border-blue-300 dark:border-blue-700 whitespace-nowrap">Ações</th>
+                      <th className="sticky top-0 z-20 py-2 px-2 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Pet</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Nome</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-2 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Assunto</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Contexto</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-2 bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Início</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">do Chamado</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-2 text-center bg-blue-200 dark:bg-blue-900 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-black leading-tight">1ª Resposta</div>
+                        <div className="text-[10px] font-extrabold text-blue-800 dark:text-blue-200 leading-tight">(Tempo Espera)</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-1.5 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Avaliação</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Rapidez</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-1.5 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Status</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Chamado</div>
+                      </th>
+                      <th className="sticky top-0 z-20 py-2 px-1.5 text-center bg-blue-100 dark:bg-blue-950 text-blue-950 dark:text-blue-100 border-b-2 border-blue-300 dark:border-blue-700">
+                        <div className="font-bold leading-tight">Ações</div>
+                        <div className="text-[10px] font-semibold text-blue-700/80 dark:text-blue-300/80 leading-tight">Chat</div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-blue-100 dark:divide-blue-900/40">
@@ -1725,29 +1823,29 @@ export function RelatorioCronoanalise() {
                           key={chat.conversationId}
                           className="hover:bg-blue-50/50 transition-colors dark:hover:bg-blue-950/30"
                         >
-                          <td className="py-2.5 px-3 font-bold text-blue-950 dark:text-blue-100">
+                          <td className="py-2 px-2 font-bold text-blue-950 dark:text-blue-100">
                             {chat.tutorName}
                           </td>
-                          <td className="py-2.5 px-3 text-muted-foreground">
+                          <td className="py-2 px-2 text-muted-foreground text-[11px]">
                             {chat.petName ? `🐾 ${chat.petName}` : "—"}
                           </td>
-                          <td className="py-2.5 px-3 font-medium text-foreground">
+                          <td className="py-2 px-2 font-medium text-foreground text-[11px]">
                             {chat.contextTag}
                           </td>
-                          <td className="py-2.5 px-3 text-muted-foreground">
+                          <td className="py-2 px-2 text-muted-foreground text-[11px]">
                             {formatDateTime(chat.startedAt)}
                           </td>
-                          <td className="py-2.5 px-3 text-center bg-blue-50/80 dark:bg-blue-950/40 font-black text-blue-950 dark:text-blue-100">
+                          <td className="py-2 px-2 text-center bg-blue-50/80 dark:bg-blue-950/40 font-black text-blue-950 dark:text-blue-100 text-[11px]">
                             {formatMinutesExplanatory(chat.tempoPrimeiraRespostaMin)}
                           </td>
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-2 px-1.5 text-center">
                             {renderAgilityBadge(chat.tempoPrimeiraRespostaMin, { fast: 5, moderate: 15 })}
                           </td>
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-2 px-1.5 text-center">
                             <Badge
                               variant="outline"
                               className={cn(
-                                "text-[10px] px-2 py-0.5",
+                                "text-[9px] px-1.5 py-0",
                                 chat.status === "fechado"
                                   ? "border-muted text-muted-foreground bg-muted/30"
                                   : chat.status === "respondido"
@@ -1759,10 +1857,10 @@ export function RelatorioCronoanalise() {
                                 ? "Fechado"
                                 : chat.status === "respondido"
                                 ? "Respondido"
-                                : "Aguardando Resposta"}
+                                : "Aguardando"}
                             </Badge>
                           </td>
-                          <td className="py-2.5 px-3 text-center">
+                          <td className="py-2 px-1.5 text-center">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1775,10 +1873,10 @@ export function RelatorioCronoanalise() {
                                   contextTag: chat.contextTag || undefined,
                                 });
                               }}
-                              className="h-7 text-xs font-bold text-blue-700 hover:bg-blue-100 hover:text-blue-900"
+                              className="h-6 px-2 text-xs font-bold text-blue-700 hover:bg-blue-100 hover:text-blue-900"
                             >
-                              <MessageCircle className="mr-1 h-3.5 w-3.5" />
-                              Abrir Chat
+                              <MessageCircle className="h-3.5 w-3.5 mr-1" />
+                              Chat
                             </Button>
                           </td>
                         </tr>
