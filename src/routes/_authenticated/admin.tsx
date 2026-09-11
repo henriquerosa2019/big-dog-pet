@@ -2921,8 +2921,7 @@ function Admin() {
                     : entry.kind === "pet"
                       ? `Oi! Passando pra avisar que amanhã é aniversário do(a) ${entry.petName} 🎉🐾 Já vamos preparar ${BIRTHDAY_DISCOUNT_PERCENT}% de desconto em banho ou tosa pra comemorar — quer garantir o horário?`
                       : `Oi, ${entry.ownerName}! Amanhã é seu aniversário 🎉 Já vamos preparar ${BIRTHDAY_DISCOUNT_PERCENT}% de desconto em banho ou tosa pro seu pet pra comemorar — quer garantir o horário?`;
-                  const link = whatsappLinkTo(entry.phone, message);
-                  return (
+                    return (
                     <div key={entry.key} className="rounded-xl bg-card p-2.5 shadow-xs border border-border/60">
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-xs font-bold text-foreground truncate">
@@ -2937,20 +2936,25 @@ function Admin() {
                           {isToday ? "Hoje" : "Amanhã"}
                         </Badge>
                       </div>
-                      {link && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="mt-2 h-7 w-full rounded-lg text-xs font-semibold"
-                          onClick={() => {
-                            window.open(link, "_blank", "noopener,noreferrer");
-                            markBirthdayMessageSent.mutate(entry.ownerId);
-                          }}
-                        >
-                          <MessageCircle className="h-3.5 w-3.5 mr-1" />
-                          Parabéns no WhatsApp
-                        </Button>
-                      )}
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="mt-2 h-7 w-full rounded-lg text-xs font-semibold text-primary"
+                        onClick={() => {
+                          openInAppChat({
+                            tutorId: entry.ownerId,
+                            tutorName: entry.ownerName,
+                            tutorPhone: entry.phone ?? undefined,
+                            petName: entry.kind === "pet" ? entry.petName : undefined,
+                            contextTag: "Aniversário 🎉",
+                            defaultText: message,
+                          });
+                          markBirthdayMessageSent.mutate(entry.ownerId);
+                        }}
+                      >
+                        <MessageCircle className="h-3.5 w-3.5 mr-1" />
+                        Parabéns no Chat
+                      </Button>
                     </div>
                   );
                 })}
@@ -4329,7 +4333,7 @@ function Admin() {
                 Receita realizada = serviço concluído (ou transporte já além do atendimento) e
                 pedido entregue; o que está agendado ou ainda não foi entregue aparece como “em
                 aberto”. Não inclui agendamentos/pedidos cancelados. Canal de origem (App x
-                WhatsApp) não é rastreado hoje, por isso não aparece separado no relatório.
+                Chat) não é rastreado hoje, por isso não aparece separado no relatório.
               </p>
 
               {showReportPreview && (
@@ -4702,7 +4706,7 @@ function Admin() {
           )}
 
           <p className="text-xs text-muted-foreground">
-            Confirme os agendamentos pendentes para avisar o cliente automaticamente pelo WhatsApp.
+            Confirme os agendamentos pendentes para avisar o cliente automaticamente pelo Chat.
           </p>
 
           {sortedAgendaAppointments.map((item, idx) => {
@@ -5052,7 +5056,7 @@ function Admin() {
                         </div>
 
                         <div>
-                          <Label className="text-xs font-semibold">Telefone / WhatsApp *</Label>
+                          <Label className="text-xs font-semibold">Telefone / Celular *</Label>
                           <Input
                             placeholder="Ex: (11) 99999-9999"
                             value={newDriverForm.phone}
@@ -5313,8 +5317,7 @@ function Admin() {
 
           <p className="text-xs text-muted-foreground">
             Pedidos de retirada/devolução. Designe um motorista e avance o status conforme o
-            andamento. Os avisos automáticos por WhatsApp estão desligados; use “Falar com o
-            tutor” quando precisar avisar.
+            andamento. Os avisos automáticos são gerenciados pelo Chat interno; use o Chat quando precisar avisar o tutor.
           </p>
 
           {sortedTransportOrders.map((item) => {
@@ -5325,10 +5328,6 @@ function Admin() {
             const address = item.addresses;
             const petSize = (appt?.pets?.size as PetSize | undefined) ?? "medio";
             const requiresCar = !isVehicleAllowedForPet("moto", petSize);
-            const tutorLink = whatsappLinkTo(
-              client?.phone,
-              `Olá${client?.full_name ? `, ${client.full_name}` : ""}! Aqui é do ${CLINIC.name}.`,
-            );
             const fullAddress = address ? formatFullAddress(address) : "";
             const wazeUrl = fullAddress ? getWazeUrl(fullAddress) : "";
             const gmapsUrl = fullAddress ? getGoogleMapsUrl(fullAddress) : "";
@@ -5398,17 +5397,23 @@ function Admin() {
                 )}
 
                 <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                  {tutorLink && (
-                    <a
-                      href={tutorLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 rounded-lg bg-secondary px-2.5 py-1.5 text-[11px] font-semibold text-secondary-foreground hover:bg-secondary/80 transition-colors"
-                    >
-                      <MessageCircle className="h-3.5 w-3.5 text-emerald-600" />
-                      Falar com o tutor
-                    </a>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      openInAppChat({
+                        tutorId: appt?.user_id,
+                        tutorName: client?.full_name || undefined,
+                        tutorPhone: client?.phone || undefined,
+                        petName: appt?.pets?.name || undefined,
+                        contextTag: "Transporte Táxi Pet",
+                        defaultText: `Olá${client?.full_name ? `, ${client.full_name}` : ""}! Aqui é da equipe de transporte do ${CLINIC.name}.`,
+                      });
+                    }}
+                    className="inline-flex items-center gap-1 rounded-lg bg-secondary px-2.5 py-1.5 text-[11px] font-semibold text-secondary-foreground hover:bg-secondary/80 transition-colors cursor-pointer"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5 text-primary" />
+                    Falar no Chat
+                  </button>
 
                   {fullAddress && (
                     <>

@@ -34,7 +34,6 @@ import {
   isAppointmentInService,
   sortInServiceFirst,
   statusToneClass,
-  whatsappLinkTo,
 } from "@/lib/format";
 import { openInAppChat } from "@/components/InAppChatDrawer";
 import { formatFullAddress, getGoogleMapsUrl, getWazeUrl } from "@/lib/navigation";
@@ -683,10 +682,6 @@ function RouteCard({
 }) {
   const currentStatus = (item.appointments?.ops_status ?? "agendado") as OpsStatus;
   const next = nextOpsStatus(currentStatus);
-  const talkLink = whatsappLinkTo(
-    client?.phone,
-    `Olá${client?.full_name ? `, ${client.full_name}` : ""}! Aqui é o motorista do Big Dog Pet.`,
-  );
 
   const fullAddress = item.addresses ? formatFullAddress(item.addresses) : "";
   const wazeUrl = fullAddress ? getWazeUrl(fullAddress) : "";
@@ -918,18 +913,6 @@ function RouteCard({
           <MessageCircle className="h-3.5 w-3.5" />
           Chat no App (1 Toque)
         </button>
-
-        {talkLink && (
-          <a
-            href={talkLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-lg bg-secondary px-2.5 py-1.5 text-[11px] font-semibold text-secondary-foreground hover:bg-secondary/80 transition-colors"
-          >
-            <MessageCircle className="h-3.5 w-3.5 text-emerald-600" />
-            WhatsApp
-          </a>
-        )}
 
         {fullAddress && (
           <>

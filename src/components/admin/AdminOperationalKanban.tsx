@@ -32,7 +32,6 @@ import {
   formatDateTime,
   formatBRL,
   capitalizeWords,
-  whatsappLinkTo,
   digitsOnly,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -237,11 +236,18 @@ export function AdminOperationalKanban({
   };
 
   const handleWhatsApp = (item: KanbanItem) => {
-    if (!item.tutorPhone) return;
-    const phone = digitsOnly(item.tutorPhone);
     const msg = `Olá, ${item.tutorName}! Somos da Big Dog Pet. Estamos preparando o atendimento de ${item.petName} (${item.serviceName})!`;
-    const link = whatsappLinkTo(phone, msg);
-    if (link) window.open(link, "_blank", "noopener,noreferrer");
+    openInAppChat({
+      conversationId: item.tutorId || item.id,
+      tutorId: item.tutorId,
+      tutorName: item.tutorName,
+      tutorPhone: item.tutorPhone,
+      petId: item.petId,
+      petName: item.petName,
+      petSpecies: item.petSpecies,
+      contextTag: item.serviceName,
+      defaultText: msg,
+    });
   };
 
   const totalActiveItems = items.filter((i) => i.status !== "cancelado" && i.opsStatus !== "cancelado").length;
@@ -669,8 +675,8 @@ function KanbanGroupCard({
             {group.tutorPhone && (
               <>
                 <DropdownMenuItem onClick={() => onWhatsApp(primaryItem)} className="gap-2 cursor-pointer">
-                  <Phone className="h-3.5 w-3.5 text-emerald-600" />
-                  <span>WhatsApp ({group.tutorPhone})</span>
+                  <MessageCircle className="h-3.5 w-3.5 text-primary" />
+                  <span>Chat ({group.tutorPhone})</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => window.open(`tel:${digitsOnly(group.tutorPhone!)}`)}

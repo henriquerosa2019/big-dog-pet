@@ -34,7 +34,6 @@ import {
   formatDate,
   daysUntil,
   capitalizeWords,
-  whatsappLinkTo,
   digitsOnly,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -173,13 +172,16 @@ export function AdminHealthAlertsGrouped({
     });
   };
 
-  const handleWhatsApp = (group: PetHealthGroup) => {
-    if (!group.ownerPhone) return;
-    const phone = digitsOnly(group.ownerPhone);
+  const handleOpenChatWithMsg = (group: PetHealthGroup) => {
     const alertNames = group.alerts.map((a) => `• ${a.title}`).join("\n");
     const msg = `Olá, ${group.ownerName}! Aqui é da Big Dog Pet. Notamos que ${group.petName} tem lembretes importantes de saúde pendentes:\n\n${alertNames}\n\nPodemos agendar o melhor dia e horário para o atendimento? 🐾✨`;
-    const link = whatsappLinkTo(phone, msg);
-    if (link) window.open(link, "_blank", "noopener,noreferrer");
+    openInAppChat({
+      tutorName: group.ownerName,
+      tutorPhone: group.ownerPhone ?? undefined,
+      petName: group.petName,
+      contextTag: `Aviso: ${group.alerts.map((a) => a.title).join(", ")}`,
+      defaultText: msg,
+    });
   };
 
   return (
@@ -314,9 +316,9 @@ export function AdminHealthAlertsGrouped({
 
                       {group.ownerPhone && (
                         <>
-                          <DropdownMenuItem onClick={() => handleWhatsApp(group)} className="gap-2 cursor-pointer">
-                            <Phone className="h-3.5 w-3.5 text-emerald-600" />
-                            <span>Chamar no WhatsApp</span>
+                          <DropdownMenuItem onClick={() => handleOpenChatWithMsg(group)} className="gap-2 cursor-pointer">
+                            <MessageCircle className="h-3.5 w-3.5 text-primary" />
+                            <span>Chamar no Chat</span>
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => window.open(`tel:${digitsOnly(group.ownerPhone!)}`)}
@@ -403,16 +405,14 @@ export function AdminHealthAlertsGrouped({
                   </span>
 
                   <div className="flex items-center gap-1.5">
-                    {group.ownerPhone && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleWhatsApp(group)}
-                        className="h-7 px-3 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1 shadow-xs"
-                      >
-                        <Phone className="h-3 w-3" />
-                        <span>Notificar WhatsApp</span>
-                      </Button>
-                    )}
+                    <Button
+                      size="sm"
+                      onClick={() => handleOpenChatWithMsg(group)}
+                      className="h-7 px-3 rounded-lg text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground gap-1 shadow-xs"
+                    >
+                      <MessageCircle className="h-3 w-3" />
+                      <span>Notificar no Chat</span>
+                    </Button>
 
                     <Button
                       size="sm"

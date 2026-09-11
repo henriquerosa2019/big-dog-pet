@@ -16,7 +16,7 @@ import {
 import logo from "@/assets/bigdog-logo.png";
 import { useCart } from "@/lib/cart";
 import { useAuth, useIsAdmin, useIsDriver } from "@/hooks/useAuth";
-import { CLINIC, whatsappLink } from "@/lib/format";
+import { CLINIC } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { StatusAlertNotifier } from "@/components/StatusAlertNotifier";
 import { testSoundAlert, playChatNotificationSound } from "@/lib/soundAlerts";

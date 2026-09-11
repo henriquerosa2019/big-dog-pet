@@ -32,7 +32,6 @@ import {
   statusToneCardClass,
   statusToneClass,
   statusToneIconClass,
-  whatsappLink,
 } from "@/lib/format";
 import { petSizeLabels, type PetSize } from "@/lib/transport";
 import { cn } from "@/lib/utils";

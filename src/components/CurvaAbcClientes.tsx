@@ -18,7 +18,8 @@ import {
   Users,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { formatBRL, digitsOnly, whatsappLinkTo } from "@/lib/format";
+import { formatBRL, digitsOnly } from "@/lib/format";
+import { openInAppChat } from "@/components/InAppChatDrawer";
 import { isServiceExecuted, hasTransportFee } from "@/lib/transport";
 import {
   calculateClientAbc,
@@ -618,11 +619,6 @@ export function CurvaAbcClientes() {
               ) : (
                 <div className="space-y-2">
                   {topVips.map((vip, idx) => {
-                    const waLink = whatsappLinkTo(
-                      vip.phone,
-                      `Olá ${vip.name}! Tudo bem? Passando para agradecer pela parceria e carinho de sempre com o Big Dog Pet! Caso precise agendar o próximo banho ou repor algo para seu pet, conte conosco.`,
-                    );
-
                     return (
                       <div
                         key={vip.id}
@@ -652,19 +648,21 @@ export function CurvaAbcClientes() {
 
                         <div className="text-right shrink-0">
                           <p className="font-bold text-primary">{formatBRL(vip.totalRevenueCents)}</p>
-                          {waLink ? (
-                            <a
-                              href={waLink}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold hover:underline inline-flex items-center gap-0.5"
-                            >
-                              <MessageCircle className="h-2.5 w-2.5" />
-                              WhatsApp VIP
-                            </a>
-                          ) : (
-                            <span className="text-[10px] text-muted-foreground">Sem telefone</span>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openInAppChat({
+                                tutorName: vip.name,
+                                tutorPhone: vip.phone ?? undefined,
+                                contextTag: `Cliente VIP (${vip.rank}º)`,
+                                defaultText: `Olá ${vip.name}! Tudo bem? Passando para agradecer pela parceria e carinho de sempre com o Big Dog Pet! Caso precise agendar o próximo banho ou repor algo para seu pet, conte conosco.`,
+                              })
+                            }
+                            className="text-[10px] text-primary font-semibold hover:underline inline-flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <MessageCircle className="h-2.5 w-2.5" />
+                            Chat VIP
+                          </button>
                         </div>
                       </div>
                     );
@@ -928,11 +926,6 @@ export function CurvaAbcClientes() {
                 </thead>
                 <tbody className="divide-y divide-border/30">
                   {filteredItems.map((item) => {
-                    const waLink = whatsappLinkTo(
-                      item.phone,
-                      `Olá ${item.name}! Tudo bem? Passando para mandar um abraço da equipe do Big Dog Pet. Como estão os pets? Qualquer agendamento ou dúvida, estamos à disposição!`,
-                    );
-
                     return (
                       <tr key={item.id} className="hover:bg-secondary/20 transition-colors">
                         <td className="py-2 px-3 font-bold text-muted-foreground">{item.rank}</td>
@@ -999,19 +992,21 @@ export function CurvaAbcClientes() {
                           </span>
                         </td>
                         <td className="py-2 px-2.5 text-center">
-                          {waLink ? (
-                            <a
-                              href={waLink}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center justify-center p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors"
-                              title="Conversar no WhatsApp"
-                            >
-                              <MessageCircle className="h-3.5 w-3.5" />
-                            </a>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openInAppChat({
+                                tutorName: item.name,
+                                tutorPhone: item.phone ?? undefined,
+                                contextTag: `Curva ABC - Classe ${item.abcClass}`,
+                                defaultText: `Olá ${item.name}! Tudo bem? Passando para mandar um abraço da equipe do Big Dog Pet. Como estão os pets? Qualquer agendamento ou dúvida, estamos à disposição!`,
+                              })
+                            }
+                            className="inline-flex items-center justify-center p-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer"
+                            title="Conversar no Chat"
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" />
+                          </button>
                         </td>
                       </tr>
                     );

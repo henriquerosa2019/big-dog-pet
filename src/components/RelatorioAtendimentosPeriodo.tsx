@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
-import { formatBRL, digitsOnly, whatsappLinkTo } from "@/lib/format";
+import { formatBRL, digitsOnly } from "@/lib/format";
 import { isServiceExecuted } from "@/lib/transport";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -842,14 +842,17 @@ export function RelatorioAtendimentosPeriodo() {
                             </div>
                           )}
 
-                          {/* Botões Rápidos de Contato */}
+                          {/* Botão Rápido de Contato */}
                           <div className="mt-1.5 flex items-center gap-2">
                             <button
                               type="button"
                               onClick={() =>
                                 openInAppChat({
                                   tutorName: row.tutorName,
+                                  tutorPhone: row.phone ?? undefined,
                                   petName: row.petNames[0],
+                                  contextTag: "Relatório de Atendimentos",
+                                  defaultText: `Olá, ${row.tutorName}! Somos da Big Dog Pet.`,
                                 })
                               }
                               className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary hover:underline cursor-pointer"
@@ -857,23 +860,6 @@ export function RelatorioAtendimentosPeriodo() {
                               <MessageCircle className="h-3 w-3" />
                               Chat
                             </button>
-
-                            {row.phone && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const link = whatsappLinkTo(
-                                    digitsOnly(row.phone!),
-                                    `Olá, ${row.tutorName}! Somos da Big Dog Pet.`
-                                  );
-                                  if (link) window.open(link, "_blank", "noopener,noreferrer");
-                                }}
-                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
-                              >
-                                <Phone className="h-3 w-3" />
-                                WhatsApp
-                              </button>
-                            )}
                           </div>
                         </div>
                       </td>

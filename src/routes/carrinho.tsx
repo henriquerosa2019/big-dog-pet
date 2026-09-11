@@ -14,7 +14,6 @@ import {
   CLINIC,
   formatBRL,
   maskPhoneBR,
-  whatsappLink,
 } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -416,7 +415,7 @@ function Carrinho() {
             />
           </div>
           <div>
-            <Label htmlFor="phone">Telefone / WhatsApp</Label>
+            <Label htmlFor="phone">Telefone / Celular</Label>
             <Input
               id="phone"
               inputMode="tel"

@@ -251,7 +251,7 @@ export function buildReportData(
 }
 
 const CHANNEL_NOTE =
-  'Canal de origem (App x WhatsApp) não é rastreado separadamente hoje: todo agendamento/pedido nasce pelo app, e a confirmação final costuma acontecer pelo WhatsApp — como isso não fica registrado por pedido, não incluímos essa quebra pra não sugerir uma precisão que não existe.';
+  'Canal de origem (App x Chat) não é rastreado separadamente hoje: todo agendamento/pedido nasce pelo app, e a confirmação final costuma acontecer pelo Chat — como isso não fica registrado por pedido, não incluímos essa quebra pra não sugerir uma precisão que não existe.';
 
 export function exportReportXLSX(data: ReportData, range: ReportRange): void {
   const wb = XLSX.utils.book_new();

@@ -678,8 +678,8 @@ export function ReportPreview({
       </div>
 
       <p className="mt-5 text-[11px] leading-relaxed text-muted-foreground">
-        Canal de origem (App x WhatsApp) não é rastreado separadamente hoje: todo agendamento/pedido
-        nasce pelo app, e a confirmação final costuma acontecer pelo WhatsApp — como isso não fica
+        Canal de origem (App x Chat) não é rastreado separadamente hoje: todo agendamento/pedido
+        nasce pelo app, e a confirmação final costuma acontecer pelo Chat — como isso não fica
         registrado por pedido, não incluímos essa quebra pra não sugerir uma precisão que não
         existe.
       </p>

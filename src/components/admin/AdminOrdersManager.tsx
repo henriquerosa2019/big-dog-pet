@@ -17,7 +17,6 @@ import { openInAppChat } from "@/components/InAppChatDrawer";
 import {
   formatBRL,
   formatDateTime,
-  whatsappLinkTo,
   digitsOnly,
   orderStatusTone,
   statusToneClass,
@@ -454,29 +453,8 @@ export function AdminOrdersManager({
 
                 {/* Rodapé: Contato Rápido e Seleção de Status */}
                 <div className="mt-3 pt-3 border-t border-border/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  {/* Botões de Contato */}
+                  {/* Botão de Contato */}
                   <div className="flex items-center gap-1.5">
-                    {order.phone && cleanPhone && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        asChild
-                        className="h-8 px-2.5 text-xs font-semibold rounded-lg text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border-emerald-500/40"
-                      >
-                        <a
-                          href={whatsappLinkTo(
-                            order.phone,
-                            `Olá ${order.customer_name || ""}! Estamos preparando seu pedido #${order.id.slice(0, 8)} no Big Dog Pet.`
-                          )}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <MessageCircle className="h-3.5 w-3.5 mr-1 text-emerald-600" />
-                          WhatsApp
-                        </a>
-                      </Button>
-                    )}
-
                     <Button
                       variant="outline"
                       size="sm"
@@ -490,10 +468,10 @@ export function AdminOrdersManager({
                           defaultText: `Olá, ${order.customer_name || "cliente"}! Referente ao seu pedido #${order.id.slice(0, 8)} na Big Dog Pet:`,
                         })
                       }
-                      className="h-8 px-2.5 text-xs font-semibold rounded-lg hover:bg-card"
+                      className="h-8 px-2.5 text-xs font-semibold rounded-lg hover:bg-card text-primary border-primary/30"
                     >
-                      <MessageCircle className="h-3.5 w-3.5 mr-1 text-primary" />
-                      Chat Interno
+                      <MessageCircle className="h-3.5 w-3.5 mr-1" />
+                      Chat
                     </Button>
                   </div>
 
