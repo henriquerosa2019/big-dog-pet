@@ -41,6 +41,7 @@ import {
   formatDate,
   formatDateTime,
   getAppointmentStatusDisplay,
+  getAppointmentCancellationInfo,
   isAppointmentInService,
   isBirthdayToday,
   sortInServiceFirst,
@@ -391,13 +392,11 @@ function Home() {
   } | null>(null);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
 
-  const hoursUntilAppointment = useMemo(() => {
-    if (!cancellingAppt?.scheduled_at) return 999;
-    const diffMs = new Date(cancellingAppt.scheduled_at).getTime() - Date.now();
-    return diffMs / (1000 * 60 * 60);
-  }, [cancellingAppt]);
+  const cancelInfo = useMemo(() => {
+    return getAppointmentCancellationInfo(cancellingAppt?.scheduled_at);
+  }, [cancellingAppt?.scheduled_at]);
 
-  const isUnder2Hours = hoursUntilAppointment < 2;
+  const isUnder2Hours = cancelInfo.isUnder2Hours;
 
   const cancelAppointmentMutation = useMutation({
     mutationFn: async ({
@@ -1223,27 +1222,34 @@ function Home() {
               <div className="space-y-2 text-xs leading-relaxed text-muted-foreground pt-1">
                 {isUnder2Hours ? (
                   <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3.5 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100 space-y-2">
-                    <p className="font-bold flex items-center gap-1.5 text-amber-900 dark:text-amber-200">
-                      <span>⚠️</span> Seu atendimento está previsto para daqui a menos de 2 horas!
+                    <p className="font-bold flex items-center gap-1.5 text-amber-900 dark:text-amber-200 text-sm">
+                      <span>⚠️</span> Seu atendimento está previsto para {cancelInfo.timeRemainingText}!
                     </p>
-                    <p>
-                      <strong>Serviço:</strong> {cancellingAppt?.services?.name ?? "Serviço"} {cancellingAppt?.pets?.name ? `(🐾 ${capitalizeWords(cancellingAppt.pets.name)})` : ""}
-                      <br />
-                      <strong>Horário agendado:</strong> {cancellingAppt?.scheduled_at ? formatDateTime(cancellingAppt.scheduled_at) : "—"}
-                    </p>
-                    <p className="text-[11px] leading-relaxed text-amber-900/90 dark:text-amber-200/90">
-                      Cancelamentos em cima da hora afetam a escala da equipe de banho/tosa e o itinerário dos motoristas do Táxi Pet.
-                      Você pode tirar dúvidas e alinhar com nossa recepção pelo <strong>Chat da loja</strong> ou confirmar a liberação da vaga agora.
+                    <div className="text-xs bg-white/70 dark:bg-black/30 p-2.5 rounded-xl border border-amber-200 dark:border-amber-900/60 space-y-1">
+                      <p>
+                        <strong>Serviço:</strong> {cancellingAppt?.services?.name ?? "Serviço"} {cancellingAppt?.pets?.name ? `(🐾 ${capitalizeWords(cancellingAppt.pets.name)})` : ""}
+                      </p>
+                      <p>
+                        <strong>Horário agendado:</strong> {cancellingAppt?.scheduled_at ? formatDateTime(cancellingAppt.scheduled_at) : "—"}
+                      </p>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-amber-900/90 dark:text-amber-200/90 font-medium">
+                      Cancelamentos em cima da hora afetam a escala da equipe de banho/tosa e o itinerário dos motoristas do Táxi Pet. Você pode tirar dúvidas e alinhar com nossa recepção pelo <strong>Chat da loja</strong> ou confirmar a liberação da vaga agora.
                     </p>
                   </div>
                 ) : (
-                  <p>
-                    Deseja realmente cancelar o agendamento de{" "}
-                    <strong className="text-foreground">{cancellingAppt?.services?.name ?? "serviço"}</strong> para{" "}
-                    <strong className="text-foreground">{cancellingAppt?.pets?.name ? capitalizeWords(cancellingAppt.pets.name) : "seu pet"}</strong>{" "}
-                    marcado para <strong>{cancellingAppt?.scheduled_at ? formatDateTime(cancellingAppt.scheduled_at) : ""}</strong>?
-                    A vaga será liberada imediatamente na agenda.
-                  </p>
+                  <div className="space-y-2">
+                    <p className="font-semibold text-foreground">
+                      Seu atendimento está previsto para {cancelInfo.timeRemainingText}.
+                    </p>
+                    <p>
+                      Deseja realmente cancelar o agendamento de{" "}
+                      <strong className="text-foreground">{cancellingAppt?.services?.name ?? "serviço"}</strong> para{" "}
+                      <strong className="text-foreground">{cancellingAppt?.pets?.name ? capitalizeWords(cancellingAppt.pets.name) : "seu pet"}</strong>{" "}
+                      marcado para <strong>{cancellingAppt?.scheduled_at ? formatDateTime(cancellingAppt.scheduled_at) : ""}</strong>?
+                      A vaga será liberada imediatamente na agenda.
+                    </p>
+                  </div>
                 )}
               </div>
             </AlertDialogDescription>

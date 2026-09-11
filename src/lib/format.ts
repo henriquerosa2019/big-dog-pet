@@ -603,3 +603,79 @@ export function birthdayCouponCode(name: string | null | undefined): string {
     .slice(0, 10);
   return `ANIV${base || "PET"}20`;
 }
+
+/**
+ * Retorna as informações e tempo restante dinâmico para o cancelamento de um agendamento.
+ * Utilizado para verificar a regra de prazo (< 2 horas) e formatar o tempo exato restante.
+ */
+export function getAppointmentCancellationInfo(scheduledAtStr: string | null | undefined): {
+  isPast: boolean;
+  isUnder2Hours: boolean;
+  timeRemainingText: string;
+  totalMinutes: number;
+} {
+  if (!scheduledAtStr) {
+    return {
+      isPast: false,
+      isUnder2Hours: false,
+      timeRemainingText: "no horário agendado",
+      totalMinutes: 999,
+    };
+  }
+
+  const schedTime = new Date(scheduledAtStr).getTime();
+  if (Number.isNaN(schedTime)) {
+    return {
+      isPast: false,
+      isUnder2Hours: false,
+      timeRemainingText: "no horário agendado",
+      totalMinutes: 999,
+    };
+  }
+
+  const now = Date.now();
+  const diffMs = schedTime - now;
+  const diffMinutes = Math.round(diffMs / (1000 * 60));
+
+  // Se já passou do horário ou está no minuto agendado
+  if (diffMinutes <= 0) {
+    const minAgo = Math.abs(diffMinutes);
+    return {
+      isPast: true,
+      isUnder2Hours: true,
+      timeRemainingText:
+        minAgo === 0
+          ? "agora mesmo (horário de atendimento)"
+          : `${minAgo} minuto${minAgo > 1 ? "s" : ""} atrás (já no horário de atendimento)`,
+      totalMinutes: diffMinutes,
+    };
+  }
+
+  const hours = Math.floor(diffMinutes / 60);
+  const minutes = diffMinutes % 60;
+
+  let timeText = "";
+  if (hours === 0) {
+    timeText = `${minutes} minuto${minutes > 1 ? "s" : ""}`;
+  } else if (hours === 1) {
+    if (minutes === 0) {
+      timeText = "1 hora";
+    } else {
+      timeText = `1 hora e ${minutes} minuto${minutes > 1 ? "s" : ""}`;
+    }
+  } else {
+    if (minutes === 0) {
+      timeText = `${hours} horas`;
+    } else {
+      timeText = `${hours} horas e ${minutes} minuto${minutes > 1 ? "s" : ""}`;
+    }
+  }
+
+  return {
+    isPast: false,
+    isUnder2Hours: diffMinutes < 120, // Menos de 2 horas (120 minutos)
+    timeRemainingText: `daqui a ${timeText}`,
+    totalMinutes: diffMinutes,
+  };
+}
+
