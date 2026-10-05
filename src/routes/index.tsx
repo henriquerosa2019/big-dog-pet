@@ -1,14 +1,19 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowRight,
   Bird,
   CalendarDays,
   CarFront,
   Check,
+  ChevronDown,
   ChevronRight,
   Clock3,
+  CreditCard,
+  ExternalLink,
   Heart,
   Instagram,
+  LogIn,
+  LogOut,
   MapPin,
   Menu,
   MessageCircle,
@@ -23,6 +28,8 @@ import {
   User,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 import heroBird from "@/assets/hero-bird.jpg";
 import heroCat from "@/assets/hero-cat.jpg";
@@ -33,7 +40,21 @@ import serviceVeterinaria from "@/assets/service-veterinaria.jpg";
 import serviceTaxiPet from "@/assets/service-taxi-pet.jpg";
 import serviceLojaPet from "@/assets/service-loja-pet.jpg";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/useAuth";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useAuth, useIsAdmin } from "@/hooks/useAuth";
+import { useTrialStatus } from "@/hooks/useTrialStatus";
+import { AuthModal } from "@/components/AuthModal";
+import { SubscriptionModal } from "@/components/SubscriptionModal";
+import { TrialBanner } from "@/components/TrialBanner";
+import { PainelMaster } from "@/components/PainelMaster";
+import { getMercadoPagoPlans, type SubscriptionPlanConfig } from "@/lib/mercadoPagoConfig";
 
 export const Route = createFileRoute("/")({
   validateSearch: (search: Record<string, unknown>): { preview?: string } => ({
@@ -117,32 +138,32 @@ const services = [
   },
 ];
 
-const plans = [
-  {
-    name: "Plano Essencial",
-    detail: "Para manter a rotina de cuidados em dia.",
-    features: ["Banhos programados", "Lembretes de cuidado", "Condições para serviços"],
-    whatsappText: "Olá! Gostaria de saber mais informações sobre o Plano Essencial da Big Dog Pet.",
-  },
-  {
-    name: "Plano Melhor Amigo",
-    detail: "Mais praticidade para quem cuida todo mês.",
-    features: ["Cuidados recorrentes", "Prioridade no agendamento", "Benefícios exclusivos"],
-    popular: true,
-    whatsappText: "Olá! Gostaria de saber mais informações sobre o Plano Melhor Amigo da Big Dog Pet.",
-  },
-  {
-    name: "Plano Completo",
-    detail: "Uma rotina completa de bem-estar e beleza.",
-    features: ["Pacote de cuidados", "Táxi Pet facilitado", "Atendimento prioritário"],
-    whatsappText: "Olá! Gostaria de saber mais informações sobre o Plano Completo da Big Dog Pet.",
-  },
-];
-
 function Index() {
   const [activeSlide, setActiveSlide] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const isAdmin = useIsAdmin(user?.id, user?.email);
+  const trialStatus = useTrialStatus();
+  const navigate = useNavigate();
+
+  // Modais
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState<"signup" | "login">("signup");
+  const [authModalService, setAuthModalService] = useState<string | undefined>(undefined);
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
+  const [painelMasterOpen, setPainelMasterOpen] = useState(false);
+  const [pendingPath, setPendingPath] = useState<{ to: string; search?: any } | null>(null);
+
+  // Planos dinâmicos do Mercado Pago
+  const [plans, setPlans] = useState<SubscriptionPlanConfig[]>(() => getMercadoPagoPlans());
+
+  useEffect(() => {
+    const handlePlansUpdate = () => {
+      setPlans(getMercadoPagoPlans());
+    };
+    window.addEventListener("bigdog_plans_updated", handlePlansUpdate);
+    return () => window.removeEventListener("bigdog_plans_updated", handlePlansUpdate);
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -151,17 +172,34 @@ function Index() {
     return () => window.clearInterval(timer);
   }, []);
 
+  // Interceptor de cliques em serviços
+  const handleServiceNavigation = (to: string, search?: any, serviceName?: string) => {
+    if (!user) {
+      setAuthModalTab("signup");
+      setAuthModalService(serviceName || "Agendamento de Serviços");
+      setPendingPath({ to, search });
+      setAuthModalOpen(true);
+      return;
+    }
+
+    if (trialStatus.isBlocked) {
+      toast.error("Sua conta está suspensa. Regularize sua assinatura via Mercado Pago.");
+      setSubscriptionModalOpen(true);
+      return;
+    }
+
+    if (trialStatus.isExpired && !trialStatus.isSubscriber && !trialStatus.isAdmin) {
+      setSubscriptionModalOpen(true);
+      return;
+    }
+
+    navigate({ to, search });
+  };
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-background pb-20 md:pb-0">
-      {/* Faixa para usuários já conectados que queiram ir direto para o painel de pedidos */}
-      {user && (
-        <div className="bg-primary/10 border-b border-primary/20 px-4 py-2 text-center text-xs text-primary font-semibold flex items-center justify-center gap-2">
-          <span>Olá! Você já está conectado na Big Dog Pet.</span>
-          <Link to="/conta" className="underline font-bold hover:text-primary/80">
-            Acessar Meus Agendamentos e Pets →
-          </Link>
-        </div>
-      )}
+      {/* Régua de Degustação / Alerta de Vencimento / Bloqueio no Topo */}
+      <TrialBanner onOpenPlans={() => setSubscriptionModalOpen(true)} />
 
       {/* Cabeçalho Oficial do Novo Design */}
       <header className="sticky top-0 z-50 border-b border-border/70 bg-background/95 backdrop-blur-xl">
@@ -184,22 +222,141 @@ function Index() {
             <a className="nav-link" href="#contato">Contato</a>
           </nav>
 
-          <div className="hidden items-center gap-3 md:flex">
-            <Button variant="outline" asChild>
+          <div className="hidden items-center gap-2.5 md:flex">
+            {/* Botão WhatsApp em Verde Oficial */}
+            <Button
+              className="bg-[#25D366] hover:bg-[#20ba5a] text-white font-bold border-0 shadow-sm transition-all"
+              asChild
+            >
               <a href="https://wa.me/5511993793746" target="_blank" rel="noreferrer">
                 <MessageCircle className="size-4" /> WhatsApp
               </a>
             </Button>
-            <Button asChild>
-              <Link to="/agendar">
-                <CalendarDays className="size-4" /> Agendar
-              </Link>
+
+            {/* Botão Agendar com Interceptação de Teste 7 Dias */}
+            <Button
+              onClick={() => handleServiceNavigation("/agendar", undefined, "Agendamento Online")}
+              className="font-bold cursor-pointer"
+            >
+              <CalendarDays className="size-4" /> Agendar
             </Button>
-            <Button variant="ghost" size="icon" asChild title="Minha Conta">
-              <Link to="/conta">
-                <User className="size-5" />
-              </Link>
-            </Button>
+
+            {/* Acesso Rápido ao Painel Master (Exclusivo Administrador) */}
+            {(isAdmin || user?.email?.toLowerCase() === "bigdog@gmail.com") && (
+              <Button
+                size="sm"
+                onClick={() => setPainelMasterOpen(true)}
+                className="bg-amber-500/15 hover:bg-amber-500/25 text-amber-500 border border-amber-500/40 text-xs font-black cursor-pointer shadow-xs gap-1.5"
+                title="Abrir Centro de Comando Master"
+              >
+                👑 Painel Master
+              </Button>
+            )}
+
+            {/* Ícone Minha Conta com Dropdown de Login / Teste Grátis / Gestão */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Minha Conta"
+                  className="relative cursor-pointer hover:bg-muted"
+                >
+                  <User className="size-5" />
+                  {user && (
+                    <span className="absolute top-1 right-1 size-2 rounded-full bg-emerald-500 ring-2 ring-background" />
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-60 p-1.5 shadow-xl bg-card border-border">
+                {user ? (
+                  <>
+                    <DropdownMenuLabel className="font-normal pb-2">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-bold leading-none text-foreground">
+                          {user.user_metadata?.full_name || "Cliente Big Dog"}
+                        </p>
+                        <p className="text-xs leading-none text-muted-foreground truncate">{user.email}</p>
+                        <div className="pt-1.5">
+                          <span className="inline-block text-[10px] font-black px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                            {trialStatus.planName}
+                          </span>
+                        </div>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild className="cursor-pointer">
+                      <Link to="/conta" className="flex items-center gap-2">
+                        <User className="size-4 text-primary" />
+                        <span>Meu Perfil & Pets</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="cursor-pointer">
+                      <Link to="/painel" className="flex items-center gap-2">
+                        <CalendarDays className="size-4 text-primary" />
+                        <span>Meus Agendamentos</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    {(isAdmin || user.email?.toLowerCase() === "bigdog@gmail.com") && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => setPainelMasterOpen(true)}
+                          className="cursor-pointer font-bold text-amber-500 focus:text-amber-500"
+                        >
+                          <span className="mr-2">👑</span> Painel Master
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild className="cursor-pointer">
+                          <Link to="/admin" className="flex items-center gap-2">
+                            <ShieldCheck className="size-4 text-amber-500" />
+                            <span>Admin Operacional</span>
+                          </Link>
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => {
+                        signOut();
+                        toast.info("Você saiu da sua conta.");
+                      }}
+                      className="cursor-pointer text-destructive focus:text-destructive"
+                    >
+                      <LogOut className="size-4 mr-2" />
+                      <span>Sair da Conta</span>
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <>
+                    <DropdownMenuLabel className="text-[11px] font-black text-muted-foreground uppercase tracking-wider">
+                      Acesso Big Dog Pet
+                    </DropdownMenuLabel>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setAuthModalTab("login");
+                        setAuthModalService(undefined);
+                        setAuthModalOpen(true);
+                      }}
+                      className="cursor-pointer font-bold py-2"
+                    >
+                      <LogIn className="size-4 mr-2 text-primary" />
+                      <span>Já sou Cliente (Entrar)</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setAuthModalTab("signup");
+                        setAuthModalService("Teste 7 Dias Grátis");
+                        setAuthModalOpen(true);
+                      }}
+                      className="cursor-pointer font-extrabold py-2 text-primary focus:text-primary bg-primary/5 rounded-md"
+                    >
+                      <Sparkles className="size-4 mr-2 text-primary" />
+                      <span>Cadastre-se (7 Dias Grátis)</span>
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <Button
@@ -239,20 +396,36 @@ function Index() {
               >
                 🛍️ Loja Online
               </Link>
-              <Link
-                to="/agendar"
-                className="rounded-md px-4 py-3 font-semibold text-primary hover:bg-muted"
-                onClick={() => setMenuOpen(false)}
+              <button
+                type="button"
+                className="text-left rounded-md px-4 py-3 font-semibold text-primary hover:bg-muted cursor-pointer"
+                onClick={() => {
+                  setMenuOpen(false);
+                  handleServiceNavigation("/agendar", undefined, "Agendamento Mobile");
+                }}
               >
                 📅 Agendar Banho / Táxi Pet
-              </Link>
-              <Link
-                to="/conta"
-                className="rounded-md px-4 py-3 font-semibold hover:bg-muted"
-                onClick={() => setMenuOpen(false)}
-              >
-                👤 Minha Conta / Meus Pets
-              </Link>
+              </button>
+              {user ? (
+                <Link
+                  to="/conta"
+                  className="rounded-md px-4 py-3 font-semibold hover:bg-muted"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  👤 Minha Conta ({user.email})
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  className="text-left rounded-md px-4 py-3 font-bold text-primary hover:bg-muted cursor-pointer"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setAuthModalOpen(true);
+                  }}
+                >
+                  ✨ Teste 7 Dias Grátis / Entrar
+                </button>
+              )}
             </div>
           </nav>
         )}
@@ -289,10 +462,13 @@ function Index() {
                 Banho, tosa, acessórios e cuidado de verdade para cães, gatos e aves — tudo perto de você.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <Button variant="hero" size="lg" asChild>
-                  <Link to="/agendar">
-                    Agendar agora <ArrowRight className="size-5" />
-                  </Link>
+                <Button
+                  variant="hero"
+                  size="lg"
+                  onClick={() => handleServiceNavigation("/agendar", undefined, "Agendamento Hero")}
+                  className="cursor-pointer"
+                >
+                  Agendar agora <ArrowRight className="size-5" />
                 </Button>
                 <Button
                   size="lg"
@@ -311,13 +487,14 @@ function Index() {
                     <Heart className="size-4 text-white" />
                   </span>
                   <span className="grid size-9 place-items-center rounded-full border-2 border-hero-scrim bg-highlight text-highlight-foreground">
-                    <Star className="size-4" />
+                    <Bird className="size-4 text-slate-900" />
                   </span>
                 </span>
-                Cuidado gentil para todos os tamanhos
+                <span>Mais de 1.800 pets atendidos com carinho</span>
               </div>
             </div>
-            <div className="absolute bottom-22 right-5 flex gap-2 md:bottom-28 md:right-8">
+            {/* Indicadores do carrossel */}
+            <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 gap-2" role="tablist">
               {heroSlides.map((slide, index) => (
                 <button
                   key={slide.label}
@@ -336,11 +513,11 @@ function Index() {
         <section className="quick-actions" aria-label="Ações rápidas">
           <div className="site-container grid items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {services.map(({ icon: Icon, title, subtext, to, search, iconStyle }) => (
-              <Link
+              <button
                 key={title}
-                to={to}
-                search={search}
-                className="quick-action group cursor-pointer"
+                type="button"
+                onClick={() => handleServiceNavigation(to, search, title)}
+                className="quick-action group cursor-pointer text-left w-full"
               >
                 <span
                   className={`quick-icon border ${iconStyle} shadow-xs group-hover:scale-110`}
@@ -356,7 +533,7 @@ function Index() {
                   </span>
                 </span>
                 <ChevronRight className="size-4 text-slate-400 dark:text-slate-500 transition-all duration-200 group-hover:translate-x-1 group-hover:text-primary" />
-              </Link>
+              </button>
             ))}
           </div>
         </section>
@@ -413,13 +590,13 @@ function Index() {
                       </p>
                     </div>
 
-                    <Link
-                      to={to}
-                      search={search}
-                      className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-xs sm:text-sm font-bold text-primary transition-all duration-200 hover:bg-primary hover:text-white active:scale-[0.98]"
+                    <button
+                      type="button"
+                      onClick={() => handleServiceNavigation(to, search, title)}
+                      className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-xs sm:text-sm font-bold text-primary transition-all duration-200 hover:bg-primary hover:text-white active:scale-[0.98] cursor-pointer"
                     >
                       {action} <ArrowRight className="size-4" />
-                    </Link>
+                    </button>
                   </div>
                 </article>
               ))}
@@ -431,14 +608,14 @@ function Index() {
         <section className="bg-brand-band py-10 text-brand-band-foreground">
           <div className="site-container grid gap-8 text-center sm:grid-cols-3">
             <div>
-              <ShieldCheck className="mx-auto size-7 text-highlight" />
-              <strong className="mt-3 block font-display text-xl">Cuidado responsável</strong>
-              <span className="text-sm text-brand-band-muted">Atenção em cada detalhe</span>
+              <Sparkles className="mx-auto size-7 text-highlight" />
+              <strong className="mt-3 block font-display text-xl">Produtos premium</strong>
+              <span className="text-sm text-brand-band-muted">Higiene suave e tosa com carinho</span>
             </div>
             <div>
-              <Clock3 className="mx-auto size-7 text-highlight" />
-              <strong className="mt-3 block font-display text-xl">Rotina facilitada</strong>
-              <span className="text-sm text-brand-band-muted">Agendamento rápido</span>
+              <PawPrint className="mx-auto size-7 text-highlight" />
+              <strong className="mt-3 block font-display text-xl">Estrutura completa</strong>
+              <span className="text-sm text-brand-band-muted">Espaço limpo e profissionais atentos</span>
             </div>
             <div>
               <Heart className="mx-auto size-7 text-highlight" />
@@ -448,58 +625,93 @@ function Index() {
           </div>
         </section>
 
-        {/* Planos de Recorrência Big Dog */}
+        {/* Planos Oficiais Big Dog com Preços e Mercado Pago Integrado */}
         <section id="planos" className="section-space bg-section-alt">
           <div className="site-container">
             <div className="section-heading">
               <div>
                 <span className="eyebrow">
-                  <PackageOpen className="size-4" /> Planos Big Dog
+                  <PackageOpen className="size-4" /> Planos Oficiais Big Dog
                 </span>
-                <h2>Cuidado frequente, sem complicação.</h2>
+                <h2>Cuidado frequente, com pagamento facilitado.</h2>
               </div>
-              <p>Escolha uma rotina para acompanhar seu pet. Valores e condições são confirmados no atendimento.</p>
+              <p>Escolha o plano ideal para o seu companheiro e pague com Pix ou Cartão em até 12x via Mercado Pago.</p>
             </div>
             <div className="mt-12 grid items-stretch gap-5 lg:grid-cols-3">
               {plans.map((plan) => (
-                <article className={`plan-card ${plan.popular ? "plan-card-featured" : ""}`} key={plan.name}>
-                  {plan.popular && (
-                    <span className="popular-badge">
-                      <Star className="size-3 fill-current" /> Mais escolhido
-                    </span>
-                  )}
-                  <h3 className="mt-2 font-display text-2xl">{plan.name}</h3>
-                  <p className="mt-2 min-h-12 text-sm leading-relaxed text-muted-foreground">{plan.detail}</p>
-                  <div className="my-7 border-y border-border py-5">
-                    <span className="block text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                      Mensalidade
-                    </span>
-                    <strong className="mt-1 block font-display text-2xl text-primary">Consulte valores</strong>
-                  </div>
-                  <ul className="space-y-4 flex-1">
-                    {plan.features.map((feature) => (
-                      <li className="flex gap-3 text-sm" key={feature}>
-                        <span className="grid size-5 shrink-0 place-items-center rounded-full bg-success-soft text-success">
-                          <Check className="size-3" />
+                <article
+                  className={`plan-card flex flex-col justify-between ${plan.popular ? "plan-card-featured" : ""}`}
+                  key={plan.id}
+                >
+                  <div>
+                    {plan.popular && (
+                      <span className="popular-badge">
+                        <Star className="size-3 fill-current" /> Mais escolhido
+                      </span>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <h3 className="mt-2 font-display text-2xl font-bold">{plan.name}</h3>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded bg-primary/10 text-primary">
+                        {plan.badge}
+                      </span>
+                    </div>
+                    <p className="mt-2 min-h-12 text-sm leading-relaxed text-muted-foreground">{plan.detail}</p>
+                    <div className="my-7 border-y border-border py-4 flex items-baseline justify-between">
+                      <div>
+                        <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                          Mensalidade
                         </span>
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-                  <Button className="mt-8 w-full" variant={plan.popular ? "default" : "outline"} asChild>
-                    <a
-                      href={`https://wa.me/5511993793746?text=${encodeURIComponent(plan.whatsappText)}`}
-                      target="_blank"
-                      rel="noreferrer"
+                        <strong className="mt-1 block font-display text-3xl font-black text-primary">
+                          {plan.formattedPrice}
+                        </strong>
+                      </div>
+                      <span className="text-xs font-semibold text-muted-foreground">/{plan.period}</span>
+                    </div>
+                    <ul className="space-y-3.5 flex-1">
+                      {plan.features.map((feature, idx) => (
+                        <li className="flex gap-3 text-xs sm:text-sm" key={idx}>
+                          <span className="grid size-5 shrink-0 place-items-center rounded-full bg-success-soft text-success">
+                            <Check className="size-3" />
+                          </span>
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="mt-8 space-y-2">
+                    <Button
+                      className={`w-full font-bold shadow-md cursor-pointer flex items-center justify-center gap-2 ${
+                        plan.popular
+                          ? "bg-primary text-white hover:bg-primary/90"
+                          : "bg-foreground text-background hover:bg-foreground/90"
+                      }`}
+                      onClick={() => window.open(plan.mercadoPagoUrl, "_blank", "noopener,noreferrer")}
                     >
-                      Quero saber mais
-                    </a>
-                  </Button>
+                      <span>Pagar com Mercado Pago</span>
+                      <ExternalLink className="size-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full text-xs font-semibold text-muted-foreground hover:text-foreground"
+                      asChild
+                    >
+                      <a
+                        href={`https://wa.me/5511993793746?text=${encodeURIComponent(plan.whatsappMessage)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <MessageCircle className="size-3.5 mr-1.5 text-[#25D366]" />
+                        Dúvidas? Fale no WhatsApp
+                      </a>
+                    </Button>
+                  </div>
                 </article>
               ))}
             </div>
             <p className="mt-6 text-center text-xs text-muted-foreground">
-              * Nomes, benefícios, valores e disponibilidade dos planos devem ser confirmados com a loja.
+              * Pagamento 100% seguro via Mercado Pago. Aceita Pix com ativação imediata e Cartão em até 12x.
             </p>
           </div>
         </section>
@@ -524,10 +736,13 @@ function Index() {
                       <MessageCircle className="size-5" /> Chamar no WhatsApp
                     </a>
                   </Button>
-                  <Button className="hero-outline" variant="outline" size="lg" asChild>
-                    <Link to="/agendar">
-                      <CalendarDays className="size-5" /> Agendar Online
-                    </Link>
+                  <Button
+                    className="hero-outline"
+                    variant="outline"
+                    size="lg"
+                    onClick={() => handleServiceNavigation("/agendar", undefined, "Agendamento Contato")}
+                  >
+                    <CalendarDays className="size-5" /> Agendar Online
                   </Button>
                 </div>
               </div>
@@ -564,18 +779,30 @@ function Index() {
         </section>
       </main>
 
-      {/* Rodapé Comercial */}
-      <footer className="border-t border-border py-8">
-        <div className="site-container flex flex-col items-center justify-between gap-4 text-center text-sm text-muted-foreground sm:flex-row sm:text-left">
-          <div className="flex items-center gap-2 font-display font-bold text-foreground">
-            <PawPrint className="size-5 text-primary" /> Big Dog Pet
-          </div>
+      {/* Rodapé Institucional */}
+      <footer className="border-t border-border bg-card py-8 text-sm text-muted-foreground">
+        <div className="site-container flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
           <p>© 2026 Big Dog Pet. A vida do seu pet em boas mãos.</p>
           <div className="flex items-center gap-4 text-xs font-semibold">
-            <Link to="/agendar" className="hover:text-primary">Agendamento</Link>
+            <button
+              type="button"
+              onClick={() => handleServiceNavigation("/agendar", undefined, "Rodapé Agendamento")}
+              className="hover:text-primary cursor-pointer"
+            >
+              Agendamento
+            </button>
             <Link to="/loja" className="hover:text-primary">Loja</Link>
             <Link to="/conta" className="hover:text-primary">Minha Conta</Link>
             <Link to="/painel" className="hover:text-primary">Painel Operacional</Link>
+            {(isAdmin || user?.email?.toLowerCase() === "bigdog@gmail.com") && (
+              <button
+                type="button"
+                onClick={() => setPainelMasterOpen(true)}
+                className="hover:text-amber-500 font-bold cursor-pointer text-amber-500"
+              >
+                👑 Painel Master
+              </button>
+            )}
           </div>
         </div>
       </footer>
@@ -590,19 +817,51 @@ function Index() {
           <Scissors className="size-5" />
           <span>Serviços</span>
         </a>
-        <Link className="mobile-dock-primary" to="/agendar">
+        <button
+          type="button"
+          onClick={() => handleServiceNavigation("/agendar", undefined, "Dock Mobile Agendar")}
+          className="mobile-dock-primary cursor-pointer"
+        >
           <CalendarDays className="size-6" />
           <span>Agendar</span>
-        </Link>
+        </button>
         <Link to="/loja">
           <ShoppingBag className="size-5" />
           <span>Loja</span>
         </Link>
         <a href="https://wa.me/5511993793746" target="_blank" rel="noreferrer">
-          <MessageCircle className="size-5" />
+          <MessageCircle className="size-5 text-[#25D366]" />
           <span>Whats</span>
         </a>
       </nav>
+
+      {/* Modal de Autenticação / Teste 7 Dias Grátis */}
+      <AuthModal
+        open={authModalOpen}
+        onOpenChange={setAuthModalOpen}
+        serviceTitle={authModalService}
+        defaultMode={authModalTab}
+        onSuccess={() => {
+          if (pendingPath) {
+            navigate({ to: pendingPath.to, search: pendingPath.search });
+            setPendingPath(null);
+          }
+        }}
+      />
+
+      {/* Paywall e Apresentação dos 3 Planos com Mercado Pago */}
+      <SubscriptionModal
+        open={subscriptionModalOpen}
+        onOpenChange={setSubscriptionModalOpen}
+        isExpired={trialStatus.isExpired}
+        isExpiringSoon={trialStatus.isExpiringSoon}
+      />
+
+      {/* Painel Master • Centro de Comando (Privilegiado) */}
+      <PainelMaster
+        open={painelMasterOpen}
+        onOpenChange={setPainelMasterOpen}
+      />
     </div>
   );
 }

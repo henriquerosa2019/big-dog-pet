@@ -1,7 +1,10 @@
 import { createFileRoute, Outlet, redirect, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useTrialStatus } from "@/hooks/useTrialStatus";
+import { TrialBanner } from "@/components/TrialBanner";
+import { SubscriptionModal } from "@/components/SubscriptionModal";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -20,6 +23,8 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthenticatedLayout() {
   const { user, loading } = useAuth();
+  const { isExpired, isExpiringSoon } = useTrialStatus();
+  const [plansModalOpen, setPlansModalOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -27,6 +32,13 @@ function AuthenticatedLayout() {
       navigate({ to: "/auth", replace: true });
     }
   }, [user, loading, navigate]);
+
+  // Se o período de teste expirou, abre automaticamente o modal de planos
+  useEffect(() => {
+    if (isExpired) {
+      setPlansModalOpen(true);
+    }
+  }, [isExpired]);
 
   if (loading || !user) {
     return (
@@ -36,5 +48,16 @@ function AuthenticatedLayout() {
     );
   }
 
-  return <Outlet />;
+  return (
+    <>
+      <TrialBanner onOpenPlans={() => setPlansModalOpen(true)} />
+      <Outlet />
+      <SubscriptionModal
+        open={plansModalOpen}
+        onOpenChange={setPlansModalOpen}
+        isExpired={isExpired}
+        isExpiringSoon={isExpiringSoon}
+      />
+    </>
+  );
 }

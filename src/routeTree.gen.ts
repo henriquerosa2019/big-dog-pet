@@ -20,6 +20,7 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedAgendarRouteImport } from './routes/_authenticated/agendar'
 import { Route as AuthenticatedContaRouteImport } from './routes/_authenticated/conta'
 import { Route as AuthenticatedMotoristaRouteImport } from './routes/_authenticated/motorista'
+import { Route as AuthenticatedPainelMasterRouteImport } from './routes/_authenticated/painel-master'
 import { Route as AuthenticatedPetsPetIdRouteImport } from './routes/_authenticated/pets.$petId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -76,6 +77,12 @@ const AuthenticatedMotoristaRoute = AuthenticatedMotoristaRouteImport.update({
   path: '/motorista',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPainelMasterRoute =
+  AuthenticatedPainelMasterRouteImport.update({
+    id: '/painel-master',
+    path: '/painel-master',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedPetsPetIdRoute = AuthenticatedPetsPetIdRouteImport.update({
   id: '/pets/$petId',
   path: '/pets/$petId',
@@ -93,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/agendar': typeof AuthenticatedAgendarRoute
   '/conta': typeof AuthenticatedContaRoute
   '/motorista': typeof AuthenticatedMotoristaRoute
+  '/painel-master': typeof AuthenticatedPainelMasterRoute
   '/pets/$petId': typeof AuthenticatedPetsPetIdRoute
 }
 export interface FileRoutesByTo {
@@ -106,6 +114,7 @@ export interface FileRoutesByTo {
   '/agendar': typeof AuthenticatedAgendarRoute
   '/conta': typeof AuthenticatedContaRoute
   '/motorista': typeof AuthenticatedMotoristaRoute
+  '/painel-master': typeof AuthenticatedPainelMasterRoute
   '/pets/$petId': typeof AuthenticatedPetsPetIdRoute
 }
 export interface FileRoutesById {
@@ -121,6 +130,7 @@ export interface FileRoutesById {
   '/_authenticated/agendar': typeof AuthenticatedAgendarRoute
   '/_authenticated/conta': typeof AuthenticatedContaRoute
   '/_authenticated/motorista': typeof AuthenticatedMotoristaRoute
+  '/_authenticated/painel-master': typeof AuthenticatedPainelMasterRoute
   '/_authenticated/pets/$petId': typeof AuthenticatedPetsPetIdRoute
 }
 export interface FileRouteTypes {
@@ -136,6 +146,7 @@ export interface FileRouteTypes {
     | '/agendar'
     | '/conta'
     | '/motorista'
+    | '/painel-master'
     | '/pets/$petId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -149,6 +160,7 @@ export interface FileRouteTypes {
     | '/agendar'
     | '/conta'
     | '/motorista'
+    | '/painel-master'
     | '/pets/$petId'
   id:
     | '__root__'
@@ -163,6 +175,7 @@ export interface FileRouteTypes {
     | '/_authenticated/agendar'
     | '/_authenticated/conta'
     | '/_authenticated/motorista'
+    | '/_authenticated/painel-master'
     | '/_authenticated/pets/$petId'
   fileRoutesById: FileRoutesById
 }
@@ -255,6 +268,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMotoristaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/painel-master': {
+      id: '/_authenticated/painel-master'
+      path: '/painel-master'
+      fullPath: '/painel-master'
+      preLoaderRoute: typeof AuthenticatedPainelMasterRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/pets/$petId': {
       id: '/_authenticated/pets/$petId'
       path: '/pets/$petId'
@@ -270,6 +290,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgendarRoute: typeof AuthenticatedAgendarRoute
   AuthenticatedContaRoute: typeof AuthenticatedContaRoute
   AuthenticatedMotoristaRoute: typeof AuthenticatedMotoristaRoute
+  AuthenticatedPainelMasterRoute: typeof AuthenticatedPainelMasterRoute
   AuthenticatedPetsPetIdRoute: typeof AuthenticatedPetsPetIdRoute
 }
 
@@ -278,6 +299,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAgendarRoute: AuthenticatedAgendarRoute,
   AuthenticatedContaRoute: AuthenticatedContaRoute,
   AuthenticatedMotoristaRoute: AuthenticatedMotoristaRoute,
+  AuthenticatedPainelMasterRoute: AuthenticatedPainelMasterRoute,
   AuthenticatedPetsPetIdRoute: AuthenticatedPetsPetIdRoute,
 }
 
