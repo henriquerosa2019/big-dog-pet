@@ -113,17 +113,48 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const isLandingPage = pathname === "/";
+
   return (
     // O app nasceu como PWA de celular (coluna de 448px). Em tablet e desktop a
     // coluna passa a acompanhar a tela, senao telas densas como Relatorios e
-    // Dashboard ficam espremidas num quarto do monitor.
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-background shadow-soft md:max-w-3xl lg:max-w-5xl">
+    // Dashboard ficam espremidas num quarto do monitor. Na Landing Page (/) usamos largura livre.
+    <div
+      className={cn(
+        "mx-auto flex min-h-screen w-full flex-col bg-background",
+        isLandingPage ? "max-w-none shadow-none" : "max-w-md shadow-soft md:max-w-3xl lg:max-w-5xl"
+      )}
+    >
       <StatusAlertNotifier />
-      <header className="sticky top-0 z-20 border-b border-border/60 bg-background/90 backdrop-blur">
-        {/* Barra Superior de Homologação Ágil - Alternância Rápida de Atores */}
-        {isAdmin && (
-          <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-white shadow-xs">
-            <div className="flex items-center gap-1.5">
+      {isAdmin && isLandingPage && (
+        <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-800 bg-slate-950 px-4 py-2 text-xs text-white shadow-xs">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-300 border border-amber-500/30">
+              🧪 Homologação
+            </span>
+            <span className="text-[10px] text-slate-400 font-semibold">
+              Painel Admin rápido:
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button asChild size="sm" variant="ghost" className="h-6 px-2 text-[11px] font-bold text-slate-300 hover:bg-slate-800 hover:text-white">
+              <Link to="/admin">🏬 Painel Loja</Link>
+            </Button>
+            <Button asChild size="sm" variant="ghost" className="h-6 px-2 text-[11px] font-bold text-slate-300 hover:bg-slate-800 hover:text-white">
+              <Link to="/painel">📋 Painel Antigo</Link>
+            </Button>
+            <Button asChild size="sm" variant="ghost" className="h-6 px-2 text-[11px] font-bold text-slate-300 hover:bg-slate-800 hover:text-white">
+              <Link to="/motorista">🚚 Motorista</Link>
+            </Button>
+          </div>
+        </div>
+      )}
+      {!isLandingPage && (
+        <header className="sticky top-0 z-20 border-b border-border/60 bg-background/90 backdrop-blur">
+          {/* Barra Superior de Homologação Ágil - Alternância Rápida de Atores */}
+          {isAdmin && (
+            <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-white shadow-xs">
+              <div className="flex items-center gap-1.5">
               <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-300 border border-amber-500/30">
                 🧪 Homologação
               </span>
@@ -274,14 +305,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+      )}
 
       <InAppChatDrawer />
       <MiroModal />
 
-      <main className={cn("flex-1", (!isPreviewClient && (pathname === "/admin" || pathname.startsWith("/admin") || pathname === "/motorista")) ? "pb-6" : "pb-24")}>{children}</main>
+      <main className={cn("flex-1", isLandingPage ? "p-0" : (!isPreviewClient && (pathname === "/admin" || pathname.startsWith("/admin") || pathname === "/motorista")) ? "pb-6" : "pb-24")}>{children}</main>
 
-      {/* Barra de navegação inferior exclusiva do fluxo do cliente/tutor - oculta no painel admin para ganho de área útil */}
-      {(isPreviewClient || !(pathname === "/admin" || pathname.startsWith("/admin") || pathname === "/motorista")) && (
+      {/* Barra de navegação inferior exclusiva do fluxo do cliente/tutor - oculta na Landing Page e no painel admin */}
+      {!isLandingPage && (isPreviewClient || !(pathname === "/admin" || pathname.startsWith("/admin") || pathname === "/motorista")) && (
         <nav className="fixed bottom-0 left-1/2 z-30 w-full max-w-md -translate-x-1/2 border-t border-border/60 bg-card/95 backdrop-blur md:max-w-3xl lg:max-w-5xl">
           <ul className={cn("grid", gridColsClass(tabs.length))}>
             {tabs.map((tab) => {
