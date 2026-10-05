@@ -732,14 +732,6 @@ function Index() {
                       <MessageCircle className="size-5" /> Chamar no WhatsApp
                     </a>
                   </Button>
-                  <Button
-                    className="hero-outline"
-                    variant="outline"
-                    size="lg"
-                    onClick={() => handleServiceNavigation("/agendar", undefined, "Agendamento Contato")}
-                  >
-                    <CalendarDays className="size-5" /> Agendar Online
-                  </Button>
                 </div>
               </div>
               <div className="contact-details">
