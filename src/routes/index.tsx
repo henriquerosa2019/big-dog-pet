@@ -73,8 +73,10 @@ const services = [
     description:
       "Higienização completa, tosa higiênica e da raça com produtos premium, água morna e secagem suave para cães e gatos saírem cheirosos e relaxados.",
     action: "Agendar Banho",
+    subtext: "Banho, tosa e spa",
     to: "/agendar",
     image: serviceBanhoTosa,
+    iconStyle: "bg-sky-500/10 text-sky-600 dark:bg-sky-500/20 dark:text-sky-300 border-sky-500/25",
   },
   {
     icon: Stethoscope,
@@ -83,8 +85,10 @@ const services = [
     description:
       "Consultas clínicas, vacinação importada, prevenção e exames com médicos veterinários dedicados ao cuidado, saúde e longevidade do seu companheiro.",
     action: "Agendar Consulta",
+    subtext: "Consultas e vacinas",
     to: "/agendar",
     image: serviceVeterinaria,
+    iconStyle: "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300 border-emerald-500/25",
   },
   {
     icon: CarFront,
@@ -93,9 +97,11 @@ const services = [
     description:
       "Buscamos e levamos seu pet na sua residência em Franco da Rocha com transporte seguro, cinto adaptado, ar-condicionado e motorista atencioso.",
     action: "Pedir Táxi Pet",
+    subtext: "Buscamos em sua casa",
     to: "/agendar",
     search: { tipo: "buscar_e_devolver" },
     image: serviceTaxiPet,
+    iconStyle: "bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-300 border-amber-500/25",
   },
   {
     icon: ShoppingBag,
@@ -104,8 +110,10 @@ const services = [
     description:
       "Rações super premium, petiscos saudáveis, farmácia veterinária, caminhas confortáveis e acessórios selecionados para todas as fases do pet.",
     action: "Comprar na Loja",
+    subtext: "Rações e mimos",
     to: "/loja",
     image: serviceLojaPet,
+    iconStyle: "bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300 border-indigo-500/25",
   },
 ];
 
@@ -322,10 +330,10 @@ function Index() {
           </div>
         </section>
 
-        {/* Ações Rápidas integradas ao App */}
+        {/* Ações Rápidas integradas ao App com Fundo Translúcido e Tipografia Elegante */}
         <section className="quick-actions" aria-label="Ações rápidas">
           <div className="site-container grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {services.map(({ icon: Icon, title, action, to, search }, index) => (
+            {services.map(({ icon: Icon, title, subtext, to, search, iconStyle }) => (
               <Link
                 key={title}
                 to={to}
@@ -333,23 +341,19 @@ function Index() {
                 className="quick-action group cursor-pointer"
               >
                 <span
-                  className={`quick-icon ${
-                    index === 0
-                      ? "bg-primary-soft text-primary"
-                      : index === 1
-                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
-                      : index === 2
-                      ? "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300"
-                      : "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300"
-                  }`}
+                  className={`quick-icon border ${iconStyle} shadow-xs group-hover:scale-110`}
                 >
-                  <Icon className="size-6" />
+                  <Icon className="size-5" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <strong className="block font-display text-lg">{title}</strong>
-                  <span className="text-sm text-muted-foreground">{action}</span>
+                  <strong className="block font-sans font-bold text-[15px] sm:text-base text-slate-800 dark:text-slate-100 tracking-tight leading-snug group-hover:text-primary transition-colors">
+                    {title}
+                  </strong>
+                  <span className="block text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
+                    {subtext}
+                  </span>
                 </span>
-                <ChevronRight className="size-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
+                <ChevronRight className="size-4 text-slate-400 dark:text-slate-500 transition-all duration-200 group-hover:translate-x-1 group-hover:text-primary" />
               </Link>
             ))}
           </div>
