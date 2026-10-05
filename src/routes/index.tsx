@@ -147,7 +147,7 @@ function Index() {
   useEffect(() => {
     const timer = window.setInterval(() => {
       setActiveSlide((current) => (current + 1) % heroSlides.length);
-    }, 5500);
+    }, 7500);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -268,8 +268,10 @@ function Index() {
               alt={slide.alt}
               width={1920}
               height={1080}
-              className={`absolute inset-0 size-full object-cover object-[62%_center] transition-opacity duration-1000 md:object-center ${
-                index === activeSlide ? "opacity-100" : "opacity-0"
+              className={`absolute inset-0 size-full object-cover object-[62%_center] transition-all duration-[2500ms] ease-in-out md:object-center ${
+                index === activeSlide
+                  ? "opacity-100 scale-100"
+                  : "opacity-0 scale-105 pointer-events-none"
               }`}
               aria-hidden={index !== activeSlide}
             />
