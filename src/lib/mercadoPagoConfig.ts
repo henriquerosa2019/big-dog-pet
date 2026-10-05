@@ -24,7 +24,7 @@ export const DEFAULT_PLANS: SubscriptionPlanConfig[] = [
     period: "mês",
     detail: "Ideal para petshops e profissionais de estética pet que desejam automatizar seus agendamentos.",
     popular: false,
-    mercadoPagoUrl: "https://mpago.la/bigdog-starter",
+    mercadoPagoUrl: "https://mpago.la/2r8B3ce",
     features: [
       "Agendamento online 24h para tutores",
       "Cadastro e histórico de clientes e pets",
@@ -43,7 +43,7 @@ export const DEFAULT_PLANS: SubscriptionPlanConfig[] = [
     period: "mês",
     detail: "Sistema completo para estabelecimentos com atendimento veterinário e logística de transporte pet.",
     popular: true,
-    mercadoPagoUrl: "https://mpago.la/bigdog-pro",
+    mercadoPagoUrl: "https://mpago.la/25ZTwHu",
     features: [
       "Tudo do Plano Starter incluso",
       "Módulo Veterinário (prontuário clínico, vacinas e exames)",
@@ -62,7 +62,7 @@ export const DEFAULT_PLANS: SubscriptionPlanConfig[] = [
     period: "mês",
     detail: "Para clínicas completas, hospitais e redes que precisam de estoque, relatórios avançados e canal próprio.",
     popular: false,
-    mercadoPagoUrl: "https://mpago.la/bigdog-master-vip",
+    mercadoPagoUrl: "https://mpago.la/1CdrLyf",
     features: [
       "Tudo do Plano Pro incluso",
       "Loja Online com controle de estoque e vendas",
