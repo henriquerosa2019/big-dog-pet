@@ -31,6 +31,9 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/")({
+  validateSearch: (search: Record<string, unknown>): { preview?: string } => ({
+    ...(typeof search["preview"] === "string" ? { preview: search["preview"] as string } : {}),
+  }),
   head: () => ({
     meta: [
       { title: "Big Dog Pet | Banho, tosa e cuidado em Franco da Rocha" },
