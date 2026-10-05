@@ -154,8 +154,9 @@ function Index() {
   const [painelMasterOpen, setPainelMasterOpen] = useState(false);
   const [pendingPath, setPendingPath] = useState<{ to: string; search?: any } | null>(null);
 
-  // Planos dinâmicos do Mercado Pago
+  // Planos dinâmicos do Mercado Pago e seleção ativa
   const [plans, setPlans] = useState<SubscriptionPlanConfig[]>(() => getMercadoPagoPlans());
+  const [selectedPlanId, setSelectedPlanId] = useState<string>("pro");
 
   useEffect(() => {
     const handlePlansUpdate = () => {
@@ -641,70 +642,111 @@ function Index() {
               </div>
               <p>Teste por 7 dias grátis. Escolha o plano ideal com agendamento online 24h, táxi pet, relatórios Curva ABC e Canal Próprio de atendimento.</p>
             </div>
-            <div className="mt-12 grid items-stretch gap-5 lg:grid-cols-3">
-              {plans.map((plan) => (
-                <article
-                  className={`plan-card flex flex-col justify-between ${plan.popular ? "plan-card-featured" : ""}`}
-                  key={plan.id}
-                >
-                  <div>
-                    {plan.popular && (
-                      <span className="popular-badge">
-                        <Star className="size-3 fill-current" /> Mais escolhido
-                      </span>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <h3 className="mt-2 font-display text-2xl font-bold">{plan.name}</h3>
-                      <span className="text-xs font-bold px-2 py-0.5 rounded bg-primary/10 text-primary">
-                        {plan.badge}
-                      </span>
-                    </div>
-                    <p className="mt-2 min-h-12 text-sm leading-relaxed text-muted-foreground">{plan.detail}</p>
-                    <div className="my-7 border-y border-border py-4 flex items-baseline justify-between">
-                      <div>
-                        <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                          Mensalidade do Software
-                        </span>
-                        <strong className="mt-1 block font-display text-3xl font-black text-primary">
-                          {plan.formattedPrice}
-                        </strong>
-                      </div>
-                      <span className="text-xs font-semibold text-muted-foreground">/{plan.period}</span>
-                    </div>
-                    <ul className="space-y-3.5 flex-1">
-                      {plan.features.map((feature, idx) => (
-                        <li className="flex gap-3 text-xs sm:text-sm" key={idx}>
-                          <span className="grid size-5 shrink-0 place-items-center rounded-full bg-success-soft text-success">
-                            <Check className="size-3" />
-                          </span>
-                          <span className={feature.includes("Curva ABC") || feature.includes("Canal Próprio") ? "font-bold text-foreground" : ""}>
-                            {feature}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+            {/* Navegador Interativo dos 3 Planos */}
+            <div className="mt-8 flex flex-wrap justify-center gap-2 p-1.5 bg-card/90 backdrop-blur border border-border/80 rounded-2xl max-w-2xl mx-auto shadow-md">
+              {plans.map((p) => {
+                const isSelected = selectedPlanId === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setSelectedPlanId(p.id)}
+                    className={`flex-1 min-w-[145px] py-2.5 px-3.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 ${
+                      isSelected
+                        ? "bg-primary text-white shadow-lg ring-2 ring-primary/30 scale-[1.02]"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/70"
+                    }`}
+                  >
+                    <span>{p.name}</span>
+                    <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-black ${isSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>
+                      {p.formattedPrice}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
-                  <div className="mt-8 space-y-2">
-                    <Button
-                      asChild
-                      className={`w-full font-bold shadow-md cursor-pointer flex items-center justify-center gap-2 ${
-                        plan.popular
-                          ? "bg-primary text-white hover:bg-primary/90"
-                          : "bg-foreground text-background hover:bg-foreground/90"
-                      }`}
-                    >
-                      <a href={plan.mercadoPagoUrl} target="_blank" rel="noopener noreferrer">
-                        <span>Contratar no Mercado Pago</span>
-                        <ExternalLink className="size-3.5" />
-                      </a>
-                    </Button>
-                    <div className="w-full text-center text-xs font-semibold text-muted-foreground py-1">
-                      Suporte via Canal Próprio no App
+            <div className="mt-8 grid items-stretch gap-6 lg:grid-cols-3">
+              {plans.map((plan) => {
+                const isSelected = selectedPlanId === plan.id;
+                return (
+                  <article
+                    className={`plan-card flex flex-col justify-between cursor-pointer transition-all duration-300 relative rounded-3xl ${
+                      isSelected
+                        ? "plan-card-featured border-primary ring-2 ring-primary shadow-2xl scale-[1.02]"
+                        : "border-border/80 hover:border-primary/40 opacity-90 hover:opacity-100"
+                    }`}
+                    key={plan.id}
+                    onClick={() => setSelectedPlanId(plan.id)}
+                  >
+                    <div>
+                      {isSelected ? (
+                        <span className="popular-badge bg-primary text-white shadow-md flex items-center gap-1">
+                          <Check className="size-3" /> Plano Selecionado
+                        </span>
+                      ) : plan.popular ? (
+                        <span className="popular-badge bg-amber-500 text-white shadow-sm opacity-90 flex items-center gap-1">
+                          <Star className="size-3 fill-current" /> Mais escolhido
+                        </span>
+                      ) : null}
+                      <div className="flex items-center justify-between">
+                        <h3 className="mt-2 font-display text-2xl font-bold">{plan.name}</h3>
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded ${isSelected ? "bg-primary text-white" : "bg-primary/10 text-primary"}`}>
+                          {plan.badge}
+                        </span>
+                      </div>
+                      <p className="mt-2 min-h-12 text-sm leading-relaxed text-muted-foreground">{plan.detail}</p>
+                      <div className="my-7 border-y border-border py-4 flex items-baseline justify-between">
+                        <div>
+                          <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                            Mensalidade do Software
+                          </span>
+                          <strong className="mt-1 block font-display text-3xl font-black text-primary">
+                            {plan.formattedPrice}
+                          </strong>
+                        </div>
+                        <span className="text-xs font-semibold text-muted-foreground">/{plan.period}</span>
+                      </div>
+                      <ul className="space-y-3.5 flex-1">
+                        {plan.features.map((feature, idx) => (
+                          <li className="flex gap-3 text-xs sm:text-sm" key={idx}>
+                            <span className="grid size-5 shrink-0 place-items-center rounded-full bg-success-soft text-success">
+                              <Check className="size-3" />
+                            </span>
+                            <span className={feature.includes("Curva ABC") || feature.includes("Canal Próprio") ? "font-bold text-foreground" : ""}>
+                              {feature}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                  </div>
-                </article>
-              ))}
+
+                    <div className="mt-8 space-y-2">
+                      <Button
+                        asChild
+                        className={`w-full font-bold shadow-md cursor-pointer flex items-center justify-center gap-2 py-6 text-sm sm:text-base transition-all ${
+                          isSelected
+                            ? "bg-primary text-white hover:bg-primary/90 ring-2 ring-primary/30"
+                            : "bg-foreground text-background hover:bg-foreground/90"
+                        }`}
+                      >
+                        <a
+                          href={plan.mercadoPagoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <span>Contratar no Mercado Pago</span>
+                          <ExternalLink className="size-4" />
+                        </a>
+                      </Button>
+                      <div className="w-full text-center text-xs font-semibold text-muted-foreground py-1">
+                        Suporte via Canal Próprio no App
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
             <p className="mt-6 text-center text-xs text-muted-foreground">
               * Pagamento 100% seguro via Mercado Pago. Aceita Pix com ativação imediata, Boleto e Cartão em até 12x.

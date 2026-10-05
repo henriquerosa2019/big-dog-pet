@@ -35,6 +35,7 @@ export function SubscriptionModal({
   isExpiringSoon = false,
 }: SubscriptionModalProps) {
   const [plans, setPlans] = useState<SubscriptionPlanConfig[]>(() => getMercadoPagoPlans());
+  const [selectedPlanId, setSelectedPlanId] = useState<string>("pro");
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -75,23 +76,52 @@ export function SubscriptionModal({
           </div>
         )}
 
+        {/* Navegador Rápido dos 3 Planos */}
+        <div className="mt-4 flex flex-wrap justify-center gap-1.5 p-1.5 bg-muted/60 border border-border/80 rounded-2xl max-w-lg mx-auto shadow-xs">
+          {plans.map((p) => {
+            const isSelected = selectedPlanId === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setSelectedPlanId(p.id)}
+                className={`flex-1 min-w-[120px] py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  isSelected
+                    ? "bg-primary text-white shadow-sm ring-1 ring-primary/30 scale-[1.02]"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                <span>{p.name}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${isSelected ? "bg-white/20 text-white" : "bg-card text-muted-foreground"}`}>
+                  {p.formattedPrice}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         <div className="mt-4 grid gap-5 md:grid-cols-3">
           {plans.map((plan) => {
-            const isPopular = plan.popular;
+            const isSelected = selectedPlanId === plan.id;
             return (
               <div
                 key={plan.id}
-                className={`relative flex flex-col justify-between rounded-3xl border p-5 sm:p-6 transition-all duration-300 ${
-                  isPopular
-                    ? "border-primary bg-primary/5 shadow-xl shadow-primary/10 ring-2 ring-primary/30"
-                    : "border-border/80 bg-card hover:border-primary/40 hover:shadow-lg"
+                onClick={() => setSelectedPlanId(plan.id)}
+                className={`relative flex flex-col justify-between rounded-3xl border p-5 sm:p-6 transition-all duration-300 cursor-pointer ${
+                  isSelected
+                    ? "border-primary bg-primary/5 shadow-2xl ring-2 ring-primary scale-[1.02]"
+                    : "border-border/80 bg-card hover:border-primary/40 hover:shadow-lg opacity-90 hover:opacity-100"
                 }`}
               >
-                {isPopular && (
+                {isSelected ? (
                   <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3.5 py-1 text-[11px] font-black tracking-wide text-white uppercase shadow-md flex items-center gap-1">
+                    <Check className="size-3" /> Plano Selecionado
+                  </span>
+                ) : plan.popular ? (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-3.5 py-1 text-[11px] font-black tracking-wide text-white uppercase shadow-md flex items-center gap-1 opacity-90">
                     <Sparkles className="size-3" /> Mais Recomendado
                   </span>
-                )}
+                ) : null}
 
                 <div>
                   <div className="flex items-center justify-between gap-2">
@@ -100,7 +130,7 @@ export function SubscriptionModal({
                     </h3>
                     <span
                       className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-                        isPopular
+                        isSelected
                           ? "bg-primary text-white"
                           : "bg-muted text-muted-foreground"
                       }`}
@@ -138,10 +168,13 @@ export function SubscriptionModal({
 
                 <div className="mt-6 space-y-2">
                   <Button
-                    onClick={() => openMercadoPago(plan.mercadoPagoUrl)}
-                    className={`w-full font-bold shadow-md cursor-pointer flex items-center justify-center gap-2 ${
-                      isPopular
-                        ? "bg-primary text-white hover:bg-primary/90"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openMercadoPago(plan.mercadoPagoUrl);
+                    }}
+                    className={`w-full font-bold shadow-md cursor-pointer flex items-center justify-center gap-2 py-5 ${
+                      isSelected
+                        ? "bg-primary text-white hover:bg-primary/90 ring-2 ring-primary/30"
                         : "bg-foreground text-background hover:bg-foreground/90"
                     }`}
                   >

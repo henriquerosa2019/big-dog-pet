@@ -48,14 +48,11 @@ test.describe('E2E: Assinaturas, Planos Mercado Pago e Ciclo de Degustação', (
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    // Clica no ícone Minha Conta com resiliência a hidratação SSR
+    // Clica no ícone Minha Conta
     const minhaContaBtn = page.locator('header button[title="Minha Conta"]');
     await expect(minhaContaBtn).toBeVisible();
-    
-    await expect(async () => {
-      await minhaContaBtn.click();
-      await expect(page.getByText('Já sou Cliente (Entrar)')).toBeVisible({ timeout: 1500 });
-    }).toPass({ timeout: 10000 });
+    await minhaContaBtn.click();
+    await expect(page.getByText('Já sou Cliente (Entrar)')).toBeVisible({ timeout: 5000 });
 
     await expect(page.getByText('Cadastre-se (7 Dias Grátis)')).toBeVisible();
 
