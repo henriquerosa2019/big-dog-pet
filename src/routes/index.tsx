@@ -19,6 +19,7 @@ import {
   ShoppingBag,
   Sparkles,
   Star,
+  Stethoscope,
   User,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -27,6 +28,10 @@ import heroBird from "@/assets/hero-bird.jpg";
 import heroCat from "@/assets/hero-cat.jpg";
 import heroDog from "@/assets/hero-dog.jpg";
 import logoImg from "@/assets/bigdog-logo.png";
+import serviceBanhoTosa from "@/assets/service-banho-tosa.jpg";
+import serviceVeterinaria from "@/assets/service-veterinaria.jpg";
+import serviceTaxiPet from "@/assets/service-taxi-pet.jpg";
+import serviceLojaPet from "@/assets/service-loja-pet.jpg";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -64,24 +69,43 @@ const services = [
   {
     icon: Scissors,
     title: "Banho & Tosa",
-    description: "Cuidado, higiene e muito carinho para seu pet sair feliz e cheiroso.",
-    action: "Agendar serviço",
+    tag: "Higiene & Estética",
+    description:
+      "Higienização completa, tosa higiênica e da raça com produtos premium, água morna e secagem suave para cães e gatos saírem cheirosos e relaxados.",
+    action: "Agendar Banho",
     to: "/agendar",
+    image: serviceBanhoTosa,
+  },
+  {
+    icon: Stethoscope,
+    title: "Veterinária",
+    tag: "Saúde & Prevenção",
+    description:
+      "Consultas clínicas, vacinação importada, prevenção e exames com médicos veterinários dedicados ao cuidado, saúde e longevidade do seu companheiro.",
+    action: "Agendar Consulta",
+    to: "/agendar",
+    image: serviceVeterinaria,
   },
   {
     icon: CarFront,
     title: "Táxi Pet",
-    description: "Buscamos e levamos seu pet de volta com conforto em Franco da Rocha.",
-    action: "Solicitar transporte",
+    tag: "Comodidade & Segurança",
+    description:
+      "Buscamos e levamos seu pet na sua residência em Franco da Rocha com transporte seguro, cinto adaptado, ar-condicionado e motorista atencioso.",
+    action: "Pedir Táxi Pet",
     to: "/agendar",
     search: { tipo: "buscar_e_devolver" },
+    image: serviceTaxiPet,
   },
   {
     icon: ShoppingBag,
     title: "Loja Pet",
-    description: "Rações, acessórios e mimos escolhidos para cada fase da vida.",
-    action: "Conhecer a loja",
+    tag: "Rações & Mimos",
+    description:
+      "Rações super premium, petiscos saudáveis, farmácia veterinária, caminhas confortáveis e acessórios selecionados para todas as fases do pet.",
+    action: "Comprar na Loja",
     to: "/loja",
+    image: serviceLojaPet,
   },
 ];
 
@@ -260,7 +284,11 @@ function Index() {
                     Agendar agora <ArrowRight className="size-5" />
                   </Link>
                 </Button>
-                <Button className="hero-outline" variant="outline" size="lg" asChild>
+                <Button
+                  size="lg"
+                  className="hero-outline text-base px-6 font-bold shadow-lg"
+                  asChild
+                >
                   <a href="#servicos">Ver serviços</a>
                 </Button>
               </div>
@@ -296,7 +324,7 @@ function Index() {
 
         {/* Ações Rápidas integradas ao App */}
         <section className="quick-actions" aria-label="Ações rápidas">
-          <div className="site-container grid gap-3 md:grid-cols-3">
+          <div className="site-container grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {services.map(({ icon: Icon, title, action, to, search }, index) => (
               <Link
                 key={title}
@@ -306,11 +334,13 @@ function Index() {
               >
                 <span
                   className={`quick-icon ${
-                    index === 1
-                      ? "bg-success-soft text-success"
+                    index === 0
+                      ? "bg-primary-soft text-primary"
+                      : index === 1
+                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
                       : index === 2
-                      ? "bg-highlight-soft text-highlight-strong"
-                      : "bg-primary-soft text-primary"
+                      ? "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300"
+                      : "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300"
                   }`}
                 >
                   <Icon className="size-6" />
@@ -325,7 +355,7 @@ function Index() {
           </div>
         </section>
 
-        {/* Serviços em Destaque */}
+        {/* Serviços em Destaque com Imagens Elegantes */}
         <section id="servicos" className="section-space">
           <div className="site-container">
             <div className="section-heading">
@@ -335,28 +365,56 @@ function Index() {
                 </span>
                 <h2>Do banho aos mimos, a gente cuida.</h2>
               </div>
-              <p>Serviços pensados para deixar a rotina mais simples para você e mais gostosa para o seu melhor amigo.</p>
+              <p>
+                Serviços completos em Franco da Rocha pensados para deixar a rotina prática para você e cheia de carinho para o seu melhor amigo.
+              </p>
             </div>
-            <div className="mt-12 grid gap-5 md:grid-cols-3">
-              {services.map(({ icon: Icon, title, description, action, to, search }, index) => (
-                <article className="service-card flex flex-col justify-between" key={title}>
-                  <div>
-                    <div className="mb-8 flex items-start justify-between">
-                      <span className="grid size-14 place-items-center rounded-full bg-primary-soft text-primary">
-                        <Icon className="size-7" />
-                      </span>
-                      <span className="font-display text-5xl text-border">0{index + 1}</span>
-                    </div>
-                    <h3 className="font-display text-2xl">{title}</h3>
-                    <p className="mt-3 leading-relaxed text-muted-foreground">{description}</p>
+
+            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {services.map(({ icon: Icon, title, tag, description, action, to, search, image }, index) => (
+                <article
+                  key={title}
+                  className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-border/80 bg-card shadow-card transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:border-primary/40"
+                >
+                  {/* Foto Ilustrativa de Alta Resolução do Serviço */}
+                  <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-muted">
+                    <img
+                      src={image}
+                      alt={title}
+                      className="size-full object-cover transition-transform duration-700 ease-out group-hover:scale-108"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+
+                    {/* Tag de Categoria com Glassmorphism */}
+                    <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-[11px] font-bold tracking-wide text-slate-900 shadow-sm backdrop-blur-md">
+                      <Icon className="size-3.5 text-primary" /> {tag}
+                    </span>
+
+                    {/* Número Identificador */}
+                    <span className="absolute bottom-3 right-3 font-display text-2xl font-black text-white/90 drop-shadow-md">
+                      0{index + 1}
+                    </span>
                   </div>
-                  <Link
-                    to={to}
-                    search={search}
-                    className="mt-7 inline-flex items-center gap-2 font-bold text-primary hover:underline"
-                  >
-                    {action} <ArrowRight className="size-4" />
-                  </Link>
+
+                  {/* Detalhes e Ação com Tipografia Elegante */}
+                  <div className="flex flex-1 flex-col justify-between p-5">
+                    <div>
+                      <h3 className="font-display text-xl font-bold text-foreground transition-colors group-hover:text-primary">
+                        {title}
+                      </h3>
+                      <p className="mt-2.5 text-xs sm:text-sm leading-relaxed text-muted-foreground">
+                        {description}
+                      </p>
+                    </div>
+
+                    <Link
+                      to={to}
+                      search={search}
+                      className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-xs sm:text-sm font-bold text-primary transition-all duration-200 hover:bg-primary hover:text-white active:scale-[0.98]"
+                    >
+                      {action} <ArrowRight className="size-4" />
+                    </Link>
+                  </div>
                 </article>
               ))}
             </div>

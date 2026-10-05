@@ -262,11 +262,19 @@
 }
 
 @utility hero-outline {
-  border-color: oklch(1 0 0 / 0.38);
-  background: oklch(0.18 0.05 244 / 0.3);
-  color: var(--color-hero-foreground);
-  backdrop-filter: blur(8px);
-  &:hover { background: oklch(1 0 0 / 0.14); }
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff !important;
+  backdrop-filter: blur(12px);
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  transition: all 0.2s ease;
+  &:hover {
+    background: #ffffff;
+    border-color: #ffffff;
+    color: #0f172a !important;
+    text-shadow: none;
+  }
 }
 
 @utility quick-actions {
