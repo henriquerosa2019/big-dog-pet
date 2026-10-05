@@ -1,0 +1,645 @@
+<title>Plano Big Dog Pet</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Karla:wght@400;500;600;700&display=swap');
+
+  :root{
+    --bg:#F1F4EF;
+    --surface:#FFFFFF;
+    --surface-2:#EAF0E9;
+    --text:#17231D;
+    --text-muted:#556158;
+    --accent:#1F6F5C;
+    --accent-soft:#DCEAE4;
+    --accent-2:#C98A22;
+    --accent-2-soft:#F4E3C0;
+    --warn:#B4502F;
+    --warn-soft:#F3DFD4;
+    --border:#DDE3D9;
+    --shadow: 0 1px 2px rgba(23,35,29,0.06), 0 8px 24px -12px rgba(23,35,29,0.18);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#101915;
+      --surface:#172620;
+      --surface-2:#1D2E26;
+      --text:#EDEFE8;
+      --text-muted:#9FB3A7;
+      --accent:#5FCBAA;
+      --accent-soft:#1E362D;
+      --accent-2:#F0BE5A;
+      --accent-2-soft:#3A2F17;
+      --warn:#E8875F;
+      --warn-soft:#3A241A;
+      --border:#28372F;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 28px -14px rgba(0,0,0,0.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#101915;
+    --surface:#172620;
+    --surface-2:#1D2E26;
+    --text:#EDEFE8;
+    --text-muted:#9FB3A7;
+    --accent:#5FCBAA;
+    --accent-soft:#1E362D;
+    --accent-2:#F0BE5A;
+    --accent-2-soft:#3A2F17;
+    --warn:#E8875F;
+    --warn-soft:#3A241A;
+    --border:#28372F;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 28px -14px rgba(0,0,0,0.55);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Karla', ui-sans-serif, system-ui, sans-serif;
+    font-size:16px;
+    line-height:1.65;
+    padding:0 20px;
+  }
+  .wrap{
+    max-width:820px;
+    margin:0 auto;
+    padding-block: 48px 80px;
+  }
+  h1,h2,h3{
+    font-family:'Fraunces', Georgia, serif;
+    font-weight:600;
+    text-wrap:balance;
+    color:var(--text);
+    margin:0;
+  }
+  h1{ font-size: clamp(2rem, 5vw, 2.6rem); font-weight:700; letter-spacing:-0.01em; }
+  h2{ font-size: 1.5rem; }
+  h3{ font-size: 1.05rem; font-weight:600; }
+  p{ margin:0; }
+  a{ color:var(--accent); }
+
+  header.hero{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    padding-bottom:32px;
+    border-bottom:1px solid var(--border);
+    margin-bottom:40px;
+  }
+  .eyebrow{
+    font-size:0.78rem;
+    font-weight:700;
+    letter-spacing:0.09em;
+    text-transform:uppercase;
+    color:var(--accent);
+  }
+  .hero-meta{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 18px;
+    font-size:0.9rem;
+    color:var(--text-muted);
+  }
+  .hero-meta span{ white-space:nowrap; }
+  .hero-meta a{ text-decoration-color: var(--accent-soft); }
+
+  section{ margin-bottom:44px; }
+  section > h2{ margin-bottom:6px; }
+  .section-sub{
+    color:var(--text-muted);
+    font-size:0.95rem;
+    max-width:62ch;
+    margin-bottom:20px;
+  }
+
+  .correction{
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+    background:var(--warn-soft);
+    border:1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+    border-radius:12px;
+    padding:14px 16px;
+    margin-bottom:36px;
+    font-size:0.92rem;
+  }
+  .correction .tag{
+    flex:none;
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:0.78rem;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    color:var(--warn);
+    padding-top:2px;
+  }
+
+  .diag-grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px,1fr));
+    gap:14px;
+  }
+  .diag-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:16px 18px;
+    box-shadow:var(--shadow);
+  }
+  .diag-card .k{
+    font-size:0.75rem;
+    font-weight:700;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:var(--text-muted);
+    display:block;
+    margin-bottom:6px;
+  }
+  .diag-card p{ font-size:0.94rem; }
+  .diag-card .comp-list{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-top:8px;
+  }
+  .pill{
+    font-size:0.78rem;
+    padding:3px 9px;
+    border-radius:999px;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    color:var(--text-muted);
+  }
+  .pill.lead{ background:var(--accent-soft); color:var(--accent); border-color:transparent; font-weight:600; }
+
+  .value-box{
+    background:var(--accent);
+    color:#F4FAF7;
+    border-radius:14px;
+    padding:24px 26px;
+    box-shadow:var(--shadow);
+  }
+  .value-box .eyebrow{ color:#CDEDE0; }
+  .value-box p.big{
+    font-family:'Fraunces', serif;
+    font-size:1.3rem;
+    font-weight:500;
+    text-wrap:balance;
+    margin-top:8px;
+  }
+  .value-box .bio{
+    margin-top:16px;
+    background:rgba(255,255,255,0.12);
+    border-radius:10px;
+    padding:12px 14px;
+    font-size:0.9rem;
+    font-family:ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    line-height:1.55;
+    white-space:pre-wrap;
+  }
+
+  .mix-grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px,1fr));
+    gap:14px;
+    margin-top:18px;
+  }
+  .mix-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:18px;
+    box-shadow:var(--shadow);
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .mix-card .pct{
+    font-family:'Fraunces', serif;
+    font-size:2rem;
+    font-weight:600;
+    color:var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .mix-card.emo .pct{ color:var(--accent-2); }
+  .mix-card ul{ margin:0; padding-left:18px; font-size:0.9rem; color:var(--text-muted); }
+  .mix-card li{ margin-bottom:4px; }
+
+  .rule-list{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    margin-top:18px;
+  }
+  .rule{
+    display:grid;
+    grid-template-columns: 140px 1fr;
+    gap:16px;
+    padding:14px 0;
+    border-top:1px solid var(--border);
+    align-items:start;
+  }
+  .rule:first-child{ border-top:none; }
+  .rule .label{
+    font-size:0.78rem;
+    font-weight:700;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    color:var(--accent);
+  }
+  .rule p{ font-size:0.94rem; }
+
+  table.cal, table.price{
+    width:100%;
+    border-collapse:collapse;
+    background:var(--surface);
+    border-radius:12px;
+    overflow:hidden;
+    box-shadow:var(--shadow);
+    font-size:0.9rem;
+  }
+  .cal-wrap{ overflow-x:auto; margin-top:18px; border-radius:12px; }
+  table.cal th, table.cal td, table.price th, table.price td{
+    text-align:left;
+    padding:12px 14px;
+    border-bottom:1px solid var(--border);
+    vertical-align:top;
+  }
+  table.cal th, table.price th{
+    background:var(--surface-2);
+    font-size:0.74rem;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    color:var(--text-muted);
+    font-weight:700;
+  }
+  table.cal tr:last-child td, table.price tr:last-child td{ border-bottom:none; }
+  table.cal td.week{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    color:var(--accent);
+    white-space:nowrap;
+  }
+  table.cal td.theme{ font-weight:600; }
+  table.cal td.action{ color:var(--text-muted); }
+  table.price td.plan{ font-weight:600; }
+  table.price td.val{ font-variant-numeric: tabular-nums; color:var(--accent-2); font-weight:600; white-space:nowrap; }
+  table.price td.own{ background:var(--accent-soft); }
+
+  .check-grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px,1fr));
+    gap:12px;
+    margin-top:18px;
+  }
+  .check{
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px 14px;
+    font-size:0.92rem;
+  }
+  .check .box{
+    flex:none;
+    width:18px; height:18px;
+    border-radius:5px;
+    border:2px solid var(--accent);
+    margin-top:2px;
+  }
+
+  .metric-grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px,1fr));
+    gap:12px;
+    margin-top:18px;
+  }
+  .metric{
+    background:var(--surface-2);
+    border-radius:10px;
+    padding:14px;
+  }
+  .metric .n{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    color:var(--accent-2);
+    font-size:1rem;
+  }
+  .metric p{ font-size:0.85rem; color:var(--text-muted); margin-top:4px; }
+
+  .offer{
+    border:1px dashed var(--accent-2);
+    background:var(--accent-2-soft);
+    border-radius:12px;
+    padding:18px 20px;
+    margin-top:18px;
+  }
+  .offer h3{ color:var(--accent-2); margin-bottom:6px; }
+  .offer p{ font-size:0.94rem; }
+  .offer + .offer{ margin-top:14px; }
+
+  footer{
+    margin-top:56px;
+    padding-top:20px;
+    border-top:1px solid var(--border);
+    color:var(--text-muted);
+    font-size:0.82rem;
+  }
+
+  @media (max-width:520px){
+    .rule{ grid-template-columns: 1fr; gap:4px; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow">Plano de lançamento · Instagram · Venda B2B</span>
+    <h1>Big Dog Pet</h1>
+    <div class="hero-meta">
+      <span>SaaS para petshops · assinatura mensal</span>
+      <span>·</span>
+      <span>Demo ao vivo: banho e tosa · táxi pet · loja online · painel do pet</span>
+      <span>·</span>
+      <a href="https://big-dog-pet-mu.vercel.app/" target="_blank" rel="noopener">big-dog-pet-mu.vercel.app</a>
+    </div>
+  </header>
+
+  <div class="correction">
+    <span class="tag">Ajuste</span>
+    <p>Você não é dono do petshop Big Dog Pet — esse site é a <strong>vitrine/demo</strong> do seu produto. Quem paga é o <strong>dono de petshop</strong>, em qualquer cidade do Brasil, por assinatura mensal. O plano abaixo foi reconstruído para venda B2B, não para atrair consumidor final.</p>
+  </div>
+
+  <section>
+    <h2>Diagnóstico</h2>
+    <p class="section-sub">O produto está pronto, sem clientes pagantes. O cliente é o dono do petshop — a compra dele é racional (economiza tempo, evita falta de cliente, organiza a loja), não emocional como a de um consumidor final.</p>
+    <div class="diag-grid">
+      <div class="diag-card">
+        <span class="k">O que a demo prova</span>
+        <p>Big Dog Pet mostra o produto acabado rodando de verdade: agendamento de banho/tosa, táxi pet, loja online e painel com histórico e vacinas — é o seu "cliente modelo" pra mostrar a outros donos de petshop.</p>
+      </div>
+      <div class="diag-card">
+        <span class="k">Concorrentes reais (5 analisados)</span>
+        <p>Mercado maduro, mas concentrado em agenda + financeiro. Nenhum dos 5 tem táxi pet com GPS, cronoanálise de processos ou curva ABC:</p>
+        <div class="comp-list">
+          <span class="pill">Pet Simples</span>
+          <span class="pill">Sispet</span>
+          <span class="pill">Fourpet</span>
+          <span class="pill">Appet.tosa</span>
+          <span class="pill">Banhosoft</span>
+        </div>
+      </div>
+      <div class="diag-card">
+        <span class="k">Primeiros prospects (não concorrentes)</span>
+        <p>Petshops perto de você em Franco da Rocha são leads em potencial pra primeiros clientes-piloto, com prova social fácil de conseguir pessoalmente:</p>
+        <div class="comp-list">
+          <span class="pill lead">Max Petshop</span>
+          <span class="pill lead">Lion Pet Shop</span>
+          <span class="pill lead">NovaVet</span>
+          <span class="pill lead">FrancoPet (2 unidades)</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Preço dos 5 concorrentes analisados</h2>
+    <p class="section-sub">Todos competem na faixa de agenda + financeiro básico. Isso define o teto de preço deles — e a régua que o Big Dog Pet não precisa seguir.</p>
+    <div class="cal-wrap">
+      <table class="price">
+        <thead>
+          <tr><th>Sistema</th><th>Preço/mês</th><th>Foco</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="plan">Pet Simples</td><td class="val">R$ 29,90–49,90</td><td>Groomer autônomo / petshop pequeno</td></tr>
+          <tr><td class="plan">Banhosoft</td><td class="val">R$ 52,32</td><td>Agenda de banho e tosa</td></tr>
+          <tr><td class="plan">Appet.tosa</td><td class="val">R$ 59,90–117</td><td>Agenda + financeiro banho e tosa</td></tr>
+          <tr><td class="plan">Fourpet</td><td class="val">R$ 59–239</td><td>Petshop + clínica, PDV fiscal</td></tr>
+          <tr><td class="plan">Sispet</td><td class="val">Sob consulta</td><td>Petshop + clínica, integração Stone</td></tr>
+          <tr class="own"><td class="plan">Big Dog Pet</td><td class="val">a definir</td><td>Operação + clínica + logística + BI</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Benchmark de funcionalidades</h2>
+    <p class="section-sub">Comparando o PRD do Big Dog Pet com o que cada um dos 5 concorrentes efetivamente oferece hoje.</p>
+    <div class="cal-wrap">
+      <table class="price">
+        <thead>
+          <tr><th>Sistema</th><th>Cronoanálise</th><th>Curva ABC</th><th>Táxi pet + GPS</th><th>Cirurgia c/ CRMV</th><th>Timeline narrada</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="plan">Pet Simples</td><td>✕</td><td>✕</td><td>✕</td><td>✕</td><td>✕</td></tr>
+          <tr><td class="plan">Sispet</td><td>✕</td><td>✕</td><td>✕</td><td>parcial</td><td>✕</td></tr>
+          <tr><td class="plan">Fourpet</td><td>✕</td><td>✕</td><td>✕</td><td>parcial</td><td>✕</td></tr>
+          <tr><td class="plan">Appet.tosa</td><td>✕</td><td>✕</td><td>✕</td><td>✕</td><td>✕</td></tr>
+          <tr><td class="plan">Banhosoft</td><td>✕</td><td>✕</td><td>✕</td><td>✕</td><td>✕</td></tr>
+          <tr class="own"><td class="plan">Big Dog Pet</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="offer">
+      <h3>O que isso significa</h3>
+      <p>Nenhum dos 5 concorre no mesmo território: todos são "agenda + financeiro" pra petshop pequeno/médio. O Big Dog Pet é o único com logística real (GPS, app de motorista, máquina de estados de 5 etapas), inteligência de processo (cronoanálise de fila, bancada e chat) e gestão por Curva ABC. Isso não é um concorrente nº 6 — é outra categoria de produto.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Perfis para acompanhamento</h2>
+    <p class="section-sub">Site e Instagram de cada concorrente analisado, pra monitorar lançamentos, preço e como eles se comunicam.</p>
+    <div class="cal-wrap">
+      <table class="price">
+        <thead>
+          <tr><th>Sistema</th><th>Site</th><th>Instagram</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="plan">Pet Simples</td>
+            <td><a href="https://meupetsimples.com.br/" target="_blank" rel="noopener">meupetsimples.com.br</a></td>
+            <td><a href="https://www.instagram.com/pet.simples/" target="_blank" rel="noopener">@pet.simples</a></td>
+          </tr>
+          <tr>
+            <td class="plan">Sispet</td>
+            <td><a href="https://sispet.com.br/" target="_blank" rel="noopener">sispet.com.br</a></td>
+            <td><a href="https://www.instagram.com/sistemapetshop/" target="_blank" rel="noopener">@sistemapetshop</a></td>
+          </tr>
+          <tr>
+            <td class="plan">Fourpet</td>
+            <td><a href="https://www.fourpet.com.br/" target="_blank" rel="noopener">fourpet.com.br</a></td>
+            <td><a href="https://www.instagram.com/fourpet/" target="_blank" rel="noopener">@fourpet</a> <span class="pill">não confirmado no site</span></td>
+          </tr>
+          <tr>
+            <td class="plan">Appet.tosa</td>
+            <td><a href="https://appettosa.com.br/" target="_blank" rel="noopener">appettosa.com.br</a></td>
+            <td><a href="https://www.instagram.com/appettosa/" target="_blank" rel="noopener">@appettosa</a></td>
+          </tr>
+          <tr>
+            <td class="plan">Banhosoft</td>
+            <td><a href="https://www.banhosoft.com.br/" target="_blank" rel="noopener">banhosoft.com.br</a></td>
+            <td><a href="https://www.instagram.com/banhosoft/" target="_blank" rel="noopener">@banhosoft</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Segmento-alvo: não é o mesmo cliente dos concorrentes</h2>
+    <p class="section-sub">Os 5 concorrentes miram o groomer autônomo e o petshop pequeno (R$30–90/mês, 1 loja, sem clínica). O Big Dog Pet resolve um problema que só existe em operações maiores.</p>
+    <div class="diag-grid">
+      <div class="diag-card">
+        <span class="k">Ideal</span>
+        <p>Petshops médios/grandes com clínica veterinária anexa e/ou que oferecem leva-e-traz — têm motorista, fila, bancada e cirurgia pra gerenciar ao mesmo tempo.</p>
+      </div>
+      <div class="diag-card">
+        <span class="k">Não é o foco</span>
+        <p>Groomer autônomo de 1 pessoa sem transporte: pra esse público, Pet Simples a R$29,90 resolve — competir por preço aí é perder dinheiro.</p>
+      </div>
+      <div class="diag-card">
+        <span class="k">Preço sugerido</span>
+        <p>Acima do teto do mercado (R$239 do Fourpet) — algo como R$300–600/mês por escopo entregue, já que nenhum concorrente cobre logística, cronoanálise e Curva ABC.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Posicionamento para a bio</h2>
+    <p class="section-sub">A promessa é gestão operacional, não "agenda de banho e tosa" — é isso que justifica o preço mais alto pro dono de uma operação maior.</p>
+    <div class="value-box">
+      <span class="eyebrow">Bio sugerida</span>
+      <p class="big">O único sistema pet que junta loja, clínica e leva-e-traz numa gestão só 🐾</p>
+      <div class="bio">📍 Táxi pet com GPS ao vivo + app do motorista
+📊 Cronoanálise e Curva ABC — decisão com dado, não achismo
+🩺 Prontuário, cirurgias e CRMV integrados
+👇 Peça uma demonstração</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Mix de conteúdo</h2>
+    <p class="section-sub">Pro dono de petshop, o conteúdo precisa provar retorno financeiro e economia de tempo — não é sobre o pet, é sobre o negócio dele.</p>
+    <div class="mix-grid">
+      <div class="mix-card">
+        <span class="pct">60%</span>
+        <h3>Utilidade / dor</h3>
+        <ul>
+          <li>"Você sabe quanto tempo seu motorista passa parado no trânsito?" (cronoanálise)</li>
+          <li>Demo em vídeo: GPS ao vivo do táxi pet e app do motorista</li>
+          <li>"Quais 20% dos seus clientes geram 80% do faturamento?" (Curva ABC)</li>
+          <li>Como o prontuário com CRMV evita erro em cirurgia</li>
+        </ul>
+      </div>
+      <div class="mix-card emo">
+        <span class="pct">30%</span>
+        <h3>Prova social</h3>
+        <ul>
+          <li>Depoimento de donos de petshop que testaram</li>
+          <li>Bastidores da implantação num petshop parceiro</li>
+          <li>Números: agendamentos gerados, faltas evitadas</li>
+        </ul>
+      </div>
+      <div class="mix-card">
+        <span class="pct">10%</span>
+        <h3>Oferta</h3>
+        <ul>
+          <li>Teste grátis de 15 dias</li>
+          <li>Condição especial pros primeiros 10 petshops</li>
+          <li>Indicação: petshop indica petshop</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Como vender B2B no Instagram em 2026</h2>
+    <p class="section-sub">Instagram sozinho não fecha venda B2B — LinkedIn concentra cerca de 80% dos leads sociais nesse tipo de venda. Ele funciona bem como vitrine de credibilidade que sustenta uma abordagem direta.</p>
+    <div class="rule-list">
+      <div class="rule">
+        <span class="label">Papel do Instagram</span>
+        <div><p>Ele não substitui a prospecção — serve pra dono de petshop, ao ser abordado, poder "checar" e ver demo, depoimentos e um app com cara séria antes de responder.</p></div>
+      </div>
+      <div class="rule">
+        <span class="label">Prospecção ativa</span>
+        <div><p>Combine posts com DM direta e visita/ligação pros petshops próximos (Max Petshop, Lion Pet Shop, NovaVet, FrancoPet) — venda B2B early-stage se fecha em conversa, não em alcance orgânico.</p></div>
+      </div>
+      <div class="rule">
+        <span class="label">Formato</span>
+        <div><p>Reels de 30–60s mostrando o app funcionando valem mais que estética — texto na tela explicando o benefício, não só a tela do app.</p></div>
+      </div>
+      <div class="rule">
+        <span class="label">Qualificação</span>
+        <div><p>Link da bio leva a um formulário curto ou WhatsApp de vendas, não direto pro cadastro — você precisa saber pra quem está vendendo antes do trial.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Calendário — primeiras 4 semanas</h2>
+    <p class="section-sub">Rodando em paralelo: conteúdo no Instagram + prospecção direta dos petshops de Franco da Rocha como primeiros clientes-piloto.</p>
+    <div class="cal-wrap">
+      <table class="cal">
+        <thead>
+          <tr><th>Semana</th><th>Tema</th><th>Ação principal</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="week">01</td>
+            <td class="theme">A dor de quem já cresceu</td>
+            <td class="action">Reel/carrossel sobre motorista sem controle, fila sem gestão, clínica sem CRMV integrado. Priorizar no contato direto quem tem clínica anexa ou leva-e-traz — não qualquer petshop pequeno.</td>
+          </tr>
+          <tr>
+            <td class="week">02</td>
+            <td class="theme">Demo do produto</td>
+            <td class="action">Vídeo mostrando o app Big Dog Pet rodando de ponta a ponta (agenda, táxi pet, loja, painel). Agendar reuniões de demo com quem respondeu na semana 1.</td>
+          </tr>
+          <tr>
+            <td class="week">03</td>
+            <td class="theme">Oferta de teste</td>
+            <td class="action">Anúncio do teste grátis de 15 dias. Fechar o primeiro petshop-piloto local, mesmo com desconto agressivo — o objetivo é gerar case real.</td>
+          </tr>
+          <tr>
+            <td class="week">04</td>
+            <td class="theme">Prova social</td>
+            <td class="action">Case do petshop-piloto (antes/depois, número real). Programa de indicação: petshop cliente indica outro com desconto pros dois.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="offer">
+      <h3>Meta da fase 1</h3>
+      <p>Não é alcance — é fechar 1 a 3 petshops-piloto locais nas primeiras 4 semanas, mesmo com condição especial, pra ter case e depoimento reais antes de escalar o conteúdo nacionalmente.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Convertendo seguidor em assinante</h2>
+    <div class="check-grid">
+      <div class="check"><span class="box"></span><span>Link da bio vai pra um formulário curto de demo, não direto pro cadastro</span></div>
+      <div class="check"><span class="box"></span><span>Destaques fixos: Demo · Preços · Depoimentos · Teste Grátis</span></div>
+      <div class="check"><span class="box"></span><span>Toda postagem termina com "peça uma demonstração", não "baixe o app"</span></div>
+      <div class="check"><span class="box"></span><span>WhatsApp comercial separado do pessoal, com resposta em minutos durante o horário comercial</span></div>
+      <div class="check"><span class="box"></span><span>Prospecção direta (DM + telefone) pros 4 petshops locais antes de esperar que venham até você</span></div>
+      <div class="check"><span class="box"></span><span>Definir o preço da assinatura antes de escalar — hoje ainda está em aberto</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>O que acompanhar</h2>
+    <div class="metric-grid">
+      <div class="metric"><span class="n">Demos agendadas</span><p>seguidor/DM → reunião marcada</p></div>
+      <div class="metric"><span class="n">Trials iniciados</span><p>demo → teste grátis ativo</p></div>
+      <div class="metric"><span class="n">Trial → pago</span><p>taxa de conversão do teste</p></div>
+      <div class="metric"><span class="n">MRR</span><p>receita recorrente mensal total</p></div>
+    </div>
+  </section>
+
+  <footer>
+    Baseado no PRD v2.0 do Big Dog Pet e em benchmark de 5 concorrentes (Pet Simples, Sispet, Fourpet, Appet.tosa, Banhosoft) pesquisados em setembro de 2026, além de práticas de geração de leads B2B e algoritmo do Instagram em 2026.
+  </footer>
+
+</div>

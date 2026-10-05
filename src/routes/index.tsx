@@ -526,7 +526,7 @@ function Index() {
                   <Icon className="size-5" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <strong className="block font-sans font-bold text-[15px] sm:text-base text-slate-800 dark:text-slate-100 tracking-tight leading-snug group-hover:text-primary transition-colors">
+                  <strong className="block font-sans font-extrabold text-[15px] sm:text-base bg-gradient-to-r from-emerald-800 via-emerald-600 to-green-500 dark:from-emerald-300 dark:via-emerald-400 dark:to-teal-200 bg-clip-text text-transparent tracking-tight leading-snug group-hover:brightness-110 transition-all">
                     {title}
                   </strong>
                   <span className="block text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
@@ -547,7 +547,9 @@ function Index() {
                 <span className="eyebrow">
                   <Sparkles className="size-4" /> Cuidado completo
                 </span>
-                <h2>Do banho aos mimos, a gente cuida.</h2>
+                <h2 className="bg-gradient-to-r from-emerald-800 via-emerald-600 to-green-400 dark:from-emerald-300 dark:via-emerald-400 dark:to-teal-200 bg-clip-text text-transparent inline-block">
+                  Do banho aos mimos, a gente cuida.
+                </h2>
               </div>
               <p>
                 Serviços completos em Franco da Rocha pensados para deixar a rotina prática para você e cheia de carinho para o seu melhor amigo.
@@ -580,10 +582,10 @@ function Index() {
                     </span>
                   </div>
 
-                  {/* Detalhes e Ação com Tipografia Elegante */}
+                  {/* Detalhes e Ação com Tipografia Elegante em Degradê de 3 Tons de Verde */}
                   <div className="flex flex-1 flex-col justify-between p-5">
                     <div>
-                      <h3 className="font-display text-xl font-bold text-foreground transition-colors group-hover:text-primary">
+                      <h3 className="font-display text-xl font-extrabold bg-gradient-to-r from-emerald-800 via-emerald-600 to-green-400 dark:from-emerald-300 dark:via-emerald-400 dark:to-teal-200 bg-clip-text text-transparent inline-block transition-all duration-300 group-hover:brightness-110">
                         {title}
                       </h3>
                       <p className="mt-2.5 text-xs sm:text-sm leading-relaxed text-muted-foreground">
@@ -685,15 +687,17 @@ function Index() {
 
                   <div className="mt-8 space-y-2">
                     <Button
+                      asChild
                       className={`w-full font-bold shadow-md cursor-pointer flex items-center justify-center gap-2 ${
                         plan.popular
                           ? "bg-primary text-white hover:bg-primary/90"
                           : "bg-foreground text-background hover:bg-foreground/90"
                       }`}
-                      onClick={() => window.open(plan.mercadoPagoUrl, "_blank", "noopener,noreferrer")}
                     >
-                      <span>Contratar no Mercado Pago</span>
-                      <ExternalLink className="size-3.5" />
+                      <a href={plan.mercadoPagoUrl} target="_blank" rel="noopener noreferrer">
+                        <span>Contratar no Mercado Pago</span>
+                        <ExternalLink className="size-3.5" />
+                      </a>
                     </Button>
                     <div className="w-full text-center text-xs font-semibold text-muted-foreground py-1">
                       Suporte via Canal Próprio no App

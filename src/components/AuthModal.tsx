@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, EyeOff, Lock, LogIn, Mail, PawPrint, Phone, Sparkles, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +30,12 @@ export function AuthModal({
   defaultMode = "signup",
 }: AuthModalProps) {
   const [tab, setTab] = useState<"signup" | "login">(defaultMode);
+
+  useEffect(() => {
+    if (defaultMode) {
+      setTab(defaultMode);
+    }
+  }, [defaultMode, open]);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -134,7 +140,7 @@ export function AuthModal({
             <PawPrint className="size-6" />
           </div>
           <DialogTitle className="font-display text-2xl font-bold">
-            {serviceTitle ? Acessar  : "Acesso à Big Dog Pet"}
+            {serviceTitle ? `Acessar ${serviceTitle}` : "Acesso à Big Dog Pet"}
           </DialogTitle>
           <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
             Entre na sua conta ou inicie agora seu teste de 7 dias grátis.
