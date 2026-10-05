@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth, useIsAdmin } from "./useAuth";
 
 export interface TrialStatus {
@@ -152,9 +152,12 @@ export function useTrialStatus(): TrialStatus {
     // É assinante ativo!
     const planDisplayNames: Record<string, string> = {
       vitalicio: "⚡ VITALÍCIO",
-      essencial: "⭐ PLANO ESSENCIAL",
-      melhor_amigo: "⭐ MELHOR AMIGO",
-      completo_vip: "💎 COMPLETO VIP",
+      starter: "⚡ PLANO STARTER (R$ 97)",
+      pro: "⭐ PLANO PRO (R$ 167)",
+      master_vip: "💎 PLANO MASTER VIP (R$ 247)",
+      essencial: "⚡ PLANO STARTER",
+      melhor_amigo: "⭐ PLANO PRO",
+      completo_vip: "💎 PLANO MASTER VIP",
     };
     return {
       isTrialActive: true,

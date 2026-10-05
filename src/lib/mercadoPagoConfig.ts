@@ -1,75 +1,77 @@
-﻿export interface SubscriptionPlanConfig {
-  id: "essencial" | "melhor_amigo" | "completo_vip";
+export interface SubscriptionPlanConfig {
+  id: "starter" | "pro" | "master_vip";
   name: string;
   badge: string;
-  price: number; // em reais (ex: 89.90)
+  price: number; // em reais (ex: 97.00)
   formattedPrice: string;
   period: string; // "mês"
   detail: string;
   popular?: boolean;
   mercadoPagoUrl: string;
   features: string[];
-  whatsappMessage: string;
+  contactMessage: string;
 }
 
-const STORAGE_KEY = "bigdog_mercadopago_plans_config";
+const STORAGE_KEY = "bigdog_mercadopago_saas_plans_config_v2";
 
 export const DEFAULT_PLANS: SubscriptionPlanConfig[] = [
   {
-    id: "essencial",
-    name: "Plano Essencial",
-    badge: "Rotina Básica",
-    price: 89.9,
-    formattedPrice: "R$ 89,90",
+    id: "starter",
+    name: "Plano Starter",
+    badge: "Petshop Básico",
+    price: 97.0,
+    formattedPrice: "R$ 97,00",
     period: "mês",
-    detail: "Para manter a rotina de banho e higiene do seu pet sempre em dia.",
+    detail: "Ideal para petshops e profissionais de estética pet que desejam automatizar seus agendamentos.",
     popular: false,
-    mercadoPagoUrl: "https://mpago.la/bigdog-essencial",
+    mercadoPagoUrl: "https://mpago.la/bigdog-starter",
     features: [
-      "Banhos regulares com produtos especiais",
-      "Corte de unhas e limpeza auricular",
-      "Lembretes e acompanhamento no WhatsApp",
-      "Acesso completo a agendamentos online",
+      "Agendamento online 24h para tutores",
+      "Cadastro e histórico de clientes e pets",
+      "Lembretes e avisos automáticos de retorno",
+      "Painel administrativo com agenda visual",
+      "Sem limite de pets cadastrados",
     ],
-    whatsappMessage: "Olá! Gostaria de ativar meu *Plano Essencial* da Big Dog Pet.",
+    contactMessage: "Olá! Gostaria de alugar o sistema no Plano Starter (R$ 97/mês) para o meu Petshop.",
   },
   {
-    id: "melhor_amigo",
-    name: "Plano Melhor Amigo",
-    badge: "Mais Popular ⭐",
-    price: 149.9,
-    formattedPrice: "R$ 149,90",
+    id: "pro",
+    name: "Plano Pro",
+    badge: "Mais Escolhido ⭐",
+    price: 167.0,
+    formattedPrice: "R$ 167,00",
     period: "mês",
-    detail: "O cuidado completo e contínuo que seu pet merece todos os meses com desconto.",
+    detail: "Sistema completo para estabelecimentos com atendimento veterinário e logística de transporte pet.",
     popular: true,
-    mercadoPagoUrl: "https://mpago.la/bigdog-melhor-amigo",
+    mercadoPagoUrl: "https://mpago.la/bigdog-pro",
     features: [
-      "Banho + Tosa higiênica e da raça",
-      "Prioridade garantida nos agendamentos",
-      "10% de desconto em toda a Loja Pet",
-      "Check-up preventivo de pele e pelos",
-      "Suporte exclusivo via WhatsApp",
+      "Tudo do Plano Starter incluso",
+      "Módulo Veterinário (prontuário clínico, vacinas e exames)",
+      "Módulo Táxi Pet (gestão de rotas e rastreio de motoristas)",
+      "Relatórios de faturamento, caixa e serviços mais lucrativos",
+      "Painel Operacional com som de alerta de novos pedidos",
     ],
-    whatsappMessage: "Olá! Gostaria de assinar o *Plano Melhor Amigo* (Recomendado) da Big Dog Pet!",
+    contactMessage: "Olá! Gostaria de assinar o Plano Pro (R$ 167/mês) para a minha Clínica/Petshop.",
   },
   {
-    id: "completo_vip",
-    name: "Plano Completo VIP",
-    badge: "Cuidado VIP 💎",
-    price: 229.9,
-    formattedPrice: "R$ 229,90",
+    id: "master_vip",
+    name: "Plano Master VIP",
+    badge: "Solução Completa 💎",
+    price: 247.0,
+    formattedPrice: "R$ 247,00",
     period: "mês",
-    detail: "Experiência premium completa com busca e entrega Táxi Pet inclusas.",
+    detail: "Para clínicas completas, hospitais e redes que precisam de estoque, relatórios avançados e canal próprio.",
     popular: false,
-    mercadoPagoUrl: "https://mpago.la/bigdog-vip",
+    mercadoPagoUrl: "https://mpago.la/bigdog-master-vip",
     features: [
-      "Pacote completo de banho, tosa e hidratação",
-      "Táxi Pet Big Dog incluso (busca e entrega)",
-      "Atendimento prioritário aos sábados",
-      "15% de desconto em rações e produtos",
-      "Kit de boas-vindas e brindes especiais",
+      "Tudo do Plano Pro incluso",
+      "Loja Online com controle de estoque e vendas",
+      "Relatórios Curva ABC (melhores clientes e itens mais vendidos)",
+      "Múltiplos atendentes com níveis de permissão",
+      "Atendimento exclusivo via Canal Próprio integrado no app",
+      "Personalização total com a marca da sua empresa (White-label)",
     ],
-    whatsappMessage: "Olá! Gostaria de assinar o *Plano Completo VIP* da Big Dog Pet com Táxi Pet incluso!",
+    contactMessage: "Olá! Gostaria de contratar o Plano Master VIP (R$ 247/mês) com Canal Próprio e Curva ABC.",
   },
 ];
 

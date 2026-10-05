@@ -183,12 +183,13 @@ function Index() {
     }
 
     if (trialStatus.isBlocked) {
-      toast.error("Sua conta está suspensa. Regularize sua assinatura via Mercado Pago.");
+      toast.error("O acesso da sua loja está suspenso. Regularize seu plano via Mercado Pago.");
       setSubscriptionModalOpen(true);
       return;
     }
 
-    if (trialStatus.isExpired && !trialStatus.isSubscriber && !trialStatus.isAdmin) {
+    // Apenas o Administrador/Dono do Petshop em teste expirado recebe o paywall
+    if (isAdmin && trialStatus.isExpired && !trialStatus.isSubscriber && user?.email?.toLowerCase() !== "bigdog@gmail.com") {
       setSubscriptionModalOpen(true);
       return;
     }
@@ -626,16 +627,17 @@ function Index() {
         </section>
 
         {/* Planos Oficiais Big Dog com Preços e Mercado Pago Integrado */}
+        {/* Planos Oficiais de Aluguel de Software PetShop & Clínica */}
         <section id="planos" className="section-space bg-section-alt">
           <div className="site-container">
             <div className="section-heading">
               <div>
                 <span className="eyebrow">
-                  <PackageOpen className="size-4" /> Planos Oficiais Big Dog
+                  <PackageOpen className="size-4" /> Aluguel de Sistema PetShop & Clínica
                 </span>
-                <h2>Cuidado frequente, com pagamento facilitado.</h2>
+                <h2>O software mais completo para o seu Petshop.</h2>
               </div>
-              <p>Escolha o plano ideal para o seu companheiro e pague com Pix ou Cartão em até 12x via Mercado Pago.</p>
+              <p>Teste por 7 dias grátis. Escolha o plano ideal com agendamento online 24h, táxi pet, relatórios Curva ABC e Canal Próprio de atendimento.</p>
             </div>
             <div className="mt-12 grid items-stretch gap-5 lg:grid-cols-3">
               {plans.map((plan) => (
@@ -659,7 +661,7 @@ function Index() {
                     <div className="my-7 border-y border-border py-4 flex items-baseline justify-between">
                       <div>
                         <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                          Mensalidade
+                          Mensalidade do Software
                         </span>
                         <strong className="mt-1 block font-display text-3xl font-black text-primary">
                           {plan.formattedPrice}
@@ -673,7 +675,9 @@ function Index() {
                           <span className="grid size-5 shrink-0 place-items-center rounded-full bg-success-soft text-success">
                             <Check className="size-3" />
                           </span>
-                          <span>{feature}</span>
+                          <span className={feature.includes("Curva ABC") || feature.includes("Canal Próprio") ? "font-bold text-foreground" : ""}>
+                            {feature}
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -688,30 +692,18 @@ function Index() {
                       }`}
                       onClick={() => window.open(plan.mercadoPagoUrl, "_blank", "noopener,noreferrer")}
                     >
-                      <span>Pagar com Mercado Pago</span>
+                      <span>Contratar no Mercado Pago</span>
                       <ExternalLink className="size-3.5" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full text-xs font-semibold text-muted-foreground hover:text-foreground"
-                      asChild
-                    >
-                      <a
-                        href={`https://wa.me/5511993793746?text=${encodeURIComponent(plan.whatsappMessage)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <MessageCircle className="size-3.5 mr-1.5 text-[#25D366]" />
-                        Dúvidas? Fale no WhatsApp
-                      </a>
-                    </Button>
+                    <div className="w-full text-center text-xs font-semibold text-muted-foreground py-1">
+                      Suporte via Canal Próprio no App
+                    </div>
                   </div>
                 </article>
               ))}
             </div>
             <p className="mt-6 text-center text-xs text-muted-foreground">
-              * Pagamento 100% seguro via Mercado Pago. Aceita Pix com ativação imediata e Cartão em até 12x.
+              * Pagamento 100% seguro via Mercado Pago. Aceita Pix com ativação imediata, Boleto e Cartão em até 12x.
             </p>
           </div>
         </section>

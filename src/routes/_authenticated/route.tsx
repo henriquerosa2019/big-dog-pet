@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, useIsAdmin } from "@/hooks/useAuth";
 import { useTrialStatus } from "@/hooks/useTrialStatus";
 import { TrialBanner } from "@/components/TrialBanner";
 import { SubscriptionModal } from "@/components/SubscriptionModal";
@@ -23,7 +23,8 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthenticatedLayout() {
   const { user, loading } = useAuth();
-  const { isExpired, isExpiringSoon } = useTrialStatus();
+  const isAdmin = useIsAdmin(user?.id, user?.email);
+  const { isExpired, isExpiringSoon, isSubscriber } = useTrialStatus();
   const [plansModalOpen, setPlansModalOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -33,12 +34,12 @@ function AuthenticatedLayout() {
     }
   }, [user, loading, navigate]);
 
-  // Se o período de teste expirou, abre automaticamente o modal de planos
+  // Se for o Dono do Petshop/Admin e o período de teste de 7 dias do software expirou
   useEffect(() => {
-    if (isExpired) {
+    if (isAdmin && isExpired && !isSubscriber && user?.email?.toLowerCase() !== "bigdog@gmail.com") {
       setPlansModalOpen(true);
     }
-  }, [isExpired]);
+  }, [isAdmin, isExpired, isSubscriber, user]);
 
   if (loading || !user) {
     return (
@@ -50,14 +51,16 @@ function AuthenticatedLayout() {
 
   return (
     <>
-      <TrialBanner onOpenPlans={() => setPlansModalOpen(true)} />
+      {isAdmin && <TrialBanner onOpenPlans={() => setPlansModalOpen(true)} />}
       <Outlet />
-      <SubscriptionModal
-        open={plansModalOpen}
-        onOpenChange={setPlansModalOpen}
-        isExpired={isExpired}
-        isExpiringSoon={isExpiringSoon}
-      />
+      {isAdmin && (
+        <SubscriptionModal
+          open={plansModalOpen}
+          onOpenChange={setPlansModalOpen}
+          isExpired={isExpired}
+          isExpiringSoon={isExpiringSoon}
+        />
+      )}
     </>
   );
 }

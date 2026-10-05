@@ -44,7 +44,7 @@ interface MasterUser {
   nome: string;
   email: string;
   phone?: string;
-  plano: "master" | "vitalicio" | "essencial" | "melhor_amigo" | "completo_vip" | "trial";
+  plano: "master" | "vitalicio" | "starter" | "pro" | "master_vip" | "trial";
   status: "ativo" | "bloqueado";
   created_at: string;
   ultimo_login?: string;
@@ -218,19 +218,33 @@ export function PainelMaster({ open, onOpenChange }: PainelMasterProps) {
   const handleTogglePlan = (u: MasterUser) => {
     const isSubscriber =
       u.plano === "vitalicio" ||
-      u.plano === "melhor_amigo" ||
-      u.plano === "essencial" ||
-      u.plano === "completo_vip";
-    const nextPlan = isSubscriber ? "trial" : "vitalicio";
+      u.plano === "master_vip" ||
+      u.plano === "pro" ||
+      u.plano === "starter";
+    
+    // Ciclo de planos: trial -> master_vip -> pro -> starter -> trial
+    let nextPlan: MasterUser["plano"] = "master_vip";
+    if (u.plano === "trial") nextPlan = "master_vip";
+    else if (u.plano === "master_vip") nextPlan = "pro";
+    else if (u.plano === "pro") nextPlan = "starter";
+    else if (u.plano === "starter" || u.plano === "vitalicio") nextPlan = "trial";
 
     setUsersList((prev) =>
       prev.map((item) => (item.email === u.email ? { ...item, plano: nextPlan } : item))
     );
     saveOverrides(u.email, { plano: nextPlan });
 
+    const planNames: Record<string, string> = {
+      master_vip: "💎 MASTER VIP (R$ 247)",
+      pro: "⭐ PRO (R$ 167)",
+      starter: "⚡ STARTER (R$ 97)",
+      trial: "⏳ TESTE 7 DIAS",
+      vitalicio: "⚡ VITALÍCIO",
+    };
+
     toast.success(
-      nextPlan === "vitalicio"
-        ? `Plano de ${u.nome} alterado para ⚡ ASSINANTE ATIVO!`
+      nextPlan !== "trial"
+        ? `Plano de ${u.nome} alterado para ${planNames[nextPlan]}!`
         : `Plano de ${u.nome} revertido para ⏳ TESTE 7 DIAS.`
     );
   };
@@ -463,9 +477,9 @@ export function PainelMaster({ open, onOpenChange }: PainelMasterProps) {
                           const isMaster = u.plano === "master";
                           const isSubscriber =
                             u.plano === "vitalicio" ||
-                            u.plano === "melhor_amigo" ||
-                            u.plano === "essencial" ||
-                            u.plano === "completo_vip";
+                            u.plano === "master_vip" ||
+                            u.plano === "pro" ||
+                            u.plano === "starter";
                           const isBloqueado = u.status === "bloqueado";
 
                           return (
@@ -484,6 +498,18 @@ export function PainelMaster({ open, onOpenChange }: PainelMasterProps) {
                                 {isMaster ? (
                                   <span className="inline-flex items-center gap-1 bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-black px-2.5 py-0.5 rounded-md shadow-xs">
                                     👑 MASTER
+                                  </span>
+                                ) : u.plano === "master_vip" ? (
+                                  <span className="inline-flex items-center gap-1 bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[11px] font-black px-2.5 py-0.5 rounded-md shadow-xs">
+                                    💎 MASTER VIP (R$ 247)
+                                  </span>
+                                ) : u.plano === "pro" ? (
+                                  <span className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-black px-2.5 py-0.5 rounded-md shadow-xs">
+                                    ⭐ PRO (R$ 167)
+                                  </span>
+                                ) : u.plano === "starter" ? (
+                                  <span className="inline-flex items-center gap-1 bg-sky-500/20 text-sky-300 border border-sky-500/40 text-[11px] font-black px-2.5 py-0.5 rounded-md shadow-xs">
+                                    ⚡ STARTER (R$ 97)
                                   </span>
                                 ) : isSubscriber ? (
                                   <span className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-black px-2.5 py-0.5 rounded-md shadow-xs">
