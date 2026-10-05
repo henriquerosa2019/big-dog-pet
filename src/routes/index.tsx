@@ -260,7 +260,7 @@ function Index() {
 
       <main>
         {/* Banner Hero com Carrossel de Cão, Gato e Calopsita */}
-        <section id="inicio" className="relative min-h-[690px] overflow-hidden md:min-h-[760px]">
+        <section id="inicio" className="relative min-h-[580px] overflow-hidden md:min-h-[640px]">
           {heroSlides.map((slide, index) => (
             <img
               key={slide.label}
@@ -275,7 +275,7 @@ function Index() {
             />
           ))}
           <div className="absolute inset-0 bg-hero-overlay" />
-          <div className="site-container relative flex min-h-[690px] items-end pb-20 pt-24 md:min-h-[760px] md:items-center md:pb-14 md:pt-20">
+          <div className="site-container relative flex min-h-[580px] items-end pb-28 pt-20 md:min-h-[640px] md:items-center md:pb-24 md:pt-16">
             <div className="max-w-[690px] text-hero-foreground">
               <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-hero-foreground/20 bg-hero-scrim/40 px-4 py-2 text-sm font-bold backdrop-blur-sm">
                 <MapPin className="size-4 text-highlight" /> Loja 3 · Franco da Rocha
@@ -315,7 +315,7 @@ function Index() {
                 Cuidado gentil para todos os tamanhos
               </div>
             </div>
-            <div className="absolute bottom-6 right-5 flex gap-2 md:bottom-10 md:right-8">
+            <div className="absolute bottom-22 right-5 flex gap-2 md:bottom-28 md:right-8">
               {heroSlides.map((slide, index) => (
                 <button
                   key={slide.label}
@@ -332,7 +332,7 @@ function Index() {
 
         {/* Ações Rápidas integradas ao App com Fundo Translúcido e Tipografia Elegante */}
         <section className="quick-actions" aria-label="Ações rápidas">
-          <div className="site-container grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="site-container grid items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {services.map(({ icon: Icon, title, subtext, to, search, iconStyle }) => (
               <Link
                 key={title}
