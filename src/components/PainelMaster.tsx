@@ -692,7 +692,7 @@ export function PainelMaster({ open, onOpenChange }: PainelMasterProps) {
               <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800">
                 <h3 className="font-display text-lg font-bold text-white flex items-center gap-2">
                   <Sparkles className="size-5 text-amber-400" />
-                  Simulador de Degustação e Paywall
+                  Simulador de Degustação e Planos do Mercado Pago
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
                   Use estes botões para testar ao vivo como o app se comporta nos 3 estágios do ciclo de vida de 7 dias grátis para um cliente comum.
@@ -743,7 +743,7 @@ export function PainelMaster({ open, onOpenChange }: PainelMasterProps) {
                     <span className="text-xs font-black text-red-400 uppercase">Estágio 3</span>
                     <h4 className="font-bold text-white text-base mt-1">Expirado (Bloqueio)</h4>
                     <p className="text-xs text-slate-400 mt-2">
-                      Bloqueia agendamentos e abre o Paywall com os 3 planos do Mercado Pago para efetuar o pagamento.
+                      Bloqueia agendamentos e abre a tela com os 3 planos do Mercado Pago para efetuar o pagamento.
                     </p>
                   </div>
                   <Button
