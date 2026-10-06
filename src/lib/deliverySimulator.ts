@@ -10,23 +10,21 @@ import {
 import type { DriverLocationPayload } from "@/lib/driverLocation";
 
 /**
- * Ponto de referência do Petshop Big Dog Pet
- * Rua Rangel Pestana, 56 - Vila Bazú, Franco da Rocha - SP
+ * Ponto de referência do Petshop Vetty
  */
 export const SHOP_LOCATION = {
-  name: "Big Dog Pet - Loja 3",
-  address: "Rua Rangel Pestana, 56 - Vila Bazú, Franco da Rocha - SP",
+  name: "Vetty - Unidade Central",
+  address: "Centro de Atendimento Vetty",
   lat: -23.32185,
   lng: -46.7262,
 } as const;
 
 /**
  * Ponto de referência da Residência do Tutor
- * Rua Nelson Rodrigues, 120 - Parque Vitória, Franco da Rocha - SP
  */
 export const TUTOR_HOME_LOCATION = {
   name: "Residência do Tutor",
-  address: "Rua Nelson Rodrigues, 120 - Parque Vitória, Franco da Rocha - SP",
+  address: "Endereço do Tutor Cadastrado",
   lat: -23.3315,
   lng: -46.721,
 } as const;

@@ -261,7 +261,7 @@ export function DeliverySimulator({
             </h2>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Simule o deslocamento do motorista pelas ruas de Franco da Rocha, acompanhe a telemetria GPS e a visão simultânea do tutor.
+            Simule o deslocamento do motorista pelas rotas de entrega, acompanhe a telemetria GPS e a visão simultânea do tutor.
           </p>
         </div>
 
@@ -474,7 +474,7 @@ export function DeliverySimulator({
         <div className="flex items-center justify-between mb-1.5 text-xs">
           <span className="font-semibold text-muted-foreground flex items-center gap-1">
             <MapPin className="h-3.5 w-3.5 text-primary" />
-            Visualizador do Trajeto ao Vivo (Franco da Rocha):
+            Visualizador do Trajeto ao Vivo:
           </span>
           <span className="text-[11px] text-muted-foreground">
             GPS Atual: {telemetry.lat.toFixed(5)}, {telemetry.lng.toFixed(5)}
