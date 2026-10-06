@@ -476,7 +476,7 @@ function Index() {
                   className="hero-outline text-base px-6 font-bold shadow-lg"
                   asChild
                 >
-                  <a href="#servicos">Ver serviços</a>
+                  <a href="#gestao-inteligente">Gestão Inteligente</a>
                 </Button>
               </div>
               <div className="mt-8 flex items-center gap-3 text-sm font-semibold text-hero-muted">
@@ -510,9 +510,53 @@ function Index() {
           </div>
         </section>
 
-        {/* Ações Rápidas integradas ao App com Fundo Translúcido e Tipografia Elegante */}
-        <section className="quick-actions" aria-label="Ações rápidas">
-          <div className="site-container grid items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Árvore de Processos / Ações Rápidas: Gestão Inteligente ligando aos 4 Serviços */}
+        <section id="gestao-inteligente" className="quick-actions relative" aria-label="Gestão Inteligente de Serviços">
+          <div className="site-container relative">
+            {/* Diagrama de Fluxograma / Caixa de Processos conectando Gestão Inteligente aos 4 serviços */}
+            <div className="flex flex-col items-center mb-2">
+              {/* Caixa Central de Processos "Gestão Inteligente" */}
+              <div className="relative z-30 inline-flex items-center gap-2.5 rounded-2xl border-2 border-white/90 bg-slate-900/90 px-6 py-2.5 text-white shadow-2xl backdrop-blur-xl ring-4 ring-white/10 hover:border-white transition-all">
+                <span className="grid size-7 place-items-center rounded-xl bg-primary text-white shadow-xs">
+                  <Sparkles className="size-4" />
+                </span>
+                <span className="font-display text-sm sm:text-base font-extrabold uppercase tracking-wider text-white">
+                  Gestão Inteligente
+                </span>
+              </div>
+
+              {/* Linhas brancas de conexão do fluxograma (visíveis no desktop lg com 4 colunas) */}
+              <div className="hidden lg:block w-full relative h-12" aria-hidden="true">
+                {/* Linha vertical central descendo da caixa Gestão Inteligente */}
+                <div className="absolute left-1/2 top-0 h-6 w-0.5 -translate-x-1/2 bg-white shadow-[0_0_8px_rgba(255,255,255,0.7)]" />
+                
+                {/* Barra horizontal distribuidora conectando do centro do primeiro card ao quarto card */}
+                {/* Os cards estão em 12.5%, 37.5%, 62.5% e 87.5% da largura */}
+                <div className="absolute top-6 left-[12.5%] right-[12.5%] h-0.5 bg-white shadow-[0_0_8px_rgba(255,255,255,0.7)]" />
+
+                {/* 4 Linhas verticais descendo para cada uma das caixas com terminais elegantes */}
+                <div className="absolute top-6 left-[12.5%] h-6 w-0.5 -translate-x-1/2 bg-white shadow-[0_0_8px_rgba(255,255,255,0.7)]">
+                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 size-2 rounded-full bg-white ring-2 ring-primary" />
+                </div>
+                <div className="absolute top-6 left-[37.5%] h-6 w-0.5 -translate-x-1/2 bg-white shadow-[0_0_8px_rgba(255,255,255,0.7)]">
+                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 size-2 rounded-full bg-white ring-2 ring-primary" />
+                </div>
+                <div className="absolute top-6 left-[62.5%] h-6 w-0.5 -translate-x-1/2 bg-white shadow-[0_0_8px_rgba(255,255,255,0.7)]">
+                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 size-2 rounded-full bg-white ring-2 ring-primary" />
+                </div>
+                <div className="absolute top-6 left-[87.5%] h-6 w-0.5 -translate-x-1/2 bg-white shadow-[0_0_8px_rgba(255,255,255,0.7)]">
+                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 size-2 rounded-full bg-white ring-2 ring-primary" />
+                </div>
+              </div>
+
+              {/* Conector simplificado para mobile / tablet */}
+              <div className="lg:hidden flex flex-col items-center h-6" aria-hidden="true">
+                <div className="h-6 w-0.5 bg-white shadow-[0_0_8px_rgba(255,255,255,0.7)]" />
+              </div>
+            </div>
+
+            {/* As 4 Caixas de Processos dos Serviços */}
+            <div className="grid items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {services.map(({ icon: Icon, title, subtext, to, search, iconStyle }) => (
               <button
                 key={title}
@@ -536,6 +580,7 @@ function Index() {
                 <ChevronRight className="size-4 text-slate-400 dark:text-slate-500 transition-all duration-200 group-hover:translate-x-1 group-hover:text-primary" />
               </button>
             ))}
+            </div>
           </div>
         </section>
 
