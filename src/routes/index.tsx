@@ -36,6 +36,7 @@ import heroCat from "@/assets/hero-cat.jpg";
 import heroDog from "@/assets/hero-dog.jpg";
 import logoImg from "@/assets/bigdog-logo.png";
 import logoWhiteImg from "@/assets/vetty-logo-white.png";
+import vettyPawSymbol from "@/assets/vetty-paw-symbol.png";
 import serviceBanhoTosa from "@/assets/service-banho-tosa.jpg";
 import serviceVeterinaria from "@/assets/service-veterinaria.jpg";
 import serviceTaxiPet from "@/assets/service-taxi-pet.jpg";
@@ -902,11 +903,19 @@ function Index() {
                   Agende uma Demonstração e veja na prática como fazer a diferença com o Vetty Sistema Inteligente Pet.
                 </p>
                 <div className="mt-8 mb-4 sm:mb-6 flex flex-col md:flex-row items-center md:items-end justify-between gap-6 w-full">
-                  <Button variant="hero" size="lg" asChild className="shadow-lg">
-                    <a href="https://wa.me/5511993793746" target="_blank" rel="noreferrer">
-                      <MessageCircle className="size-5" /> Chamar no WhatsApp
-                    </a>
-                  </Button>
+                  <a
+                    href="https://wa.me/5511993793746"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group inline-flex items-center gap-3.5 px-7 py-3.5 rounded-full bg-gradient-to-r from-teal-500 via-emerald-600 to-teal-700 hover:from-teal-400 hover:via-emerald-500 hover:to-teal-600 text-white font-extrabold text-base tracking-wide shadow-xl hover:shadow-emerald-500/30 transition-all duration-300 hover:scale-105 active:scale-95 border border-white/25"
+                  >
+                    <img
+                      src={vettyPawSymbol}
+                      alt="Patinha Vetty"
+                      className="size-7 object-contain drop-shadow-sm transition-transform duration-300 group-hover:rotate-12"
+                    />
+                    <span>Chamar no WhatsApp</span>
+                  </a>
                   <div className="flex justify-end pr-2 md:pr-6">
                     <img
                       src={logoWhiteImg}
