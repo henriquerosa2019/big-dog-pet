@@ -814,13 +814,13 @@ function Index() {
                 <p className="mt-5 max-w-xl text-lg text-brand-band-muted">
                   Fale com a equipe, tire suas dúvidas e encontre o melhor horário para o seu companheiro.
                 </p>
-                <div className="mt-8 flex flex-col items-center sm:items-start gap-6 w-full">
+                <div className="mt-8 flex flex-col md:flex-row items-center md:items-end justify-between gap-6 w-full">
                   <Button variant="hero" size="lg" asChild>
                     <a href="https://wa.me/5511993793746" target="_blank" rel="noreferrer">
                       <MessageCircle className="size-5" /> Chamar no WhatsApp
                     </a>
                   </Button>
-                  <div className="pt-3 w-full flex justify-center sm:justify-center">
+                  <div className="flex justify-end pr-2 md:pr-6">
                     <img
                       src={logoWhiteImg}
                       alt="Vetty - Sistema Inteligente Pet"
