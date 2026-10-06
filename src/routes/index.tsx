@@ -45,6 +45,7 @@ import petDogManagement from "@/assets/pet-dog-management.jpg";
 import petCatManagement from "@/assets/pet-cat-management.jpg";
 import petBunnyManagement from "@/assets/pet-bunny-management.jpg";
 import petGuineaManagement from "@/assets/pet-guinea-management.jpg";
+import animalIconsStrip from "@/assets/animal-icons-strip.png";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -886,19 +887,28 @@ function Index() {
           </div>
         </section>
 
-        {/* Seção Contato / Loja Física */}
+        {/* Seção Contato / Demonstração & Gestão na Ponta dos Dedos */}
         <section id="contato" className="section-space">
           <div className="site-container">
-            <div className="contact-band">
-              <div className="max-w-2xl">
-                <span className="eyebrow eyebrow-light">
+            <div className="contact-band !bg-gradient-to-r !from-emerald-950 !via-slate-900 !to-emerald-950 border border-emerald-800/40 shadow-2xl relative overflow-hidden">
+              {/* Faixa decorativa com ícones de pets no topo do quadro */}
+              <div className="absolute top-0 left-0 right-0 h-14 opacity-25 pointer-events-none overflow-hidden flex items-center justify-center">
+                <img
+                  src={animalIconsStrip}
+                  alt="Ilustrações de animais Vetty"
+                  className="w-full max-w-4xl h-auto object-contain brightness-125"
+                />
+              </div>
+
+              <div className="max-w-2xl relative z-10 pt-2">
+                <span className="eyebrow eyebrow-light text-emerald-300">
                   <PawPrint className="size-4" /> Estamos por perto
                 </span>
-                <h2 className="mt-5 font-display text-4xl leading-tight md:text-5xl">
-                  Seu pet merece um dia de cuidado.
+                <h2 className="mt-5 font-display text-4xl leading-tight md:text-5xl uppercase tracking-tight text-white drop-shadow-sm">
+                  Seu Petshop com a Gestão na ponta dos dedos
                 </h2>
-                <p className="mt-5 max-w-xl text-lg text-brand-band-muted">
-                  Fale com a equipe, tire suas dúvidas e encontre o melhor horário para o seu companheiro.
+                <p className="mt-5 max-w-xl text-lg text-emerald-100/85 font-medium leading-relaxed">
+                  Agende uma Demonstração e veja na prática como fazer a diferença com o Vetty Sistema Inteligente Pet.
                 </p>
                 <div className="mt-8 flex flex-col md:flex-row items-center md:items-end justify-between gap-6 w-full">
                   <Button variant="hero" size="lg" asChild>
