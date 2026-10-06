@@ -669,7 +669,7 @@ function Index() {
                   O software mais completo para o seu Petshop.
                 </h2>
               </div>
-              <div className="flex flex-col items-start md:items-end gap-3">
+              <div className="flex justify-start md:justify-end">
                 <button
                   type="button"
                   onClick={() => {
@@ -686,9 +686,6 @@ function Index() {
                     className="h-24 sm:h-28 md:h-32 w-auto object-contain rounded-2xl"
                   />
                 </button>
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-sm md:text-right">
-                  Escolha o plano ideal com agendamento online 24h, táxi pet, relatórios Curva ABC e Canal Próprio de atendimento.
-                </p>
               </div>
             </div>
 
@@ -850,6 +847,24 @@ function Index() {
                     <br />
                     Sistema Inteligente Pet · Novidades e gestão
                   </span>
+                </div>
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthModalTab("signup");
+                      setAuthModalService("Teste 7 Dias Grátis");
+                      setAuthModalOpen(true);
+                    }}
+                    className="group cursor-pointer transition-transform duration-200 hover:scale-[1.03] active:scale-[0.98] drop-shadow-md text-left inline-block"
+                    title="Clique para iniciar seu teste grátis de 7 dias"
+                  >
+                    <img
+                      src={bannerTeste7Dias}
+                      alt="Teste por 7 Dias Grátis! Tudo do Plano Pro incluído. Decida depois."
+                      className="h-20 sm:h-24 w-auto object-contain rounded-2xl"
+                    />
+                  </button>
                 </div>
               </div>
             </div>
