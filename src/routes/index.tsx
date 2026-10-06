@@ -488,7 +488,7 @@ function Index() {
               </div>
             </div>
             {/* Indicadores do carrossel */}
-            <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 gap-2" role="tablist">
+            <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2 z-10" role="tablist">
               {heroSlides.map((slide, index) => (
                 <button
                   key={slide.label}
