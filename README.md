@@ -1,18 +1,20 @@
-# Big Dog Pet
+# Vetty - Sistema Inteligente Pet
 
-App de agendamento online (banho e tosa) e loja virtual da Big Dog Pet — Loja 3, Rua Rangel Pestana, 56, Vila Bazú, Franco da Rocha - SP.
+Sistema completo de gestão para Petshops, Estética Animal e Clínicas Veterinárias.
 
-Clonado a partir do [pet-care-hub](https://github.com/henriquerosa2019/pet-care-hub) (PetCura) e adaptado pra marca/endereço/serviços da Big Dog Pet. Banco de dados: Supabase (schema isolado dentro do projeto compartilhado, ver `.env`).
+- **Agendamento Online 24h & Gestão de Profissionais**
+- **Prontuário Clínico & Controle de Vacinas**
+- **Táxi Pet & Roteirização de Transporte**
+- **Loja Integrada, Controle de Estoque & Relatórios Curva ABC**
+- **Canal Próprio de Atendimento no App**
 
-Este repositório é a fonte de verdade do código — edição direto via git, sem passar pelo editor do Lovable.
+## Desenvolvimento
 
-## Development
-
-Você precisa de Node.js e npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+Você precisa de Node.js e npm:
 
 ```sh
-git clone <this-repository-url>
-cd big-dog-pet
+git clone https://github.com/henriquerosa2019/vetty.git
+cd vetty
 npm i
 npm run dev
 ```

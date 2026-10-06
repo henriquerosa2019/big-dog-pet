@@ -890,8 +890,8 @@ function Index() {
         {/* Seção Contato / Demonstração & Gestão na Ponta dos Dedos */}
         <section id="contato" className="section-space">
           <div className="site-container">
-            <div className="contact-band !bg-gradient-to-r !from-emerald-950 !via-slate-900 !to-emerald-950 border border-emerald-800/40 shadow-2xl relative overflow-hidden pb-16">
-              <div className="max-w-2xl relative z-10 pt-2">
+            <div className="contact-band !bg-gradient-to-r !from-emerald-950 !via-slate-900 !to-emerald-950 border border-emerald-800/40 shadow-2xl relative overflow-hidden pb-24 sm:pb-28">
+              <div className="max-w-2xl relative z-10 pt-2 mb-4 sm:mb-6">
                 <span className="eyebrow eyebrow-light text-emerald-300">
                   <PawPrint className="size-4" /> Estamos por perto
                 </span>
@@ -901,8 +901,8 @@ function Index() {
                 <p className="mt-5 max-w-xl text-lg text-emerald-100/85 font-medium leading-relaxed">
                   Agende uma Demonstração e veja na prática como fazer a diferença com o Vetty Sistema Inteligente Pet.
                 </p>
-                <div className="mt-8 flex flex-col md:flex-row items-center md:items-end justify-between gap-6 w-full">
-                  <Button variant="hero" size="lg" asChild>
+                <div className="mt-8 mb-4 sm:mb-6 flex flex-col md:flex-row items-center md:items-end justify-between gap-6 w-full">
+                  <Button variant="hero" size="lg" asChild className="shadow-lg">
                     <a href="https://wa.me/5511993793746" target="_blank" rel="noreferrer">
                       <MessageCircle className="size-5" /> Chamar no WhatsApp
                     </a>
@@ -911,12 +911,12 @@ function Index() {
                     <img
                       src={logoWhiteImg}
                       alt="Vetty - Sistema Inteligente Pet"
-                      className="h-20 sm:h-24 md:h-28 w-auto object-contain drop-shadow-lg opacity-95 transition-all hover:opacity-100 hover:scale-105"
+                      className="h-18 sm:h-22 md:h-26 w-auto object-contain drop-shadow-lg opacity-95 transition-all hover:opacity-100 hover:scale-105"
                     />
                   </div>
                 </div>
               </div>
-              <div className="contact-details">
+              <div className="contact-details mb-4 sm:mb-6">
                 <div>
                   <MapPin className="size-5 text-highlight" />
                   <span>
@@ -963,8 +963,8 @@ function Index() {
                 </div>
               </div>
 
-              {/* Faixa decorativa com ícones de pets na parte inferior do quadro */}
-              <div className="absolute bottom-1 left-0 right-0 h-14 opacity-35 pointer-events-none overflow-hidden flex items-center justify-center">
+              {/* Faixa decorativa com ícones de pets na parte inferior do quadro com altura e opacidade ideais */}
+              <div className="absolute bottom-1 left-0 right-0 h-12 sm:h-14 opacity-40 pointer-events-none overflow-hidden flex items-center justify-center">
                 <img
                   src={animalIconsStrip}
                   alt="Ilustrações de animais Vetty"
