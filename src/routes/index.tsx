@@ -682,7 +682,7 @@ function Index() {
                 >
                   <img
                     src={bannerTeste7Dias}
-                    alt="Teste por 7 Dias Grátis! Tudo do Plano Pro incluído. Decida depois."
+                    alt="Teste o Plano Master Vip com todas as funcionalidades e veja porque a Vetty é referência em Gestão de Pets no Brasil."
                     className="h-24 sm:h-28 md:h-32 w-auto object-contain rounded-2xl"
                   />
                 </button>
@@ -861,7 +861,7 @@ function Index() {
                   >
                     <img
                       src={bannerTeste7Dias}
-                      alt="Teste por 7 Dias Grátis! Tudo do Plano Pro incluído. Decida depois."
+                      alt="Teste o Plano Master Vip com todas as funcionalidades e veja porque a Vetty é referência em Gestão de Pets no Brasil."
                       className="h-20 sm:h-24 w-auto object-contain rounded-2xl"
                     />
                   </button>
