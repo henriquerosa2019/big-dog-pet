@@ -205,9 +205,9 @@ function Index() {
 
       {/* Cabeçalho Oficial do Novo Design */}
       <header className="sticky top-0 z-50 border-b border-border/70 bg-background/95 backdrop-blur-xl">
-        <div className="site-container flex h-20 items-center justify-between">
+        <div className="site-container flex h-24 items-center justify-between">
           <a href="#inicio" className="flex items-center" aria-label="Vetty - Sistema Inteligente Pet - início">
-            <img src={logoImg} alt="Vetty - Sistema Inteligente Pet" className="h-14 sm:h-16 w-auto object-contain transition-transform hover:scale-105" />
+            <img src={logoImg} alt="Vetty - Sistema Inteligente Pet" className="h-16 sm:h-20 w-auto object-contain transition-transform duration-200 hover:scale-105 drop-shadow-xs" />
           </a>
 
           <nav className="hidden items-center gap-8 md:flex" aria-label="Navegação principal">
@@ -448,11 +448,11 @@ function Index() {
           <div className="absolute inset-0 bg-hero-overlay" />
           <div className="site-container relative flex min-h-[580px] items-end pb-28 pt-20 md:min-h-[640px] md:items-center md:pb-24 md:pt-16">
             <div className="max-w-[690px] text-hero-foreground">
-              <div className="mb-6 inline-flex items-center rounded-2xl border border-white/20 bg-white/95 px-4 py-2 shadow-lg backdrop-blur-md transition-transform hover:scale-105">
+              <div className="mb-6 inline-flex items-center rounded-2xl border border-white/25 bg-white/95 px-5 py-2.5 shadow-xl backdrop-blur-md transition-transform duration-200 hover:scale-105">
                 <img
                   src={logoImg}
                   alt="Vetty - Sistema Inteligente Pet"
-                  className="h-10 sm:h-11 w-auto object-contain"
+                  className="h-12 sm:h-14 w-auto object-contain"
                 />
               </div>
               <h1 className="font-display text-5xl font-bold leading-[1.02] sm:text-6xl md:text-7xl">
@@ -610,15 +610,15 @@ function Index() {
         {/* Faixa Institucional de Confiança com Logo Vetty, Emojis Elegantes e Tipografia Refinada */}
         <section className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 py-12 text-white border-y border-emerald-800/40 shadow-inner">
           <div className="site-container">
-            <div className="flex flex-col items-center justify-center mb-8">
-              <div className="inline-flex items-center gap-2 rounded-2xl bg-white/95 px-5 py-2 shadow-lg backdrop-blur-md transition-transform hover:scale-105">
+            <div className="flex flex-col items-center justify-center mb-10">
+              <div className="inline-flex items-center gap-2 rounded-2xl bg-white/95 px-6 py-3 shadow-xl backdrop-blur-md transition-transform duration-200 hover:scale-105">
                 <img
                   src={logoImg}
                   alt="Vetty - Sistema Inteligente Pet"
-                  className="h-9 sm:h-10 w-auto object-contain"
+                  className="h-12 sm:h-14 w-auto object-contain"
                 />
               </div>
-              <p className="mt-3 text-xs sm:text-sm font-semibold tracking-wider uppercase text-emerald-300/90">
+              <p className="mt-4 text-xs sm:text-sm font-bold tracking-widest uppercase text-emerald-300">
                 Padrão de Excelência em Cuidados Pet
               </p>
             </div>
@@ -718,11 +718,7 @@ function Index() {
                     onClick={() => setSelectedPlanId(plan.id)}
                   >
                     <div>
-                      {isSelected ? (
-                        <span className="popular-badge bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-md flex items-center gap-1 font-bold">
-                          <Check className="size-3" /> Plano Selecionado
-                        </span>
-                      ) : plan.popular ? (
+                      {plan.popular ? (
                         <span className="popular-badge bg-emerald-600 text-white shadow-sm opacity-95 flex items-center gap-1 font-bold">
                           <Star className="size-3 fill-current" /> Mais escolhido
                         </span>
