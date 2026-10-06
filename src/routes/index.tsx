@@ -144,7 +144,7 @@ const services = [
   },
   {
     icon: ShoppingBag,
-    title: "Loja Pet & PDV",
+    title: "Loja Pet & Relatórios Inteligentes",
     tag: "Estoque & Curva ABC",
     description:
       "Frente de caixa ágil, controle de estoque com alerta de reposição, relatório de Curva ABC e vendas integradas aos serviços e banhos.",
