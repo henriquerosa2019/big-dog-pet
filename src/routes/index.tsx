@@ -492,21 +492,6 @@ function Index() {
               <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-extrabold leading-[1.08] tracking-tight">
                 O sistema de gestão definitivo para o seu Petshop e Clínica Veterinária
               </h1>
-
-              <div className="mt-6 flex flex-wrap items-center gap-3.5">
-                <Button
-                  variant="hero"
-                  size="lg"
-                  onClick={() => {
-                    setAuthModalTab("signup");
-                    setAuthModalService("Teste 7 Dias Grátis");
-                    setAuthModalOpen(true);
-                  }}
-                  className="cursor-pointer bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white font-black shadow-xl ring-2 ring-emerald-400/30"
-                >
-                  <Zap className="size-5" /> Testar 7 Dias Grátis
-                </Button>
-              </div>
             </div>
             {/* Indicadores do carrossel */}
             <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2 z-10" role="tablist">
