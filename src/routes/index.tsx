@@ -493,11 +493,7 @@ function Index() {
                 O sistema de gestão definitivo para o seu Petshop e Clínica Veterinária
               </h1>
 
-              <p className="mt-5 max-w-2xl text-base sm:text-lg leading-relaxed text-hero-muted md:text-xl font-medium">
-                Simplifique agendamentos, automatize o Táxi Pet e controle seu financeiro em uma única plataforma intuitiva.
-              </p>
-
-              <div className="mt-8 flex flex-wrap items-center gap-3.5">
+              <div className="mt-6 flex flex-wrap items-center gap-3.5">
                 <Button
                   variant="hero"
                   size="lg"
@@ -605,6 +601,11 @@ function Index() {
         {/* Módulos do Sistema Vetty em Destaque */}
         <section id="recursos" className="section-space">
           <div className="site-container">
+            {/* Texto informativo posicionado acima da Prova Social B2B */}
+            <p className="mb-3 text-base sm:text-lg md:text-xl font-medium text-muted-foreground leading-relaxed">
+              Simplifique agendamentos, automatize o Táxi Pet e controle seu financeiro em uma única plataforma intuitiva.
+            </p>
+
             {/* Prova Social B2B posicionada 2 linhas acima de Recursos & Funcionalidades */}
             <div className="mb-6 flex items-center justify-center sm:justify-start gap-3 text-xs sm:text-sm font-semibold text-muted-foreground">
               <span className="flex -space-x-2" aria-hidden="true">
