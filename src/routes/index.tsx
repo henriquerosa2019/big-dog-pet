@@ -471,13 +471,6 @@ function Index() {
                 >
                   Agendar agora <ArrowRight className="size-5" />
                 </Button>
-                <Button
-                  size="lg"
-                  className="hero-outline text-base px-6 font-bold shadow-lg"
-                  asChild
-                >
-                  <a href="#gestao-inteligente">Gestão Inteligente</a>
-                </Button>
               </div>
               <div className="mt-8 flex items-center gap-3 text-sm font-semibold text-hero-muted">
                 <span className="flex -space-x-2" aria-hidden="true">
@@ -515,10 +508,10 @@ function Index() {
           <div className="site-container relative">
             {/* Diagrama de Fluxograma / Caixa de Processos conectando Gestão Inteligente aos 4 serviços */}
             <div className="flex flex-col items-center mb-2">
-              {/* Caixa Central de Processos "Gestão Inteligente" */}
-              <div className="relative z-30 inline-flex items-center gap-2.5 rounded-2xl border-2 border-white/90 bg-slate-900/90 px-6 py-2.5 text-white shadow-2xl backdrop-blur-xl ring-4 ring-white/10 hover:border-white transition-all">
-                <span className="grid size-7 place-items-center rounded-xl bg-primary text-white shadow-xs">
-                  <Sparkles className="size-4" />
+              {/* Caixa Central de Processos "Gestão Inteligente" com fundo verde */}
+              <div className="relative z-30 inline-flex items-center gap-2.5 rounded-2xl border-2 border-white/90 bg-emerald-600 px-6 py-2.5 text-white shadow-2xl backdrop-blur-xl ring-4 ring-emerald-500/20 hover:bg-emerald-500 transition-all">
+                <span className="grid size-7 place-items-center rounded-xl bg-white/20 text-white shadow-xs">
+                  <Sparkles className="size-4 text-white" />
                 </span>
                 <span className="font-display text-sm sm:text-base font-extrabold uppercase tracking-wider text-white">
                   Gestão Inteligente
