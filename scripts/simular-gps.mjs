@@ -45,7 +45,7 @@ import readline from "node:readline";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const URL_APP = process.env.URL ?? "https://big-dog-pet-mu.vercel.app/motorista";
+const URL_APP = process.env.URL ?? "https://vetty.vercel.app/motorista";
 const INTERVALO = Number(process.env.INTERVALO ?? 8000);
 const AUTO = process.env.AUTO === "1";
 // Aceita tanto `node scripts/simular-gps.mjs volta` quanto SENTIDO=volta.

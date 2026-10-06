@@ -129,5 +129,5 @@ Permite controle detalhado do tamanho e peso dos pets atendidos:
 
 * **Tipagem Estrita**: 100% aprovado no `npx tsc --noEmit`.
 * **Testes Automatizados**: Suíte de testes automatizados com cobertura completa de navegação, relatórios e permissões.
-* **Deploy Automático**: Sincronização direta com a branch `main` conectada à Vercel (`https://big-dog-pet-mu.vercel.app`).
+* **Deploy Automático**: Sincronização direta com a branch `main` conectada à Vercel (`https://vetty.vercel.app`).
 
