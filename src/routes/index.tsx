@@ -148,9 +148,9 @@ const services = [
     tag: "Estoque & Curva ABC",
     description:
       "Frente de caixa ágil, controle de estoque com alerta de reposição, relatório de Curva ABC e vendas integradas aos serviços e banhos.",
-    action: "Ver Módulo PDV & Loja",
+    action: "Ver Módulo de Gestão",
     subtext: "Rações e mimos",
-    to: "/loja",
+    to: "/admin",
     image: serviceLojaPet,
     iconStyle: "bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300 border-indigo-500/25",
   },
@@ -510,32 +510,6 @@ function Index() {
                 >
                   <Zap className="size-5" /> Testar 7 Dias Grátis
                 </Button>
-
-                <Button
-                  variant="outline"
-                  size="lg"
-                  asChild
-                  className="cursor-pointer border-white/40 text-white hover:bg-white/15 bg-black/30 backdrop-blur-md font-bold"
-                >
-                  <a href="#recursos">
-                    <Laptop className="size-5 mr-2" /> Ver Demonstração
-                  </a>
-                </Button>
-              </div>
-
-              <div className="mt-8 flex items-center gap-3 text-xs sm:text-sm font-semibold text-hero-muted">
-                <span className="flex -space-x-2" aria-hidden="true">
-                  <span className="grid size-9 place-items-center rounded-full border-2 border-hero-scrim bg-primary">
-                    <Building2 className="size-4 text-white" />
-                  </span>
-                  <span className="grid size-9 place-items-center rounded-full border-2 border-hero-scrim bg-success">
-                    <BarChart3 className="size-4 text-white" />
-                  </span>
-                  <span className="grid size-9 place-items-center rounded-full border-2 border-hero-scrim bg-highlight text-highlight-foreground">
-                    <ShieldCheck className="size-4 text-slate-900" />
-                  </span>
-                </span>
-                <span>Mais de 150 petshops e clínicas parceiras · R$ 500k+ movimentados</span>
               </div>
             </div>
             {/* Indicadores do carrossel */}
@@ -631,6 +605,24 @@ function Index() {
         {/* Módulos do Sistema Vetty em Destaque */}
         <section id="recursos" className="section-space">
           <div className="site-container">
+            {/* Prova Social B2B posicionada 2 linhas acima de Recursos & Funcionalidades */}
+            <div className="mb-6 flex items-center justify-center sm:justify-start gap-3 text-xs sm:text-sm font-semibold text-muted-foreground">
+              <span className="flex -space-x-2" aria-hidden="true">
+                <span className="grid size-8 place-items-center rounded-full border-2 border-background bg-primary shadow-xs">
+                  <Building2 className="size-3.5 text-white" />
+                </span>
+                <span className="grid size-8 place-items-center rounded-full border-2 border-background bg-emerald-600 shadow-xs">
+                  <BarChart3 className="size-3.5 text-white" />
+                </span>
+                <span className="grid size-8 place-items-center rounded-full border-2 border-background bg-amber-500 shadow-xs">
+                  <ShieldCheck className="size-3.5 text-slate-950" />
+                </span>
+              </span>
+              <span className="font-bold text-foreground/90">
+                Mais de 150 petshops e clínicas parceiras · R$ 500k+ movimentados
+              </span>
+            </div>
+
             <div className="section-heading">
               <div>
                 <span className="eyebrow">
