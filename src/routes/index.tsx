@@ -606,14 +606,14 @@ function Index() {
         <section className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 py-12 text-white border-y border-emerald-800/40 shadow-inner">
           <div className="site-container">
             <div className="flex flex-col items-center justify-center mb-10">
-              <div className="transition-transform duration-200 hover:scale-105">
+              <div className="transition-transform duration-300 hover:scale-105">
                 <img
                   src={logoWhiteImg}
                   alt="Vetty - Sistema Inteligente Pet"
-                  className="h-16 sm:h-20 w-auto object-contain drop-shadow-md"
+                  className="h-24 sm:h-32 md:h-36 w-auto object-contain drop-shadow-xl"
                 />
               </div>
-              <p className="mt-4 text-xs sm:text-sm font-bold tracking-widest uppercase text-emerald-300">
+              <p className="mt-5 text-xs sm:text-base font-extrabold tracking-widest uppercase text-emerald-300 drop-shadow-sm">
                 Padrão de Excelência em Cuidados Pet
               </p>
             </div>
