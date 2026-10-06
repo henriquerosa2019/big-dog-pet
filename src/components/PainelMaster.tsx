@@ -21,7 +21,13 @@ import {
   PackageOpen,
   X,
   CreditCard,
+  Lock,
+  Store,
+  ClipboardList,
+  Truck,
+  Layers,
 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTrialStatus } from "@/hooks/useTrialStatus";
@@ -54,13 +60,23 @@ interface MasterUser {
   _isDemo?: boolean;
 }
 
-const MASTER_OVERRIDES_KEY = "bigdog_master_user_overrides";
+const MASTER_OVERRIDES_KEY = "vetty_master_user_overrides";
+const MASTER_ACCESS_PASSWORD = "Ad16eoh28@";
+const MASTER_AUTH_SESSION_KEY = "vetty_master_authenticated";
 
 export function PainelMaster({ open, onOpenChange }: PainelMasterProps) {
   const { user } = useAuth();
   const { simulateTrialStatus, resetSimulation } = useTrialStatus();
 
-  const [activeTab, setActiveTab] = useState<"users" | "mercadopago" | "simulation">("users");
+  // Controle de Senha do Painel Master
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem(MASTER_AUTH_SESSION_KEY) === "true";
+  });
+  const [inputPassword, setInputPassword] = useState("");
+  const [passwordError, setPasswordError] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<"users" | "mercadopago" | "homologacao" | "simulation">("users");
   const [searchTerm, setSearchTerm] = useState("");
   const [usersList, setUsersList] = useState<MasterUser[]>([]);
   const [loading, setLoading] = useState(false);
@@ -70,6 +86,20 @@ export function PainelMaster({ open, onOpenChange }: PainelMasterProps) {
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [passwordTargetUser, setPasswordTargetUser] = useState<MasterUser | null>(null);
   const [newPasswordValue, setNewPasswordValue] = useState("");
+
+  const handleAuthenticate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (inputPassword === MASTER_ACCESS_PASSWORD) {
+      sessionStorage.setItem(MASTER_AUTH_SESSION_KEY, "true");
+      setIsAuthenticated(true);
+      setPasswordError(false);
+      setInputPassword("");
+      toast.success("Acesso Master autenticado com sucesso!");
+    } else {
+      setPasswordError(true);
+      toast.error("Senha Master incorreta!");
+    }
+  };
 
   // Carregar dados de usuários (Supabase + Overrides locais + Seed de demonstração)
   const loadUsersData = async () => {
@@ -329,20 +359,20 @@ export function PainelMaster({ open, onOpenChange }: PainelMasterProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl w-[96vw] max-h-[94vh] flex flex-col p-0 overflow-hidden border border-amber-500/50 shadow-2xl bg-slate-950 text-slate-100">
         {/* Header Master */}
-        <div className="bg-gradient-to-r from-indigo-950 via-slate-950 to-indigo-950 border-b border-amber-500/40 p-4 sm:p-5 flex justify-between items-center">
+        <div className="bg-gradient-to-r from-emerald-950 via-slate-950 to-emerald-950 border-b border-emerald-500/40 p-4 sm:p-5 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-2xl shadow-lg shadow-amber-500/30">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-2xl shadow-lg shadow-emerald-500/30">
               👑
             </div>
             <div>
               <div className="text-base sm:text-lg font-black text-white flex items-center gap-2">
-                Painel Master • Centro de Comando
-                <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] sm:text-xs font-black px-2 py-0.5 rounded-md">
+                Painel Master • Vetty Sistema Inteligente
+                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] sm:text-xs font-black px-2 py-0.5 rounded-md">
                   ACESSO PRIVILEGIADO
                 </span>
               </div>
               <div className="text-xs text-slate-400 mt-0.5">
-                Gestão unificada de clientes, planos (Assinantes/Teste 7 Dias), senhas e links de pagamento Mercado Pago
+                Gestão unificada de clientes, área de homologação, planos, senhas e links de pagamento
               </div>
             </div>
           </div>
@@ -355,79 +385,135 @@ export function PainelMaster({ open, onOpenChange }: PainelMasterProps) {
           </button>
         </div>
 
-        {/* Top Metric Cards */}
-        <div className="bg-slate-900/90 p-3 sm:p-4 border-b border-slate-800 grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800">
-            <div className="text-[11px] font-bold text-slate-400 uppercase flex items-center gap-1.5">
-              <Users className="size-3.5 text-blue-400" /> Total Clientes
+        {!isAuthenticated ? (
+          /* Tela de Bloqueio por Senha Master */
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-950">
+            <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-4 shadow-lg shadow-amber-500/10">
+              <Lock className="size-8" />
             </div>
-            <div className="text-xl sm:text-2xl font-black text-white mt-1">{totalUsers}</div>
-          </div>
-          <div className="bg-slate-950/80 p-3 rounded-xl border border-emerald-500/30">
-            <div className="text-[11px] font-bold text-emerald-400 uppercase flex items-center gap-1.5">
-              <Zap className="size-3.5 text-emerald-400" /> Assinantes Ativos
-            </div>
-            <div className="text-xl sm:text-2xl font-black text-emerald-400 mt-1">{vitalicioCount}</div>
-          </div>
-          <div className="bg-slate-950/80 p-3 rounded-xl border border-amber-500/30">
-            <div className="text-[11px] font-bold text-amber-400 uppercase flex items-center gap-1.5">
-              <Clock className="size-3.5 text-amber-400" /> Teste 7 Dias
-            </div>
-            <div className="text-xl sm:text-2xl font-black text-amber-400 mt-1">{trialCount}</div>
-          </div>
-          <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800">
-            <div className="text-[11px] font-bold text-purple-400 uppercase flex items-center gap-1.5">
-              <Dog className="size-3.5 text-purple-400" /> Pets Cadastrados
-            </div>
-            <div className="text-xl sm:text-2xl font-black text-white mt-1">{totalPets}</div>
-          </div>
-          <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800 col-span-2 sm:col-span-1">
-            <div className="text-[11px] font-bold text-sky-400 uppercase flex items-center gap-1.5">
-              <Calendar className="size-3.5 text-sky-400" /> Agendamentos
-            </div>
-            <div className="text-xl sm:text-2xl font-black text-white mt-1">{totalAgendamentos}</div>
-          </div>
-        </div>
+            <h3 className="text-xl font-black text-white mb-1">
+              Acesso Protegido • Painel Master
+            </h3>
+            <p className="text-sm text-slate-400 max-w-sm mb-6">
+              Digite a senha mestra para desbloquear o gerenciador e a área de homologação.
+            </p>
 
-        {/* Master Navigation Tabs */}
-        <div className="bg-slate-950 px-4 sm:px-6 border-b border-slate-800 flex gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setActiveTab("users")}
-            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 flex items-center gap-2 cursor-pointer transition-colors ${
-              activeTab === "users"
-                ? "border-amber-500 text-amber-400"
-                : "border-transparent text-slate-400 hover:text-white"
-            }`}
-          >
-            <Users className="size-4" /> Gestão de Clientes & Contas
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("mercadopago")}
-            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 flex items-center gap-2 cursor-pointer transition-colors ${
-              activeTab === "mercadopago"
-                ? "border-amber-500 text-amber-400"
-                : "border-transparent text-slate-400 hover:text-white"
-            }`}
-          >
-            <CreditCard className="size-4" /> Planos & Mercado Pago
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("simulation")}
-            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 flex items-center gap-2 cursor-pointer transition-colors ${
-              activeTab === "simulation"
-                ? "border-amber-500 text-amber-400"
-                : "border-transparent text-slate-400 hover:text-white"
-            }`}
-          >
-            <Sparkles className="size-4" /> Simulador de Degustação (7 Dias)
-          </button>
-        </div>
+            <form onSubmit={handleAuthenticate} className="w-full max-w-sm space-y-4">
+              <div>
+                <Input
+                  type="password"
+                  value={inputPassword}
+                  onChange={(e) => {
+                    setInputPassword(e.target.value);
+                    setPasswordError(false);
+                  }}
+                  placeholder="Digite a senha master..."
+                  className={`bg-slate-900 border-slate-700 text-center text-base tracking-widest text-white ${
+                    passwordError ? "border-red-500 ring-1 ring-red-500" : "focus:border-emerald-500"
+                  }`}
+                  autoFocus
+                />
+                {passwordError && (
+                  <p className="text-xs text-red-400 mt-1 font-semibold">
+                    Senha incorreta. Verifique e tente novamente.
+                  </p>
+                )}
+              </div>
 
-        {/* Scrollable Content Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-900/60">
+              <Button
+                type="submit"
+                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold cursor-pointer"
+              >
+                Desbloquear Painel Master
+              </Button>
+            </form>
+          </div>
+        ) : (
+          <>
+            {/* Top Metric Cards */}
+            <div className="bg-slate-900/90 p-3 sm:p-4 border-b border-slate-800 grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                <div className="text-[11px] font-bold text-slate-400 uppercase flex items-center gap-1.5">
+                  <Users className="size-3.5 text-blue-400" /> Total Clientes
+                </div>
+                <div className="text-xl sm:text-2xl font-black text-white mt-1">{totalUsers}</div>
+              </div>
+              <div className="bg-slate-950/80 p-3 rounded-xl border border-emerald-500/30">
+                <div className="text-[11px] font-bold text-emerald-400 uppercase flex items-center gap-1.5">
+                  <Zap className="size-3.5 text-emerald-400" /> Assinantes Ativos
+                </div>
+                <div className="text-xl sm:text-2xl font-black text-emerald-400 mt-1">{vitalicioCount}</div>
+              </div>
+              <div className="bg-slate-950/80 p-3 rounded-xl border border-amber-500/30">
+                <div className="text-[11px] font-bold text-amber-400 uppercase flex items-center gap-1.5">
+                  <Clock className="size-3.5 text-amber-400" /> Teste 7 Dias
+                </div>
+                <div className="text-xl sm:text-2xl font-black text-amber-400 mt-1">{trialCount}</div>
+              </div>
+              <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+                <div className="text-[11px] font-bold text-purple-400 uppercase flex items-center gap-1.5">
+                  <Dog className="size-3.5 text-purple-400" /> Pets Cadastrados
+                </div>
+                <div className="text-xl sm:text-2xl font-black text-white mt-1">{totalPets}</div>
+              </div>
+              <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800 col-span-2 sm:col-span-1">
+                <div className="text-[11px] font-bold text-sky-400 uppercase flex items-center gap-1.5">
+                  <Calendar className="size-3.5 text-sky-400" /> Agendamentos
+                </div>
+                <div className="text-xl sm:text-2xl font-black text-white mt-1">{totalAgendamentos}</div>
+              </div>
+            </div>
+
+            {/* Master Navigation Tabs */}
+            <div className="bg-slate-950 px-4 sm:px-6 border-b border-slate-800 flex gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setActiveTab("users")}
+                className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 flex items-center gap-2 cursor-pointer transition-colors ${
+                  activeTab === "users"
+                    ? "border-emerald-500 text-emerald-400"
+                    : "border-transparent text-slate-400 hover:text-white"
+                }`}
+              >
+                <Users className="size-4" /> Gestão de Clientes & Contas
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("homologacao")}
+                className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 flex items-center gap-2 cursor-pointer transition-colors ${
+                  activeTab === "homologacao"
+                    ? "border-amber-500 text-amber-400"
+                    : "border-transparent text-slate-400 hover:text-white"
+                }`}
+              >
+                <Layers className="size-4 text-amber-400" /> 🧪 Área de Homologação
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("mercadopago")}
+                className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 flex items-center gap-2 cursor-pointer transition-colors ${
+                  activeTab === "mercadopago"
+                    ? "border-emerald-500 text-emerald-400"
+                    : "border-transparent text-slate-400 hover:text-white"
+                }`}
+              >
+                <CreditCard className="size-4" /> Planos & Mercado Pago
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("simulation")}
+                className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 flex items-center gap-2 cursor-pointer transition-colors ${
+                  activeTab === "simulation"
+                    ? "border-emerald-500 text-emerald-400"
+                    : "border-transparent text-slate-400 hover:text-white"
+                }`}
+              >
+                <Sparkles className="size-4" /> Simulador de Degustação (7 Dias)
+              </button>
+            </div>
+
+            {/* Scrollable Content Body */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-900/60">
           {/* TAB 1: GESTÃO DE CLIENTES */}
           {activeTab === "users" && (
             <div className="space-y-4">
@@ -772,7 +858,102 @@ export function PainelMaster({ open, onOpenChange }: PainelMasterProps) {
               </div>
             </div>
           )}
+
+          {/* TAB 4: ÁREA DE HOMOLOGAÇÃO EMBUTIDA NO PAINEL MASTER */}
+          {activeTab === "homologacao" && (
+            <div className="space-y-6">
+              <div className="bg-slate-950 p-5 rounded-2xl border border-amber-500/30">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/20 px-2.5 py-1 text-xs font-black uppercase tracking-wider text-amber-300 border border-amber-500/40">
+                    🧪 Área de Homologação Integrada
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium">
+                    Acesso exclusivo do Administrador (protegido por senha)
+                  </span>
+                </div>
+                <p className="text-sm text-slate-300 mt-3 leading-relaxed">
+                  Os atalhos de homologação foram movidos da barra pública superior para esta área restrita. A partir daqui você pode acessar diretamente os painéis operacionais e perfis de teste da aplicação.
+                </p>
+              </div>
+
+              {/* Grid de Atalhos de Homologação */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Painel Loja */}
+                <div className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800 hover:border-emerald-500/50 transition-all flex flex-col justify-between">
+                  <div>
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-3">
+                      <Store className="size-5" />
+                    </div>
+                    <h4 className="text-base font-bold text-white flex items-center gap-1.5">
+                      🏬 Painel Loja
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      Painel administrativo completo da loja: gestão de pedidos, serviços agendados, produtos e relatórios.
+                    </p>
+                  </div>
+                  <Button
+                    asChild
+                    className="mt-5 w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold cursor-pointer"
+                  >
+                    <Link to="/admin" onClick={() => onOpenChange(false)}>
+                      Acessar Painel Loja
+                    </Link>
+                  </Button>
+                </div>
+
+                {/* Painel Antigo */}
+                <div className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800 hover:border-sky-500/50 transition-all flex flex-col justify-between">
+                  <div>
+                    <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 mb-3">
+                      <ClipboardList className="size-5" />
+                    </div>
+                    <h4 className="text-base font-bold text-white flex items-center gap-1.5">
+                      📋 Painel Antigo
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      Visão operacional simplificada de agendamentos e lista rápida de atendimentos em andamento.
+                    </p>
+                  </div>
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="mt-5 w-full border-sky-500/40 text-sky-300 hover:bg-sky-500/20 hover:text-white font-bold cursor-pointer"
+                  >
+                    <Link to="/painel" onClick={() => onOpenChange(false)}>
+                      Acessar Painel Antigo
+                    </Link>
+                  </Button>
+                </div>
+
+                {/* Motorista */}
+                <div className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800 hover:border-amber-500/50 transition-all flex flex-col justify-between">
+                  <div>
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-3">
+                      <Truck className="size-5" />
+                    </div>
+                    <h4 className="text-base font-bold text-white flex items-center gap-1.5">
+                      🚚 Motorista (Táxi Pet)
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      Painel do condutor de transporte pet com rotas de coleta e devolução em tempo real e mapas.
+                    </p>
+                  </div>
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="mt-5 w-full border-amber-500/40 text-amber-300 hover:bg-amber-500/20 hover:text-white font-bold cursor-pointer"
+                  >
+                    <Link to="/motorista" onClick={() => onOpenChange(false)}>
+                      Acessar Motorista
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+      </>
+    )}
 
         {/* Modal Redefinir Senha */}
         {passwordModalOpen && passwordTargetUser && (

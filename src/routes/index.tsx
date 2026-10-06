@@ -62,16 +62,16 @@ export const Route = createFileRoute("/")({
   }),
   head: () => ({
     meta: [
-      { title: "Big Dog Pet | Banho, tosa e cuidado em Franco da Rocha" },
+      { title: "Vetty - Sistema Inteligente Pet | Banho, tosa e gestão de serviços" },
       {
         name: "description",
         content:
-          "Banho e tosa, Táxi Pet, produtos e planos de cuidado para cães, gatos e aves em Franco da Rocha.",
+          "Vetty - Sistema Inteligente Pet: banho e tosa, Táxi Pet, produtos e planos de cuidado para cães, gatos e aves.",
       },
-      { property: "og:title", content: "Big Dog Pet | A vida do seu pet em boas mãos" },
+      { property: "og:title", content: "Vetty - Sistema Inteligente Pet" },
       {
         property: "og:description",
-        content: "Cuidado completo, do banho aos mimos, com atendimento perto de você.",
+        content: "Cuidado completo, do banho aos mimos, com atendimento de excelência.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -116,7 +116,7 @@ const services = [
     title: "Táxi Pet",
     tag: "Comodidade & Segurança",
     description:
-      "Buscamos e levamos seu pet na sua residência em Franco da Rocha com transporte seguro, cinto adaptado, ar-condicionado e motorista atencioso.",
+      "Buscamos e levamos seu pet na sua residência com transporte seguro, cinto adaptado, ar-condicionado e motorista atencioso.",
     action: "Pedir Táxi Pet",
     subtext: "Buscamos em sua casa",
     to: "/agendar",
@@ -205,15 +205,9 @@ function Index() {
 
       {/* Cabeçalho Oficial do Novo Design */}
       <header className="sticky top-0 z-50 border-b border-border/70 bg-background/95 backdrop-blur-xl">
-        <div className="site-container flex h-18 items-center justify-between">
-          <a href="#inicio" className="flex items-center gap-3" aria-label="Big Dog Pet - início">
-            <img src={logoImg} alt="Logo Big Dog Pet" className="size-11 object-contain rounded-full shadow-xs" />
-            <span className="leading-none">
-              <strong className="block font-display text-xl text-brand-strong">Big Dog Pet</strong>
-              <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                Banho e tosa
-              </span>
-            </span>
+        <div className="site-container flex h-20 items-center justify-between">
+          <a href="#inicio" className="flex items-center" aria-label="Vetty - Sistema Inteligente Pet - início">
+            <img src={logoImg} alt="Vetty - Sistema Inteligente Pet" className="h-14 sm:h-16 w-auto object-contain transition-transform hover:scale-105" />
           </a>
 
           <nav className="hidden items-center gap-8 md:flex" aria-label="Navegação principal">
@@ -454,8 +448,12 @@ function Index() {
           <div className="absolute inset-0 bg-hero-overlay" />
           <div className="site-container relative flex min-h-[580px] items-end pb-28 pt-20 md:min-h-[640px] md:items-center md:pb-24 md:pt-16">
             <div className="max-w-[690px] text-hero-foreground">
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-hero-foreground/20 bg-hero-scrim/40 px-4 py-2 text-sm font-bold backdrop-blur-sm">
-                <MapPin className="size-4 text-highlight" /> Loja 3 · Franco da Rocha
+              <div className="mb-6 inline-flex items-center rounded-2xl border border-white/20 bg-white/95 px-4 py-2 shadow-lg backdrop-blur-md transition-transform hover:scale-105">
+                <img
+                  src={logoImg}
+                  alt="Vetty - Sistema Inteligente Pet"
+                  className="h-10 sm:h-11 w-auto object-contain"
+                />
               </div>
               <h1 className="font-display text-5xl font-bold leading-[1.02] sm:text-6xl md:text-7xl">
                 A vida do seu pet em boas mãos
@@ -553,7 +551,7 @@ function Index() {
                 </h2>
               </div>
               <p>
-                Serviços completos em Franco da Rocha pensados para deixar a rotina prática para você e cheia de carinho para o seu melhor amigo.
+                Serviços completos pensados para deixar a rotina prática para você e cheia de carinho para o seu melhor amigo.
               </p>
             </div>
 
@@ -609,41 +607,81 @@ function Index() {
         </section>
 
         {/* Faixa Institucional de Confiança */}
-        <section className="bg-brand-band py-10 text-brand-band-foreground">
-          <div className="site-container grid gap-8 text-center sm:grid-cols-3">
-            <div>
-              <Sparkles className="mx-auto size-7 text-highlight" />
-              <strong className="mt-3 block font-display text-xl">Produtos premium</strong>
-              <span className="text-sm text-brand-band-muted">Higiene suave e tosa com carinho</span>
+        {/* Faixa Institucional de Confiança com Logo Vetty, Emojis Elegantes e Tipografia Refinada */}
+        <section className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 py-12 text-white border-y border-emerald-800/40 shadow-inner">
+          <div className="site-container">
+            <div className="flex flex-col items-center justify-center mb-8">
+              <div className="inline-flex items-center gap-2 rounded-2xl bg-white/95 px-5 py-2 shadow-lg backdrop-blur-md transition-transform hover:scale-105">
+                <img
+                  src={logoImg}
+                  alt="Vetty - Sistema Inteligente Pet"
+                  className="h-9 sm:h-10 w-auto object-contain"
+                />
+              </div>
+              <p className="mt-3 text-xs sm:text-sm font-semibold tracking-wider uppercase text-emerald-300/90">
+                Padrão de Excelência em Cuidados Pet
+              </p>
             </div>
-            <div>
-              <PawPrint className="mx-auto size-7 text-highlight" />
-              <strong className="mt-3 block font-display text-xl">Estrutura completa</strong>
-              <span className="text-sm text-brand-band-muted">Espaço limpo e profissionais atentos</span>
-            </div>
-            <div>
-              <Heart className="mx-auto size-7 text-highlight" />
-              <strong className="mt-3 block font-display text-xl">Carinho de verdade</strong>
-              <span className="text-sm text-brand-band-muted">Seu pet se sente em casa</span>
+
+            <div className="grid gap-8 text-center sm:grid-cols-3">
+              <div className="rounded-2xl bg-white/5 p-6 backdrop-blur-sm border border-emerald-500/20 transition-all hover:border-emerald-400/40 hover:bg-white/10">
+                <div className="mx-auto size-14 rounded-2xl bg-gradient-to-br from-emerald-400/20 to-teal-500/20 border border-emerald-400/30 flex items-center justify-center text-2xl shadow-inner">
+                  ✨
+                </div>
+                <strong className="mt-4 block font-display text-xl font-bold bg-gradient-to-r from-emerald-200 via-teal-100 to-white bg-clip-text text-transparent">
+                  Produtos Premium
+                </strong>
+                <span className="mt-1 block text-sm text-emerald-100/75">
+                  Cosméticos hipoalergênicos e higiene suave com carinho
+                </span>
+              </div>
+
+              <div className="rounded-2xl bg-white/5 p-6 backdrop-blur-sm border border-emerald-500/20 transition-all hover:border-emerald-400/40 hover:bg-white/10">
+                <div className="mx-auto size-14 rounded-2xl bg-gradient-to-br from-emerald-400/20 to-teal-500/20 border border-emerald-400/30 flex items-center justify-center text-2xl shadow-inner">
+                  🐾
+                </div>
+                <strong className="mt-4 block font-display text-xl font-bold bg-gradient-to-r from-emerald-200 via-teal-100 to-white bg-clip-text text-transparent">
+                  Estrutura Completa
+                </strong>
+                <span className="mt-1 block text-sm text-emerald-100/75">
+                  Ambiente climatizado, monitorado e profissionais dedicados
+                </span>
+              </div>
+
+              <div className="rounded-2xl bg-white/5 p-6 backdrop-blur-sm border border-emerald-500/20 transition-all hover:border-emerald-400/40 hover:bg-white/10">
+                <div className="mx-auto size-14 rounded-2xl bg-gradient-to-br from-emerald-400/20 to-teal-500/20 border border-emerald-400/30 flex items-center justify-center text-2xl shadow-inner">
+                  💚
+                </div>
+                <strong className="mt-4 block font-display text-xl font-bold bg-gradient-to-r from-emerald-200 via-teal-100 to-white bg-clip-text text-transparent">
+                  Carinho de Verdade
+                </strong>
+                <span className="mt-1 block text-sm text-emerald-100/75">
+                  Manejo sem estresse para o seu pet se sentir em casa
+                </span>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Planos Oficiais Big Dog com Preços e Mercado Pago Integrado */}
-        {/* Planos Oficiais de Aluguel de Software PetShop & Clínica */}
-        <section id="planos" className="section-space bg-section-alt">
+        {/* Planos Oficiais de Aluguel de Software PetShop & Clínica com Paleta de Verde */}
+        <section id="planos" className="section-space bg-gradient-to-b from-emerald-50/40 via-background to-emerald-50/20 dark:from-emerald-950/20 dark:via-background dark:to-transparent">
           <div className="site-container">
             <div className="section-heading">
               <div>
-                <span className="eyebrow">
+                <span className="eyebrow text-emerald-700 dark:text-emerald-400 font-bold">
                   <PackageOpen className="size-4" /> Aluguel de Sistema PetShop & Clínica
                 </span>
-                <h2>O software mais completo para o seu Petshop.</h2>
+                <h2 className="bg-gradient-to-r from-emerald-900 via-emerald-700 to-green-600 dark:from-emerald-200 dark:via-emerald-400 dark:to-teal-200 bg-clip-text text-transparent font-bold">
+                  O software mais completo para o seu Petshop.
+                </h2>
               </div>
-              <p>Teste por 7 dias grátis. Escolha o plano ideal com agendamento online 24h, táxi pet, relatórios Curva ABC e Canal Próprio de atendimento.</p>
+              <p className="text-slate-600 dark:text-slate-300">
+                Teste por 7 dias grátis. Escolha o plano ideal com agendamento online 24h, táxi pet, relatórios Curva ABC e Canal Próprio de atendimento.
+              </p>
             </div>
+
             {/* Navegador Interativo dos 3 Planos */}
-            <div className="mt-8 flex flex-wrap justify-center gap-2 p-1.5 bg-card/90 backdrop-blur border border-border/80 rounded-2xl max-w-2xl mx-auto shadow-md">
+            <div className="mt-8 flex flex-wrap justify-center gap-2 p-1.5 bg-card/90 backdrop-blur border border-emerald-200/80 dark:border-emerald-800/80 rounded-2xl max-w-2xl mx-auto shadow-md">
               {plans.map((p) => {
                 const isSelected = selectedPlanId === p.id;
                 return (
@@ -653,12 +691,12 @@ function Index() {
                     onClick={() => setSelectedPlanId(p.id)}
                     className={`flex-1 min-w-[145px] py-2.5 px-3.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 ${
                       isSelected
-                        ? "bg-primary text-white shadow-lg ring-2 ring-primary/30 scale-[1.02]"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/70"
+                        ? "bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-lg ring-2 ring-emerald-500/30 scale-[1.02]"
+                        : "text-muted-foreground hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/40"
                     }`}
                   >
                     <span>{p.name}</span>
-                    <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-black ${isSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>
+                    <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-black ${isSelected ? "bg-white/20 text-white" : "bg-emerald-100/70 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300"}`}>
                       {p.formattedPrice}
                     </span>
                   </button>
@@ -673,47 +711,49 @@ function Index() {
                   <article
                     className={`plan-card flex flex-col justify-between cursor-pointer transition-all duration-300 relative rounded-3xl ${
                       isSelected
-                        ? "plan-card-featured border-primary ring-2 ring-primary shadow-2xl scale-[1.02]"
-                        : "border-border/80 hover:border-primary/40 opacity-90 hover:opacity-100"
+                        ? "plan-card-featured border-2 border-emerald-600 ring-4 ring-emerald-500/20 shadow-2xl scale-[1.02] bg-gradient-to-b from-white via-white to-emerald-50/30 dark:from-card dark:via-card dark:to-emerald-950/20"
+                        : "border-emerald-200/70 dark:border-emerald-900/60 hover:border-emerald-500/50 hover:shadow-xl opacity-90 hover:opacity-100 bg-card"
                     }`}
                     key={plan.id}
                     onClick={() => setSelectedPlanId(plan.id)}
                   >
                     <div>
                       {isSelected ? (
-                        <span className="popular-badge bg-primary text-white shadow-md flex items-center gap-1">
+                        <span className="popular-badge bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-md flex items-center gap-1 font-bold">
                           <Check className="size-3" /> Plano Selecionado
                         </span>
                       ) : plan.popular ? (
-                        <span className="popular-badge bg-amber-500 text-white shadow-sm opacity-90 flex items-center gap-1">
+                        <span className="popular-badge bg-emerald-600 text-white shadow-sm opacity-95 flex items-center gap-1 font-bold">
                           <Star className="size-3 fill-current" /> Mais escolhido
                         </span>
                       ) : null}
                       <div className="flex items-center justify-between">
-                        <h3 className="mt-2 font-display text-2xl font-bold">{plan.name}</h3>
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded ${isSelected ? "bg-primary text-white" : "bg-primary/10 text-primary"}`}>
+                        <h3 className="mt-2 font-display text-2xl font-bold bg-gradient-to-r from-emerald-900 via-emerald-800 to-green-700 dark:from-emerald-200 dark:via-emerald-300 dark:to-teal-200 bg-clip-text text-transparent">
+                          {plan.name}
+                        </h3>
+                        <span className={`text-xs font-extrabold px-2.5 py-1 rounded-md ${isSelected ? "bg-emerald-600 text-white shadow-xs" : "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300"}`}>
                           {plan.badge}
                         </span>
                       </div>
                       <p className="mt-2 min-h-12 text-sm leading-relaxed text-muted-foreground">{plan.detail}</p>
-                      <div className="my-7 border-y border-border py-4 flex items-baseline justify-between">
+                      <div className="my-7 border-y border-emerald-100 dark:border-emerald-900/40 py-4 flex items-baseline justify-between">
                         <div>
-                          <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                          <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-800/70 dark:text-emerald-400/80">
                             Mensalidade do Software
                           </span>
-                          <strong className="mt-1 block font-display text-3xl font-black text-primary">
+                          <strong className="mt-1 block font-display text-3xl font-black bg-gradient-to-r from-emerald-700 via-emerald-600 to-green-600 dark:from-emerald-300 dark:via-emerald-400 dark:to-teal-300 bg-clip-text text-transparent">
                             {plan.formattedPrice}
                           </strong>
                         </div>
-                        <span className="text-xs font-semibold text-muted-foreground">/{plan.period}</span>
+                        <span className="text-xs font-semibold text-emerald-800/80 dark:text-emerald-400">/{plan.period}</span>
                       </div>
                       <ul className="space-y-3.5 flex-1">
                         {plan.features.map((feature, idx) => (
                           <li className="flex gap-3 text-xs sm:text-sm" key={idx}>
-                            <span className="grid size-5 shrink-0 place-items-center rounded-full bg-success-soft text-success">
+                            <span className="grid size-5 shrink-0 place-items-center rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 font-bold">
                               <Check className="size-3" />
                             </span>
-                            <span className={feature.includes("Curva ABC") || feature.includes("Canal Próprio") ? "font-bold text-foreground" : ""}>
+                            <span className={feature.includes("Curva ABC") || feature.includes("Canal Próprio") ? "font-bold text-emerald-950 dark:text-emerald-200" : "text-slate-700 dark:text-slate-300"}>
                               {feature}
                             </span>
                           </li>
@@ -726,8 +766,8 @@ function Index() {
                         asChild
                         className={`w-full font-bold shadow-md cursor-pointer flex items-center justify-center gap-2 py-6 text-sm sm:text-base transition-all ${
                           isSelected
-                            ? "bg-primary text-white hover:bg-primary/90 ring-2 ring-primary/30"
-                            : "bg-foreground text-background hover:bg-foreground/90"
+                            ? "bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white ring-2 ring-emerald-500/30"
+                            : "bg-emerald-900 hover:bg-emerald-950 text-white dark:bg-emerald-700 dark:hover:bg-emerald-600"
                         }`}
                       >
                         <a
@@ -740,7 +780,7 @@ function Index() {
                           <ExternalLink className="size-4" />
                         </a>
                       </Button>
-                      <div className="w-full text-center text-xs font-semibold text-muted-foreground py-1">
+                      <div className="w-full text-center text-xs font-semibold text-emerald-700/80 dark:text-emerald-400/80 py-1">
                         Suporte via Canal Próprio no App
                       </div>
                     </div>
@@ -780,11 +820,11 @@ function Index() {
                 <div>
                   <MapPin className="size-5 text-highlight" />
                   <span>
-                    <strong>Loja 3</strong>
+                    <strong>Atendimento Inteligente</strong>
                     <br />
-                    Rua Rangel Pestana, 56 · Vila Bazú
+                    Agendamentos & Delivery Integrados
                     <br />
-                    Franco da Rocha · SP
+                    Atendimento em Toda a Região
                   </span>
                 </div>
                 <div>
@@ -798,9 +838,9 @@ function Index() {
                 <div>
                   <Instagram className="size-5 text-highlight" />
                   <span>
-                    <strong>Acompanhe a Big Dog Pet</strong>
+                    <strong>Acompanhe o Vetty</strong>
                     <br />
-                    Novidades, cuidados e mimos
+                    Sistema Inteligente Pet · Novidades e gestão
                   </span>
                 </div>
               </div>
@@ -812,7 +852,7 @@ function Index() {
       {/* Rodapé Institucional */}
       <footer className="border-t border-border bg-card py-8 text-sm text-muted-foreground">
         <div className="site-container flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
-          <p>© 2026 Big Dog Pet. A vida do seu pet em boas mãos.</p>
+          <p>© 2026 Vetty - Sistema Inteligente Pet. Todos os direitos reservados.</p>
           <div className="flex items-center gap-4 text-xs font-semibold">
             <button
               type="button"

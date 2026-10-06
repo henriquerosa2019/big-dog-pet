@@ -18,16 +18,16 @@ export const Route = createFileRoute("/loja")({
   }),
   head: () => ({
     meta: [
-      { title: "Loja Big Dog Pet | Ração, higiene e acessórios para pets" },
+      { title: "Loja Vetty | Ração, higiene e acessórios para pets" },
       {
         name: "description",
         content:
-          "Compre ração, medicamentos, produtos de higiene e acessórios para cães e gatos na loja do Big Dog Pet, em Franco da Rocha.",
+          "Compre ração, medicamentos, produtos de higiene e acessórios para cães e gatos na loja do Vetty - Sistema Inteligente Pet.",
       },
-      { property: "og:title", content: "Loja Big Dog Pet | Produtos para cães e gatos" },
+      { property: "og:title", content: "Loja Vetty | Produtos para cães e gatos" },
       {
         property: "og:description",
-        content: "Monte seu pedido e finalize pelo Chat do App do Big Dog Pet.",
+        content: "Monte seu pedido e finalize pelo Chat do App do Vetty - Sistema Inteligente Pet.",
       },
     ],
   }),
