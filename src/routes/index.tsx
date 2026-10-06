@@ -814,17 +814,17 @@ function Index() {
                 <p className="mt-5 max-w-xl text-lg text-brand-band-muted">
                   Fale com a equipe, tire suas dúvidas e encontre o melhor horário para o seu companheiro.
                 </p>
-                <div className="mt-8 flex flex-col items-start gap-6 w-full">
+                <div className="mt-8 flex flex-col items-center sm:items-start gap-6 w-full">
                   <Button variant="hero" size="lg" asChild>
                     <a href="https://wa.me/5511993793746" target="_blank" rel="noreferrer">
                       <MessageCircle className="size-5" /> Chamar no WhatsApp
                     </a>
                   </Button>
-                  <div className="pt-2 w-full flex justify-center sm:justify-start">
+                  <div className="pt-3 w-full flex justify-center sm:justify-center">
                     <img
                       src={logoWhiteImg}
                       alt="Vetty - Sistema Inteligente Pet"
-                      className="h-16 sm:h-20 w-auto object-contain drop-shadow-md opacity-95 transition-all hover:opacity-100 hover:scale-105"
+                      className="h-20 sm:h-24 md:h-28 w-auto object-contain drop-shadow-lg opacity-95 transition-all hover:opacity-100 hover:scale-105"
                     />
                   </div>
                 </div>
@@ -870,7 +870,7 @@ function Index() {
                     <img
                       src={bannerTeste7Dias}
                       alt="Teste o Plano Master Vip com todas as funcionalidades e veja porque a Vetty é referência em Gestão de Pets no Brasil."
-                      className="h-20 sm:h-24 w-auto object-contain rounded-2xl"
+                      className="h-24 sm:h-28 md:h-32 w-auto object-contain rounded-2xl"
                     />
                   </button>
                 </div>
