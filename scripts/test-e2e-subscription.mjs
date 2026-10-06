@@ -101,7 +101,7 @@ async function runTests() {
 
     test('HTML contém Degradê Verde Elegante de 3 Tons nos Títulos', () => {
       assert.ok(html.includes('from-emerald-800 via-emerald-600 to-green-400'), 'Deve conter o degradê de 3 tons de verde');
-      assert.ok(html.includes('Do banho aos mimos, a gente cuida.'), 'Deve conter o título principal de serviços');
+      assert.ok(html.includes('Tudo o que seu negócio precisa em um só sistema.') || html.includes('Do banho aos mimos, a gente cuida.'), 'Deve conter o título principal de serviços ou recursos');
     });
   } catch (err) {
     console.warn('Aviso: servidor local 8080 não conectado diretamente no fetch interno:', err.message);

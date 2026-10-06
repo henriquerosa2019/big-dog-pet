@@ -1,7 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowRight,
+  BarChart3,
   Bird,
+  Building2,
   CalendarDays,
   CarFront,
   Check,
@@ -10,8 +12,10 @@ import {
   Clock3,
   CreditCard,
   ExternalLink,
+  FileText,
   Heart,
   Instagram,
+  Laptop,
   LogIn,
   LogOut,
   MapPin,
@@ -22,10 +26,12 @@ import {
   Scissors,
   ShieldCheck,
   ShoppingBag,
+  Smartphone,
   Sparkles,
   Star,
   Stethoscope,
   User,
+  Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -98,10 +104,10 @@ const services = [
   {
     icon: Scissors,
     title: "Banho & Tosa",
-    tag: "Higiene & Estética",
+    tag: "Agenda & Estética",
     description:
-      "Higienização completa, tosa higiênica e da raça com produtos premium, água morna e secagem suave para cães e gatos saírem cheirosos e relaxados.",
-    action: "Agendar Banho",
+      "Gestão de agenda visual com encaixes inteligentes, controle por tosador, tempos de atendimento e confirmação automática no WhatsApp.",
+    action: "Ver Módulo de Banho",
     subtext: "Banho e tosa",
     to: "/agendar",
     image: serviceBanhoTosa,
@@ -110,10 +116,10 @@ const services = [
   {
     icon: Stethoscope,
     title: "Veterinária",
-    tag: "Saúde & Prevenção",
+    tag: "Clínica & Prontuário",
     description:
-      "Consultas clínicas, vacinação importada, prevenção e exames com médicos veterinários dedicados ao cuidado, saúde e longevidade do seu companheiro.",
-    action: "Agendar Consulta",
+      "Prontuário eletrônico completo, receituário digital timbrado, histórico vacinal integrado e alertas automáticos de retorno para tutores.",
+    action: "Ver Módulo Clínico",
     subtext: "Consultas, vacinas, prontuários",
     to: "/agendar",
     image: serviceVeterinaria,
@@ -122,10 +128,10 @@ const services = [
   {
     icon: CarFront,
     title: "Táxi Pet",
-    tag: "Comodidade & Segurança",
+    tag: "Logística & GPS",
     description:
-      "Buscamos e levamos seu pet na sua residência com transporte seguro, cinto adaptado, ar-condicionado e motorista atencioso.",
-    action: "Pedir Táxi Pet",
+      "Painel exclusivo para motoristas com roteirização inteligente, cálculo automático por km/bairro e link de rastreamento do pet em tempo real.",
+    action: "Ver Módulo Táxi Pet",
     subtext: (
       <>
         Acompanhe o trajeto <br /> do pet em tempo real
@@ -138,11 +144,11 @@ const services = [
   },
   {
     icon: ShoppingBag,
-    title: "Loja Pet",
-    tag: "Rações & Mimos",
+    title: "Loja Pet & PDV",
+    tag: "Estoque & Curva ABC",
     description:
-      "Rações super premium, petiscos saudáveis, farmácia veterinária, caminhas confortáveis e acessórios selecionados para todas as fases do pet.",
-    action: "Comprar na Loja",
+      "Frente de caixa ágil, controle de estoque com alerta de reposição, relatório de Curva ABC e vendas integradas aos serviços e banhos.",
+    action: "Ver Módulo PDV & Loja",
     subtext: "Rações e mimos",
     to: "/loja",
     image: serviceLojaPet,
@@ -224,9 +230,9 @@ function Index() {
 
           <nav className="hidden items-center gap-8 md:flex" aria-label="Navegação principal">
             <a className="nav-link" href="#inicio">Início</a>
-            <a className="nav-link" href="#servicos">Serviços</a>
+            <a className="nav-link" href="#recursos">Recursos</a>
+            <a className="nav-link" href="#portal-do-tutor">Portal do Tutor</a>
             <a className="nav-link" href="#planos">Planos</a>
-            <Link className="nav-link" to="/loja">Loja</Link>
             <a className="nav-link" href="#contato">Contato</a>
           </nav>
 
@@ -241,12 +247,35 @@ function Index() {
               </a>
             </Button>
 
-            {/* Botão Agendar com Interceptação de Teste 7 Dias */}
+            {/* Botão Entrar (Login) */}
+            {!user ? (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setAuthModalTab("login");
+                  setAuthModalService("Acesso ao Sistema");
+                  setAuthModalOpen(true);
+                }}
+                className="font-bold cursor-pointer border-emerald-600/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+              >
+                <LogIn className="size-4" /> Entrar
+              </Button>
+            ) : null}
+
+            {/* Botão Testar Grátis / Demonstração */}
             <Button
-              onClick={() => handleServiceNavigation("/agendar", undefined, "Agendamento Online")}
-              className="font-bold cursor-pointer"
+              onClick={() => {
+                if (!user) {
+                  setAuthModalTab("signup");
+                  setAuthModalService("Teste 7 Dias Grátis");
+                  setAuthModalOpen(true);
+                } else {
+                  navigate({ to: "/painel" });
+                }
+              }}
+              className="font-bold cursor-pointer bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-md"
             >
-              <CalendarDays className="size-4" /> Agendar
+              <Zap className="size-4" /> {user ? "Meu Painel" : "Testar Grátis"}
             </Button>
 
             {/* Acesso Rápido ao Painel Master (Exclusivo Administrador) */}
@@ -384,7 +413,8 @@ function Index() {
             <div className="mx-auto grid max-w-md gap-1">
               {[
                 ["Início", "#inicio"],
-                ["Serviços", "#servicos"],
+                ["Recursos", "#recursos"],
+                ["Portal do Tutor", "#portal-do-tutor"],
                 ["Planos", "#planos"],
                 ["Contato", "#contato"],
               ].map(([label, href]) => (
@@ -397,22 +427,15 @@ function Index() {
                   {label}
                 </a>
               ))}
-              <Link
-                to="/loja"
-                className="rounded-md px-4 py-3 font-semibold text-primary hover:bg-muted"
-                onClick={() => setMenuOpen(false)}
-              >
-                🛍️ Loja Online
-              </Link>
               <button
                 type="button"
-                className="text-left rounded-md px-4 py-3 font-semibold text-primary hover:bg-muted cursor-pointer"
+                className="text-left rounded-md px-4 py-3 font-semibold text-emerald-600 hover:bg-muted cursor-pointer flex items-center gap-2"
                 onClick={() => {
                   setMenuOpen(false);
-                  handleServiceNavigation("/agendar", undefined, "Agendamento Mobile");
+                  handleServiceNavigation("/agendar", undefined, "Demonstração do Portal");
                 }}
               >
-                📅 Agendar Banho / Táxi Pet
+                <span>📱 Ver Portal do Tutor (Demo)</span>
               </button>
               {user ? (
                 <Link
@@ -425,13 +448,15 @@ function Index() {
               ) : (
                 <button
                   type="button"
-                  className="text-left rounded-md px-4 py-3 font-bold text-primary hover:bg-muted cursor-pointer"
+                  className="text-left rounded-md px-4 py-3 font-bold text-white bg-gradient-to-r from-emerald-600 to-green-600 rounded-xl hover:opacity-90 cursor-pointer shadow-md my-1"
                   onClick={() => {
                     setMenuOpen(false);
+                    setAuthModalTab("signup");
+                    setAuthModalService("Teste 7 Dias Grátis");
                     setAuthModalOpen(true);
                   }}
                 >
-                  ✨ Teste 7 Dias Grátis / Entrar
+                  ✨ Testar 7 Dias Grátis
                 </button>
               )}
             </div>
@@ -459,36 +484,58 @@ function Index() {
           ))}
           <div className="absolute inset-0 bg-hero-overlay" />
           <div className="site-container relative flex min-h-[580px] items-end pb-28 pt-20 md:min-h-[640px] md:items-center md:pb-24 md:pt-16">
-            <div className="max-w-[690px] text-hero-foreground">
-              <h1 className="font-display text-5xl font-bold leading-[1.02] sm:text-6xl md:text-7xl">
-                A vida do seu pet em boas mãos
+            <div className="max-w-[760px] text-hero-foreground">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-xs font-bold tracking-wide mb-4 backdrop-blur-sm">
+                <Sparkles className="size-3.5 text-emerald-300" /> Sistema SaaS nº 1 para Petshops e Clínicas
+              </div>
+
+              <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-extrabold leading-[1.08] tracking-tight">
+                O sistema de gestão definitivo para o seu Petshop e Clínica Veterinária
               </h1>
-              <p className="mt-6 max-w-xl text-lg leading-relaxed text-hero-muted md:text-xl">
-                Banho, tosa, acessórios e cuidado de verdade para cães, gatos e aves — tudo perto de você.
+
+              <p className="mt-5 max-w-2xl text-base sm:text-lg leading-relaxed text-hero-muted md:text-xl font-medium">
+                Simplifique agendamentos, automatize o Táxi Pet e controle seu financeiro em uma única plataforma intuitiva.
               </p>
-              <div className="mt-8 flex flex-wrap gap-3">
+
+              <div className="mt-8 flex flex-wrap items-center gap-3.5">
                 <Button
                   variant="hero"
                   size="lg"
-                  onClick={() => handleServiceNavigation("/agendar", undefined, "Agendamento Hero")}
-                  className="cursor-pointer"
+                  onClick={() => {
+                    setAuthModalTab("signup");
+                    setAuthModalService("Teste 7 Dias Grátis");
+                    setAuthModalOpen(true);
+                  }}
+                  className="cursor-pointer bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white font-black shadow-xl ring-2 ring-emerald-400/30"
                 >
-                  Agendar agora <ArrowRight className="size-5" />
+                  <Zap className="size-5" /> Testar 7 Dias Grátis
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="lg"
+                  asChild
+                  className="cursor-pointer border-white/40 text-white hover:bg-white/15 bg-black/30 backdrop-blur-md font-bold"
+                >
+                  <a href="#recursos">
+                    <Laptop className="size-5 mr-2" /> Ver Demonstração
+                  </a>
                 </Button>
               </div>
-              <div className="mt-8 flex items-center gap-3 text-sm font-semibold text-hero-muted">
+
+              <div className="mt-8 flex items-center gap-3 text-xs sm:text-sm font-semibold text-hero-muted">
                 <span className="flex -space-x-2" aria-hidden="true">
                   <span className="grid size-9 place-items-center rounded-full border-2 border-hero-scrim bg-primary">
-                    <PawPrint className="size-4 text-white" />
+                    <Building2 className="size-4 text-white" />
                   </span>
                   <span className="grid size-9 place-items-center rounded-full border-2 border-hero-scrim bg-success">
-                    <Heart className="size-4 text-white" />
+                    <BarChart3 className="size-4 text-white" />
                   </span>
                   <span className="grid size-9 place-items-center rounded-full border-2 border-hero-scrim bg-highlight text-highlight-foreground">
-                    <Bird className="size-4 text-slate-900" />
+                    <ShieldCheck className="size-4 text-slate-900" />
                   </span>
                 </span>
-                <span>Mais de 1.800 pets atendidos com carinho</span>
+                <span>Mais de 150 petshops e clínicas parceiras · R$ 500k+ movimentados</span>
               </div>
             </div>
             {/* Indicadores do carrossel */}
@@ -581,20 +628,20 @@ function Index() {
           </div>
         </section>
 
-        {/* Serviços em Destaque com Imagens Elegantes */}
-        <section id="servicos" className="section-space">
+        {/* Módulos do Sistema Vetty em Destaque */}
+        <section id="recursos" className="section-space">
           <div className="site-container">
             <div className="section-heading">
               <div>
                 <span className="eyebrow">
-                  <Sparkles className="size-4" /> Cuidado completo
+                  <Sparkles className="size-4" /> Recursos & Funcionalidades
                 </span>
                 <h2 className="bg-gradient-to-r from-emerald-800 via-emerald-600 to-green-400 dark:from-emerald-300 dark:via-emerald-400 dark:to-teal-200 bg-clip-text text-transparent inline-block">
-                  Do banho aos mimos, a gente cuida.
+                  Tudo o que seu negócio precisa em um só sistema.
                 </h2>
               </div>
               <p>
-                Serviços completos pensados para deixar a rotina prática para você e cheia de carinho para o seu melhor amigo.
+                Elimine planilhas, reduza faltas com lembretes automáticos e ofereça uma experiência de alto nível para os tutores da sua região.
               </p>
             </div>
 
@@ -645,6 +692,105 @@ function Index() {
                   </div>
                 </article>
               ))}
+            </div>
+
+            {/* Destaque B2B: Portal do Tutor com White-Label & Autoatendimento 24h */}
+            <div id="portal-do-tutor" className="mt-14 rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-emerald-900/10 via-background to-teal-900/10 p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+              <div className="grid gap-8 lg:grid-cols-12 items-center">
+                <div className="lg:col-span-7 space-y-4">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
+                    <Smartphone className="size-3.5" /> Funcionalidade White-Label Inclusa
+                  </div>
+                  <h3 className="font-display text-2xl sm:text-3xl font-extrabold text-foreground leading-snug">
+                    Ofereça um portal de agendamentos 24h com a <span className="bg-gradient-to-r from-emerald-600 to-green-500 bg-clip-text text-transparent">sua própria marca</span>
+                  </h3>
+                  <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+                    Reduza drasticamente o tempo gasto no WhatsApp da recepção. Seus clientes agendam banho, tosa, consultas e táxi pet direto pelo celular, escolhem serviços adicionais e recebem lembretes sem intervenção manual.
+                  </p>
+                  <ul className="grid sm:grid-cols-2 gap-3 pt-2 text-xs sm:text-sm">
+                    <li className="flex items-center gap-2 text-foreground font-medium">
+                      <Check className="size-4 text-emerald-600 shrink-0" />
+                      <span>Agendamento autônomo 24/7 pelo tutor</span>
+                    </li>
+                    <li className="flex items-center gap-2 text-foreground font-medium">
+                      <Check className="size-4 text-emerald-600 shrink-0" />
+                      <span>Confirmação e lembretes automáticos</span>
+                    </li>
+                    <li className="flex items-center gap-2 text-foreground font-medium">
+                      <Check className="size-4 text-emerald-600 shrink-0" />
+                      <span>Histórico de vacinas e fotos do pet</span>
+                    </li>
+                    <li className="flex items-center gap-2 text-foreground font-medium">
+                      <Check className="size-4 text-emerald-600 shrink-0" />
+                      <span>Rastreamento do Táxi Pet em tempo real</span>
+                    </li>
+                  </ul>
+                  <div className="pt-4 flex flex-wrap gap-3">
+                    <Button
+                      onClick={() => handleServiceNavigation("/agendar", undefined, "Demonstração Portal do Tutor")}
+                      className="cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                    >
+                      <Smartphone className="size-4 mr-1.5" /> Ver Demonstração do Portal
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setAuthModalTab("signup");
+                        setAuthModalService("Teste 7 Dias Grátis");
+                        setAuthModalOpen(true);
+                      }}
+                      className="cursor-pointer font-bold border-emerald-500/40"
+                    >
+                      Testar na Minha Loja
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-5 bg-card/80 border border-emerald-500/20 rounded-2xl p-5 shadow-lg backdrop-blur-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-border pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="size-8 rounded-full bg-emerald-600 grid place-items-center text-white font-black text-xs">
+                        VP
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold leading-none">Petshop Modelo</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">vetty.vercel.app/seu-petshop</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                      Online 24h
+                    </span>
+                  </div>
+                  <div className="space-y-2 text-xs">
+                    <div className="p-3 rounded-xl bg-muted/60 border border-border/60 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Scissors className="size-4 text-emerald-600" />
+                        <div>
+                          <p className="font-bold">Banho & Tosa Completo</p>
+                          <p className="text-[11px] text-muted-foreground">Thor (Golden Retriever) · 14:30</p>
+                        </div>
+                      </div>
+                      <span className="font-black text-emerald-600 text-xs">Confirmado</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-muted/60 border border-border/60 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CarFront className="size-4 text-amber-600" />
+                        <div>
+                          <p className="font-bold">Táxi Pet · Leva e Traz</p>
+                          <p className="text-[11px] text-muted-foreground">Em rota de busca · GPS Ativo</p>
+                        </div>
+                      </div>
+                      <span className="font-black text-amber-600 text-xs">Em trânsito</span>
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-emerald-600/10 border border-emerald-600/20 text-center">
+                    <p className="text-xs font-extrabold text-emerald-800 dark:text-emerald-300">
+                      ⚡ Redução média de 65% nas mensagens na recepção
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -924,6 +1070,64 @@ function Index() {
                 );
               })}
             </div>
+
+            {/* Garantias de Onboarding B2B & Suporte Humanizado */}
+            <div className="mt-12 grid sm:grid-cols-3 gap-4 max-w-4xl mx-auto">
+              <div className="p-4 rounded-2xl bg-card border border-emerald-500/20 text-center shadow-sm">
+                <div className="size-10 rounded-full bg-emerald-500/10 text-emerald-600 grid place-items-center mx-auto mb-2 font-bold">
+                  ⚡
+                </div>
+                <h4 className="font-bold text-sm text-foreground">Configuração em 15 minutos</h4>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Importação de cadastros e configuração guiada passo a passo sem complicações.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-card border border-emerald-500/20 text-center shadow-sm">
+                <div className="size-10 rounded-full bg-emerald-500/10 text-emerald-600 grid place-items-center mx-auto mb-2 font-bold">
+                  🎓
+                </div>
+                <h4 className="font-bold text-sm text-foreground">Treinamento para sua Equipe</h4>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Vídeos práticos e suporte dedicado para recepcionistas, tosadores e veterinários.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-card border border-emerald-500/20 text-center shadow-sm">
+                <div className="size-10 rounded-full bg-emerald-500/10 text-emerald-600 grid place-items-center mx-auto mb-2 font-bold">
+                  🛡️
+                </div>
+                <h4 className="font-bold text-sm text-foreground">Sem Fidelidade ou Multas</h4>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Teste por 7 dias sem cartão de crédito. Cancele ou altere seu plano quando quiser.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Button
+                size="lg"
+                onClick={() => {
+                  setAuthModalTab("signup");
+                  setAuthModalService("Teste 7 Dias Grátis");
+                  setAuthModalOpen(true);
+                }}
+                className="cursor-pointer bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-extrabold shadow-lg"
+              >
+                <Zap className="size-4 mr-2" /> Começar Teste de 7 Dias Grátis
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                asChild
+                className="border-emerald-500/40 text-emerald-800 dark:text-emerald-300 font-bold"
+              >
+                <a href="https://wa.me/5511993793746?text=Ol%C3%A1%2C%20gostaria%20de%20agendar%20uma%20demonstra%C3%A7%C3%A3o%20do%20Vetty" target="_blank" rel="noreferrer">
+                  <MessageCircle className="size-4 mr-2 text-emerald-600" /> Falar com um Consultor no WhatsApp
+                </a>
+              </Button>
+            </div>
+
             <p className="mt-6 text-center text-xs text-muted-foreground">
               * Pagamento 100% seguro via Mercado Pago. Aceita Pix com ativação imediata, Boleto e Cartão em até 12x.
             </p>
