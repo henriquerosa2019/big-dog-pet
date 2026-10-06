@@ -147,7 +147,7 @@ const services = [
     title: "Loja Pet & Relatórios Inteligentes",
     tag: "Estoque & Curva ABC",
     description:
-      "Frente de caixa ágil, controle de estoque com alerta de reposição, relatório de Curva ABC e vendas integradas aos serviços e banhos.",
+      "Controle de estoque com alerta de reposição, relatórios de Curva ABC, faturamento em tempo real e análise de rentabilidade por serviço.",
     action: "Ver Módulo de Gestão",
     subtext: "Rações e mimos",
     to: "/admin",
