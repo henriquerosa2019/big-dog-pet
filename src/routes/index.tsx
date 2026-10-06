@@ -39,6 +39,7 @@ import serviceBanhoTosa from "@/assets/service-banho-tosa.jpg";
 import serviceVeterinaria from "@/assets/service-veterinaria.jpg";
 import serviceTaxiPet from "@/assets/service-taxi-pet.jpg";
 import serviceLojaPet from "@/assets/service-loja-pet.jpg";
+import bannerTeste7Dias from "@/assets/banner-teste-7dias.png";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -448,13 +449,6 @@ function Index() {
           <div className="absolute inset-0 bg-hero-overlay" />
           <div className="site-container relative flex min-h-[580px] items-end pb-28 pt-20 md:min-h-[640px] md:items-center md:pb-24 md:pt-16">
             <div className="max-w-[690px] text-hero-foreground">
-              <div className="mb-6 inline-flex items-center rounded-2xl border border-white/25 bg-white/95 px-5 py-2.5 shadow-xl backdrop-blur-md transition-transform duration-200 hover:scale-105">
-                <img
-                  src={logoImg}
-                  alt="Vetty - Sistema Inteligente Pet"
-                  className="h-12 sm:h-14 w-auto object-contain"
-                />
-              </div>
               <h1 className="font-display text-5xl font-bold leading-[1.02] sm:text-6xl md:text-7xl">
                 A vida do seu pet em boas mãos
               </h1>
@@ -666,7 +660,7 @@ function Index() {
         {/* Planos Oficiais de Aluguel de Software PetShop & Clínica com Paleta de Verde */}
         <section id="planos" className="section-space bg-gradient-to-b from-emerald-50/40 via-background to-emerald-50/20 dark:from-emerald-950/20 dark:via-background dark:to-transparent">
           <div className="site-container">
-            <div className="section-heading">
+            <div className="section-heading items-center">
               <div>
                 <span className="eyebrow text-emerald-700 dark:text-emerald-400 font-bold">
                   <PackageOpen className="size-4" /> Aluguel de Sistema PetShop & Clínica
@@ -675,9 +669,27 @@ function Index() {
                   O software mais completo para o seu Petshop.
                 </h2>
               </div>
-              <p className="text-slate-600 dark:text-slate-300">
-                Teste por 7 dias grátis. Escolha o plano ideal com agendamento online 24h, táxi pet, relatórios Curva ABC e Canal Próprio de atendimento.
-              </p>
+              <div className="flex flex-col items-start md:items-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthModalTab("signup");
+                    setAuthModalService("Teste 7 Dias Grátis");
+                    setAuthModalOpen(true);
+                  }}
+                  className="group cursor-pointer transition-transform duration-200 hover:scale-[1.03] active:scale-[0.98] drop-shadow-md text-left"
+                  title="Clique para iniciar seu teste grátis de 7 dias"
+                >
+                  <img
+                    src={bannerTeste7Dias}
+                    alt="Teste por 7 Dias Grátis! Tudo do Plano Pro incluído. Decida depois."
+                    className="h-24 sm:h-28 md:h-32 w-auto object-contain rounded-2xl"
+                  />
+                </button>
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-sm md:text-right">
+                  Escolha o plano ideal com agendamento online 24h, táxi pet, relatórios Curva ABC e Canal Próprio de atendimento.
+                </p>
+              </div>
             </div>
 
             {/* Navegador Interativo dos 3 Planos */}
