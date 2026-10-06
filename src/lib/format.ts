@@ -40,13 +40,13 @@ export function daysUntil(value: string): number {
 }
 
 export const CLINIC = {
-  name: "Big Dog Pet",
-  fullName: "Big Dog Pet - Banho e Tosa",
-  tagline: "Acessórios | Banho e Tosa | Produtos p/ Pet",
-  unit: "Loja 3",
-  address: "Rua Rangel Pestana, 56 - Vila Bazú, Franco da Rocha - SP",
-  phoneDisplay: "(21) 99379-3746",
-  whatsapp: "5521993793746",
+  name: "Vetty",
+  fullName: "Vetty - Sistema Inteligente Pet",
+  tagline: "Sistema Inteligente Pet | Gestão & Cuidado",
+  unit: "Unidade Central",
+  address: "Atendimento & Gestão Integrada",
+  phoneDisplay: "(11) 99379-3746",
+  whatsapp: "5511993793746",
 } as const;
 
 export function whatsappLink(message: string): string {

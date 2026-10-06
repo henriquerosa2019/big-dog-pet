@@ -1,7 +1,7 @@
 {
-  "name": "Big Dog Pet - Banho e Tosa",
-  "short_name": "Big Dog Pet",
-  "description": "Agende banho e tosa e compre acessórios e produtos para o seu pet na Big Dog Pet, em Franco da Rocha.",
+  "name": "Vetty - Sistema Inteligente Pet",
+  "short_name": "Vetty",
+  "description": "Sistema Inteligente Pet - Gestão, agendamentos, delivery e produtos.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

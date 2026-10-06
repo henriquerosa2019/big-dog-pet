@@ -59,7 +59,7 @@ export function DriverLiveMap({
       });
       L.marker([-23.32185, -46.7262], { icon: shopIcon })
         .addTo(map)
-        .bindPopup("<b>Big Dog Pet</b><br/>Loja 3 - Vila Bazú");
+        .bindPopup("<b>Vetty</b><br/>Unidade Central");
 
       // Ícone da Residência do Tutor
       const homeIcon = L.divIcon({
@@ -70,7 +70,7 @@ export function DriverLiveMap({
       });
       L.marker([-23.3315, -46.721], { icon: homeIcon })
         .addTo(map)
-        .bindPopup("<b>Residência do Tutor</b><br/>Franco da Rocha");
+        .bindPopup("<b>Residência do Tutor</b><br/>Destino da Entrega");
 
       // Traçado da rota principal de entrega
       const waypoints: [number, number][] = [

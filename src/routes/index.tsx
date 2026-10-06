@@ -62,16 +62,16 @@ export const Route = createFileRoute("/")({
   }),
   head: () => ({
     meta: [
-      { title: "Big Dog Pet | Banho, tosa e cuidado em Franco da Rocha" },
+      { title: "Vetty - Sistema Inteligente Pet | Banho, tosa e gestão de serviços" },
       {
         name: "description",
         content:
-          "Banho e tosa, Táxi Pet, produtos e planos de cuidado para cães, gatos e aves em Franco da Rocha.",
+          "Vetty - Sistema Inteligente Pet: banho e tosa, Táxi Pet, produtos e planos de cuidado para cães, gatos e aves.",
       },
-      { property: "og:title", content: "Big Dog Pet | A vida do seu pet em boas mãos" },
+      { property: "og:title", content: "Vetty - Sistema Inteligente Pet" },
       {
         property: "og:description",
-        content: "Cuidado completo, do banho aos mimos, com atendimento perto de você.",
+        content: "Cuidado completo, do banho aos mimos, com atendimento de excelência.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -116,7 +116,7 @@ const services = [
     title: "Táxi Pet",
     tag: "Comodidade & Segurança",
     description:
-      "Buscamos e levamos seu pet na sua residência em Franco da Rocha com transporte seguro, cinto adaptado, ar-condicionado e motorista atencioso.",
+      "Buscamos e levamos seu pet na sua residência com transporte seguro, cinto adaptado, ar-condicionado e motorista atencioso.",
     action: "Pedir Táxi Pet",
     subtext: "Buscamos em sua casa",
     to: "/agendar",
@@ -206,12 +206,12 @@ function Index() {
       {/* Cabeçalho Oficial do Novo Design */}
       <header className="sticky top-0 z-50 border-b border-border/70 bg-background/95 backdrop-blur-xl">
         <div className="site-container flex h-18 items-center justify-between">
-          <a href="#inicio" className="flex items-center gap-3" aria-label="Big Dog Pet - início">
-            <img src={logoImg} alt="Logo Big Dog Pet" className="size-11 object-contain rounded-full shadow-xs" />
+          <a href="#inicio" className="flex items-center gap-3" aria-label="Vetty - Sistema Inteligente Pet - início">
+            <img src={logoImg} alt="Logo Vetty - Sistema Inteligente Pet" className="h-11 w-auto max-w-[170px] object-contain shadow-xs" />
             <span className="leading-none">
-              <strong className="block font-display text-xl text-brand-strong">Big Dog Pet</strong>
+              <strong className="block font-display text-xl text-brand-strong">Vetty</strong>
               <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                Banho e tosa
+                Sistema Inteligente Pet
               </span>
             </span>
           </a>
@@ -455,7 +455,7 @@ function Index() {
           <div className="site-container relative flex min-h-[580px] items-end pb-28 pt-20 md:min-h-[640px] md:items-center md:pb-24 md:pt-16">
             <div className="max-w-[690px] text-hero-foreground">
               <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-hero-foreground/20 bg-hero-scrim/40 px-4 py-2 text-sm font-bold backdrop-blur-sm">
-                <MapPin className="size-4 text-highlight" /> Loja 3 · Franco da Rocha
+                <Sparkles className="size-4 text-highlight" /> Vetty · Sistema Inteligente Pet
               </div>
               <h1 className="font-display text-5xl font-bold leading-[1.02] sm:text-6xl md:text-7xl">
                 A vida do seu pet em boas mãos
@@ -553,7 +553,7 @@ function Index() {
                 </h2>
               </div>
               <p>
-                Serviços completos em Franco da Rocha pensados para deixar a rotina prática para você e cheia de carinho para o seu melhor amigo.
+                Serviços completos pensados para deixar a rotina prática para você e cheia de carinho para o seu melhor amigo.
               </p>
             </div>
 
@@ -780,11 +780,11 @@ function Index() {
                 <div>
                   <MapPin className="size-5 text-highlight" />
                   <span>
-                    <strong>Loja 3</strong>
+                    <strong>Atendimento Inteligente</strong>
                     <br />
-                    Rua Rangel Pestana, 56 · Vila Bazú
+                    Agendamentos & Delivery Integrados
                     <br />
-                    Franco da Rocha · SP
+                    Atendimento em Toda a Região
                   </span>
                 </div>
                 <div>
@@ -798,9 +798,9 @@ function Index() {
                 <div>
                   <Instagram className="size-5 text-highlight" />
                   <span>
-                    <strong>Acompanhe a Big Dog Pet</strong>
+                    <strong>Acompanhe o Vetty</strong>
                     <br />
-                    Novidades, cuidados e mimos
+                    Sistema Inteligente Pet · Novidades e gestão
                   </span>
                 </div>
               </div>
@@ -812,7 +812,7 @@ function Index() {
       {/* Rodapé Institucional */}
       <footer className="border-t border-border bg-card py-8 text-sm text-muted-foreground">
         <div className="site-container flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
-          <p>© 2026 Big Dog Pet. A vida do seu pet em boas mãos.</p>
+          <p>© 2026 Vetty - Sistema Inteligente Pet. Todos os direitos reservados.</p>
           <div className="flex items-center gap-4 text-xs font-semibold">
             <button
               type="button"

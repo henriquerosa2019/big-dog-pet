@@ -82,13 +82,13 @@ export const Route = createFileRoute("/painel")({
   }),
   head: () => ({
     meta: [
-      { title: "Big Dog Pet | Banho, Tosa e Acessórios em Franco da Rocha" },
+      { title: "Vetty - Sistema Inteligente Pet | Painel Operacional" },
       {
         name: "description",
         content:
-          "Big Dog Pet, em Franco da Rocha: banho, tosa, acessórios e produtos para o seu pet. Acompanhe seus agendamentos e delivery em tempo real.",
+          "Vetty - Sistema Inteligente Pet: acompanhe seus agendamentos e delivery em tempo real.",
       },
-      { property: "og:title", content: "Big Dog Pet | Banho e Tosa em Franco da Rocha" },
+      { property: "og:title", content: "Vetty - Sistema Inteligente Pet" },
       {
         property: "og:description",
         content: "Acompanhe seus agendamentos, delivery ao vivo e compre na loja online.",
@@ -595,7 +595,7 @@ function Home() {
 
   const transportMessage = transportAddressText
     ? `Buscamos e devolvemos seu pet em sua casa em ${transportAddressText}.`
-    : "Buscamos e devolvemos seu pet em sua casa em Franco da Rocha.";
+    : "Buscamos e devolvemos seu pet com toda comodidade e segurança.";
 
   async function copyCoupon() {
     try {
@@ -649,15 +649,15 @@ function Home() {
       <section className="relative overflow-hidden">
         <img
           src={heroImage}
-          alt="Profissional cuidando de um cão e um gato na Big Dog Pet"
+          alt="Profissional cuidando de pet no Vetty - Sistema Inteligente Pet"
           width={1200}
           height={912}
           className="h-36 sm:h-44 md:h-48 w-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/90 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-black shadow-xs mb-1">
-            ⭐ {CLINIC.unit} · Franco da Rocha
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/90 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white shadow-xs mb-1">
+            ⭐ Vetty · Sistema Inteligente Pet
           </span>
           <h1 className="font-display text-xl sm:text-2xl md:text-3xl font-extrabold leading-tight text-white drop-shadow-sm">
             A vida do seu pet em boas mãos

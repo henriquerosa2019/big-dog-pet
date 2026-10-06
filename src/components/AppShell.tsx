@@ -126,132 +126,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       )}
     >
       <StatusAlertNotifier />
-      {isAdmin && isLandingPage && (
-        <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-800 bg-slate-950 px-4 py-2 text-xs text-white shadow-xs">
-          <div className="flex items-center gap-1.5">
-            <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-300 border border-amber-500/30">
-              🧪 Homologação
-            </span>
-            <span className="text-[10px] text-slate-400 font-semibold">
-              Painel Admin rápido:
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button asChild size="sm" variant="ghost" className="h-6 px-2 text-[11px] font-bold text-slate-300 hover:bg-slate-800 hover:text-white">
-              <Link to="/admin">🏬 Painel Loja</Link>
-            </Button>
-            <Button asChild size="sm" variant="ghost" className="h-6 px-2 text-[11px] font-bold text-slate-300 hover:bg-slate-800 hover:text-white">
-              <Link to="/painel">📋 Painel Antigo</Link>
-            </Button>
-            <Button asChild size="sm" variant="ghost" className="h-6 px-2 text-[11px] font-bold text-slate-300 hover:bg-slate-800 hover:text-white">
-              <Link to="/motorista">🚚 Motorista</Link>
-            </Button>
-          </div>
-        </div>
-      )}
       {!isLandingPage && (
         <header className="sticky top-0 z-20 border-b border-border/60 bg-background/90 backdrop-blur">
-          {/* Barra Superior de Homologação Ágil - Alternância Rápida de Atores */}
-          {isAdmin && (
-            <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-white shadow-xs">
-              <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-300 border border-amber-500/30">
-                🧪 Homologação
-              </span>
-              <span className="hidden sm:inline text-[10px] text-slate-400 font-semibold">
-                Alternar Papel:
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1 overflow-x-auto">
-              {/* Tutor */}
-              <Button
-                asChild
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setAppRole("tutor");
-                }}
-                className={cn(
-                  "h-6 px-2 text-[11px] font-bold rounded-lg transition-all",
-                  activeRole === "tutor"
-                    ? "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 hover:text-white"
-                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                )}
-              >
-                <Link to="/" search={{ preview: "cliente" }}>
-                  🐾 Tutor
-                </Link>
-              </Button>
-
-              {/* Loja / Admin */}
-              <Button
-                asChild
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setAppRole("loja");
-                }}
-                className={cn(
-                  "h-6 px-2 text-[11px] font-bold rounded-lg transition-all",
-                  activeRole === "loja"
-                    ? "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 hover:text-white"
-                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                )}
-              >
-                <Link to="/admin">
-                  🏬 Loja
-                </Link>
-              </Button>
-
-              {/* Motorista */}
-              <Button
-                asChild
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setAppRole("motorista");
-                }}
-                className={cn(
-                  "h-6 px-2 text-[11px] font-bold rounded-lg transition-all",
-                  activeRole === "motorista"
-                    ? "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 hover:text-white"
-                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                )}
-              >
-                <Link to="/motorista">
-                  🚚 Motorista
-                </Link>
-              </Button>
-
-              {/* Quadro Miro (QA) */}
-              <button
-                type="button"
-                onClick={() => openMiroModal()}
-                className="flex items-center gap-1 h-6 px-2 text-[11px] font-bold rounded-lg border border-emerald-500/50 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 transition-all cursor-pointer"
-                title="Abrir Quadro Miro de Testes (TC-01 a TC-18)"
-              >
-                <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-                <span>🎯 Miro (QA)</span>
-              </button>
-            </div>
-          </div>
-        )}
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
           <Link to="/" className="flex min-w-0 items-center gap-2">
             <img
               src={logo}
-              alt="Logo Big Dog Pet: pata de cachorro em círculo azul"
+              alt="Logo Vetty - Sistema Inteligente Pet"
               width={40}
               height={40}
-              className="h-10 w-10 shrink-0"
+              className="h-10 w-10 shrink-0 rounded-full object-contain"
             />
             <span className="min-w-0">
               <span className="block truncate font-display text-lg leading-tight text-primary">
                 {CLINIC.name}
               </span>
               <span className="block truncate text-[11px] uppercase tracking-widest text-muted-foreground">
-                Banho e Tosa
+                Sistema Inteligente Pet
               </span>
             </span>
           </Link>
