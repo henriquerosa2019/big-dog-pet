@@ -606,11 +606,11 @@ function Index() {
         <section className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 py-12 text-white border-y border-emerald-800/40 shadow-inner">
           <div className="site-container">
             <div className="flex flex-col items-center justify-center mb-10">
-              <div className="inline-flex items-center gap-2 rounded-2xl bg-white/95 px-6 py-3 shadow-xl backdrop-blur-md transition-transform duration-200 hover:scale-105">
+              <div className="transition-transform duration-200 hover:scale-105">
                 <img
-                  src={logoImg}
+                  src={logoWhiteImg}
                   alt="Vetty - Sistema Inteligente Pet"
-                  className="h-12 sm:h-14 w-auto object-contain"
+                  className="h-16 sm:h-20 w-auto object-contain drop-shadow-md"
                 />
               </div>
               <p className="mt-4 text-xs sm:text-sm font-bold tracking-widest uppercase text-emerald-300">
@@ -814,17 +814,17 @@ function Index() {
                 <p className="mt-5 max-w-xl text-lg text-brand-band-muted">
                   Fale com a equipe, tire suas dúvidas e encontre o melhor horário para o seu companheiro.
                 </p>
-                <div className="mt-8 flex flex-col items-start gap-5">
+                <div className="mt-8 flex flex-col items-start gap-6 w-full">
                   <Button variant="hero" size="lg" asChild>
                     <a href="https://wa.me/5511993793746" target="_blank" rel="noreferrer">
                       <MessageCircle className="size-5" /> Chamar no WhatsApp
                     </a>
                   </Button>
-                  <div className="pt-1">
+                  <div className="pt-2 w-full flex justify-center sm:justify-start">
                     <img
                       src={logoWhiteImg}
                       alt="Vetty - Sistema Inteligente Pet"
-                      className="h-12 sm:h-14 w-auto object-contain drop-shadow-sm opacity-95 transition-opacity hover:opacity-100"
+                      className="h-16 sm:h-20 w-auto object-contain drop-shadow-md opacity-95 transition-all hover:opacity-100 hover:scale-105"
                     />
                   </div>
                 </div>
