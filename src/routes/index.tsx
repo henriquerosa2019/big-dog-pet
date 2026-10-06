@@ -890,16 +890,7 @@ function Index() {
         {/* Seção Contato / Demonstração & Gestão na Ponta dos Dedos */}
         <section id="contato" className="section-space">
           <div className="site-container">
-            <div className="contact-band !bg-gradient-to-r !from-emerald-950 !via-slate-900 !to-emerald-950 border border-emerald-800/40 shadow-2xl relative overflow-hidden">
-              {/* Faixa decorativa com ícones de pets no topo do quadro */}
-              <div className="absolute top-0 left-0 right-0 h-14 opacity-25 pointer-events-none overflow-hidden flex items-center justify-center">
-                <img
-                  src={animalIconsStrip}
-                  alt="Ilustrações de animais Vetty"
-                  className="w-full max-w-4xl h-auto object-contain brightness-125"
-                />
-              </div>
-
+            <div className="contact-band !bg-gradient-to-r !from-emerald-950 !via-slate-900 !to-emerald-950 border border-emerald-800/40 shadow-2xl relative overflow-hidden pb-16">
               <div className="max-w-2xl relative z-10 pt-2">
                 <span className="eyebrow eyebrow-light text-emerald-300">
                   <PawPrint className="size-4" /> Estamos por perto
@@ -970,6 +961,15 @@ function Index() {
                     />
                   </button>
                 </div>
+              </div>
+
+              {/* Faixa decorativa com ícones de pets na parte inferior do quadro */}
+              <div className="absolute bottom-1 left-0 right-0 h-14 opacity-35 pointer-events-none overflow-hidden flex items-center justify-center">
+                <img
+                  src={animalIconsStrip}
+                  alt="Ilustrações de animais Vetty"
+                  className="w-full max-w-4xl h-auto object-contain brightness-125"
+                />
               </div>
             </div>
           </div>
