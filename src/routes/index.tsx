@@ -102,7 +102,7 @@ const services = [
     description:
       "Higienização completa, tosa higiênica e da raça com produtos premium, água morna e secagem suave para cães e gatos saírem cheirosos e relaxados.",
     action: "Agendar Banho",
-    subtext: "Banho, tosa e spa",
+    subtext: "Banho e tosa",
     to: "/agendar",
     image: serviceBanhoTosa,
     iconStyle: "bg-sky-500/10 text-sky-600 dark:bg-sky-500/20 dark:text-sky-300 border-sky-500/25",
@@ -114,7 +114,7 @@ const services = [
     description:
       "Consultas clínicas, vacinação importada, prevenção e exames com médicos veterinários dedicados ao cuidado, saúde e longevidade do seu companheiro.",
     action: "Agendar Consulta",
-    subtext: "Consultas e vacinas",
+    subtext: "Consultas, vacinas, prontuários",
     to: "/agendar",
     image: serviceVeterinaria,
     iconStyle: "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300 border-emerald-500/25",
@@ -126,7 +126,11 @@ const services = [
     description:
       "Buscamos e levamos seu pet na sua residência com transporte seguro, cinto adaptado, ar-condicionado e motorista atencioso.",
     action: "Pedir Táxi Pet",
-    subtext: "Buscamos em sua casa",
+    subtext: (
+      <>
+        Acompanhe o trajeto <br /> do pet em tempo real
+      </>
+    ),
     to: "/agendar",
     search: { tipo: "buscar_e_devolver" },
     image: serviceTaxiPet,
