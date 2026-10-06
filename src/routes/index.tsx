@@ -35,6 +35,7 @@ import heroBird from "@/assets/hero-bird.jpg";
 import heroCat from "@/assets/hero-cat.jpg";
 import heroDog from "@/assets/hero-dog.jpg";
 import logoImg from "@/assets/bigdog-logo.png";
+import logoWhiteImg from "@/assets/vetty-logo-white.png";
 import serviceBanhoTosa from "@/assets/service-banho-tosa.jpg";
 import serviceVeterinaria from "@/assets/service-veterinaria.jpg";
 import serviceTaxiPet from "@/assets/service-taxi-pet.jpg";
@@ -813,12 +814,19 @@ function Index() {
                 <p className="mt-5 max-w-xl text-lg text-brand-band-muted">
                   Fale com a equipe, tire suas dúvidas e encontre o melhor horário para o seu companheiro.
                 </p>
-                <div className="mt-8 flex flex-wrap gap-3">
+                <div className="mt-8 flex flex-col items-start gap-5">
                   <Button variant="hero" size="lg" asChild>
                     <a href="https://wa.me/5511993793746" target="_blank" rel="noreferrer">
                       <MessageCircle className="size-5" /> Chamar no WhatsApp
                     </a>
                   </Button>
+                  <div className="pt-1">
+                    <img
+                      src={logoWhiteImg}
+                      alt="Vetty - Sistema Inteligente Pet"
+                      className="h-12 sm:h-14 w-auto object-contain drop-shadow-sm opacity-95 transition-opacity hover:opacity-100"
+                    />
+                  </div>
                 </div>
               </div>
               <div className="contact-details">
