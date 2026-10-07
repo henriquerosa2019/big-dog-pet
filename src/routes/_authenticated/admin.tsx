@@ -2810,6 +2810,15 @@ function Admin() {
 
   const selectedPet = (allPets ?? []).find((p) => p.id === recordPetId);
 
+  const handleExportPDF = () => {
+    try {
+      exportReportPDF(reportData, reportRange);
+    } catch (err) {
+      console.error(err);
+      toast.error("Não foi possível gerar o PDF.");
+    }
+  };
+
   return (
     <div className="p-4 space-y-4">
       {/* 1. CABEÇALHO EXECUTIVO E DESPOLUÍDO */}
