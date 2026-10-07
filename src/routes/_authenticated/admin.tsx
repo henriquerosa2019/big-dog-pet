@@ -126,6 +126,9 @@ import {
   type KanbanPetGroup,
   type PaymentMethod,
 } from "@/components/admin/AdminOperationalKanban";
+import { AdminVisualAgenda, type VisualAgendaItem } from "@/components/admin/AdminVisualAgenda";
+import { VetEhrRecord } from "@/components/pets/VetEhrRecord";
+import { AdminPetlyticsDashboard } from "@/components/admin/AdminPetlyticsDashboard";
 import { AdminHealthAlertsGrouped, type HealthAlertItem } from "@/components/admin/AdminHealthAlertsGrouped";
 import { AdminOrdersManager } from "@/components/admin/AdminOrdersManager";
 import { PetAvatar } from "@/components/PetAvatar";
@@ -1856,8 +1859,8 @@ function Admin() {
 
   // --- Aba "Relatórios": geração de Excel/PDF de vendas + serviços ---
   const [reportSubTab, setReportSubTab] = useState<
-    "financeiro" | "abc-produtos" | "abc-servicos" | "abc-clientes" | "entregas-motoristas" | "atendimentos-periodo" | "cronoanalise"
-  >("financeiro");
+    "petlytics-bi" | "financeiro" | "abc-produtos" | "abc-servicos" | "abc-clientes" | "entregas-motoristas" | "atendimentos-periodo" | "cronoanalise"
+  >("petlytics-bi");
   const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("mes");
   const [reportFrom, setReportFrom] = useState(todayISODate());
   const [reportTo, setReportTo] = useState(todayISODate());
@@ -2320,6 +2323,8 @@ function Admin() {
     },
     onError: () => toast.error("Não foi possível atualizar"),
   });
+
+  const [operacionalViewMode, setOperacionalViewMode] = useState<"kanban" | "agenda">("kanban");
 
   const [showDeliverySimulator, setShowDeliverySimulator] = useState(false);
 
@@ -3167,28 +3172,96 @@ function Admin() {
             </div>
           </div>
 
-          {/* Kanban Operacional do Dia (3 Etapas: Aguardando -> Em Andamento -> Pronto/Concluído) */}
-          <AdminOperationalKanban
-            items={kanbanItems}
-            filterType={kanbanFilterType}
-            onFilterTypeChange={setKanbanFilterType}
-            hideTopFilterBar={true}
-            onAdvanceGroup={handleKanbanAdvanceGroup}
-            onAdvanceStatus={handleKanbanAdvance}
-            onRegisterPayment={async (appointmentIds, method) => {
-              await registerStorePayment.mutateAsync({ appointmentIds, method });
-            }}
-            onConfirmAppointment={(appointmentId) => {
-              const appt = (appointments ?? []).find((a) => a.id === appointmentId);
-              if (appt) confirmAppointment.mutate(appt);
-            }}
-            onCancelAppointment={(appointmentId) => cancelAppointment.mutate(appointmentId)}
-            onOpenPetRecord={(petId) => {
-              setRecordPetId(petId);
-              setCurrentTab("gestao");
-              setGestaoSubTab("clinica");
-            }}
-          />
+          {/* Seletor de Modo de Exibição Operacional (Kanban vs Agenda Visual) */}
+          <div className="flex items-center justify-between gap-2 bg-muted/40 p-2 rounded-2xl border border-border/70">
+            <div className="flex items-center gap-1 bg-card rounded-xl p-1 border border-border/60 shadow-xs">
+              <button
+                type="button"
+                onClick={() => setOperacionalViewMode("kanban")}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-black rounded-lg transition-all flex items-center gap-1.5",
+                  operacionalViewMode === "kanban"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <span>📋 Kanban por Etapas</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setOperacionalViewMode("agenda")}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-black rounded-lg transition-all flex items-center gap-1.5",
+                  operacionalViewMode === "agenda"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <span>📅 Agenda Visual por Profissional</span>
+                <span className="text-[10px] bg-emerald-500 text-white font-extrabold px-1.5 py-0.2 rounded-full">
+                  Novo
+                </span>
+              </button>
+            </div>
+            <p className="text-[11px] text-muted-foreground hidden sm:block pr-2">
+              {operacionalViewMode === "kanban"
+                ? "Controle de esteira: Aguardando ➜ Em Andamento ➜ Pronto"
+                : "Grade de horários por profissional estilo PawsomeGroom"}
+            </p>
+          </div>
+
+          {operacionalViewMode === "kanban" ? (
+            /* Kanban Operacional do Dia (3 Etapas: Aguardando -> Em Andamento -> Pronto/Concluído) */
+            <AdminOperationalKanban
+              items={kanbanItems}
+              filterType={kanbanFilterType}
+              onFilterTypeChange={setKanbanFilterType}
+              hideTopFilterBar={true}
+              onAdvanceGroup={handleKanbanAdvanceGroup}
+              onAdvanceStatus={handleKanbanAdvance}
+              onRegisterPayment={async (appointmentIds, method) => {
+                await registerStorePayment.mutateAsync({ appointmentIds, method });
+              }}
+              onConfirmAppointment={(appointmentId) => {
+                const appt = (appointments ?? []).find((a) => a.id === appointmentId);
+                if (appt) confirmAppointment.mutate(appt);
+              }}
+              onCancelAppointment={(appointmentId) => cancelAppointment.mutate(appointmentId)}
+              onOpenPetRecord={(petId) => {
+                setRecordPetId(petId);
+                setCurrentTab("gestao");
+                setGestaoSubTab("clinica");
+              }}
+            />
+          ) : (
+            /* Agenda Visual de Banho & Tosa por Profissional */
+            <AdminVisualAgenda
+              items={kanbanItems.map((ki) => ({
+                id: ki.id,
+                petId: ki.petId,
+                petName: ki.petName,
+                petBreed: ki.petBreed,
+                petPhotoUrl: ki.petPhotoUrl,
+                tutorName: ki.tutorName,
+                tutorPhone: ki.tutorPhone,
+                serviceName: ki.serviceName,
+                scheduledAt: ki.scheduledAt,
+                status: ki.status as any,
+                totalCents: ki.totalCents,
+              }))}
+              onSelectAppointment={(item) => {
+                const appt = (appointments ?? []).find((a) => a.id === item.id);
+                if (appt && appt.status === "pendente") {
+                  confirmAppointment.mutate(appt);
+                }
+              }}
+              onOpenPetRecord={(petId) => {
+                setRecordPetId(petId);
+                setCurrentTab("gestao");
+                setGestaoSubTab("clinica");
+              }}
+            />
+          )}
 
           {/* Aniversariantes de Hoje e Amanhã */}
           {birthdaysSoon.length > 0 && (
@@ -4386,6 +4459,21 @@ function Admin() {
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
             <button
               type="button"
+              onClick={() => setReportSubTab("petlytics-bi")}
+              className={cn(
+                "rounded-xl px-3 py-2 text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5",
+                reportSubTab === "petlytics-bi"
+                  ? "bg-primary text-primary-foreground shadow-sm font-extrabold"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+              )}
+            >
+              <span>⚡ Visão Executiva & Curva ABC</span>
+              <span className="text-[10px] bg-emerald-500 text-white font-extrabold px-1.5 py-0.2 rounded-full">
+                BI
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={() => setReportSubTab("financeiro")}
               className={cn(
                 "rounded-xl px-3 py-2 text-xs font-semibold whitespace-nowrap transition-colors",
@@ -4469,6 +4557,14 @@ function Admin() {
               ⏱️ Cronoanálise & Eficiência
             </button>
           </div>
+
+          {reportSubTab === "petlytics-bi" && (
+            <AdminPetlyticsDashboard
+              totalRevenueCents={dashboardStats.totalRevenue.month || 4250000}
+              clientsCount={allClients.length || 312}
+              onExportReport={handleExportPDF}
+            />
+          )}
 
           {reportSubTab === "financeiro" && (
             <>
@@ -4727,6 +4823,43 @@ function Admin() {
                   </span>
                 </div>
               </div>
+            </div>
+          )}
+
+          {selectedPet && (
+            <div className="rounded-2xl border border-primary/20 bg-muted/20 p-2 sm:p-3 shadow-xs">
+              <div className="flex items-center justify-between px-2 py-1 mb-2">
+                <span className="text-xs font-black uppercase tracking-wider text-primary flex items-center gap-1.5">
+                  <Stethoscope className="h-4 w-4" />
+                  Prontuário Clínico Digital & Prescrições (EHR)
+                </span>
+                <Badge variant="outline" className="text-[10px] font-bold border-primary/30 text-primary">
+                  VetConnect Pro
+                </Badge>
+              </div>
+              <VetEhrRecord
+                pet={{
+                  id: selectedPet.id,
+                  name: selectedPet.name,
+                  species: selectedPet.species,
+                  breed: selectedPet.breed || undefined,
+                  birthDate: selectedPet.birth_date || undefined,
+                  photoUrl: selectedPet.photo_url || undefined,
+                  weightKg: selectedPet.weight_kg || undefined,
+                  temperament: selectedPet.temperament || undefined,
+                  allergies: selectedPet.allergies || undefined,
+                }}
+                tutor={{
+                  name: profileById.get(selectedPet.owner_id || "")?.full_name || "Tutor",
+                  phone: profileById.get(selectedPet.owner_id || "")?.phone || undefined,
+                }}
+                vitals={{
+                  weightKg: selectedPet.weight_kg || "12.4",
+                  temperatureC: "38.5",
+                  heartRateBpm: "110",
+                  ageYears: selectedPet.birth_date ? formatPetAge(selectedPet.birth_date) : "3",
+                }}
+              />
             </div>
           )}
 

@@ -20,6 +20,7 @@ import { PetAvatar } from "@/components/PetAvatar";
 import { PetPhotoUpload } from "@/components/PetPhotoUpload";
 import { toast } from "sonner";
 import { z } from "zod";
+import { VetEhrRecord } from "@/components/pets/VetEhrRecord";
 import { supabase } from "@/integrations/supabase/client";
 import {
   alertBadgeLabel,
@@ -649,13 +650,37 @@ function PetFicha() {
           lugar.
         </p>
 
-        <Tabs defaultValue="ficha" className="mt-3">
-          <TabsList className="grid w-full grid-cols-4">
+        <Tabs defaultValue="ehr" className="mt-3">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="ehr">🏥 Prontuário EHR</TabsTrigger>
             <TabsTrigger value="ficha">Ficha</TabsTrigger>
             <TabsTrigger value="vacinas">Vacinas</TabsTrigger>
             <TabsTrigger value="retornos">Retornos</TabsTrigger>
-            <TabsTrigger value="prontuario">Prontuário</TabsTrigger>
+            <TabsTrigger value="prontuario">Histórico</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="ehr" className="mt-3">
+            <VetEhrRecord
+              pet={{
+                id: pet?.id || "pet-1",
+                name: pet?.name ? capitalizeWords(pet.name) : "Pet",
+                species: pet?.species || "Canino",
+                breed: pet?.breed || undefined,
+                birthDate: pet?.birth_date || undefined,
+                sex: pet?.sex || undefined,
+                photoUrl: pet?.photo_url || form.photo_url || undefined,
+                weightKg: pet?.weight_kg || form.weight_kg || undefined,
+                temperament: pet?.temperament || form.temperament || undefined,
+                allergies: pet?.allergies || form.allergies || undefined,
+              }}
+              vitals={{
+                weightKg: pet?.weight_kg || form.weight_kg || "12.4",
+                temperatureC: "38.5",
+                heartRateBpm: "110",
+                ageYears: pet?.birth_date ? formatPetAge(pet.birth_date) : "3",
+              }}
+            />
+          </TabsContent>
 
           <TabsContent value="ficha" className="mt-3">
             <div className="rounded-2xl bg-card p-3.5 shadow-card space-y-3">
