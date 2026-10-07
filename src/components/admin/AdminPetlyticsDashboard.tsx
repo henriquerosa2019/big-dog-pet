@@ -338,6 +338,7 @@ export function AdminPetlyticsDashboard({
 }: AdminPetlyticsDashboardProps) {
   // Estado de tema interno do dashboard: 'dark' (petlytics padrão com fundo preto/verde) ou 'light' (fundo branco)
   const [themeMode, setThemeMode] = useState<"dark" | "light">("dark");
+  const [entityScope, setEntityScope] = useState<"todos" | "servicos" | "produtos" | "clientes">("todos");
   const [selectedFilter, setSelectedFilter] = useState<"todos" | "A" | "B" | "C">("todos");
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodFilter>("mes");
   const [searchQuery, setSearchQuery] = useState("");
@@ -349,13 +350,22 @@ export function AdminPetlyticsDashboard({
     return getRevenueDataForPeriod(selectedPeriod);
   }, [selectedPeriod]);
 
-  // Estatísticas das 3 classes
+  // Estatísticas das 3 classes baseadas no escopo de entidade
+  const scopedItems = useMemo(() => {
+    return items.filter((it) => {
+      if (entityScope === "servicos") return it.category === "servico" || it.category === "veterinaria";
+      if (entityScope === "produtos") return it.category === "produto";
+      if (entityScope === "clientes") return true; // Clientes analisados em conjunto ou detalhado
+      return true;
+    });
+  }, [items, entityScope]);
+
   const abcStats = useMemo(() => {
     let revA = 0;
     let revB = 0;
     let revC = 0;
 
-    items.forEach((it) => {
+    scopedItems.forEach((it) => {
       if (it.classification === "A") revA += it.revenueCents;
       if (it.classification === "B") revB += it.revenueCents;
       if (it.classification === "C") revC += it.revenueCents;
@@ -367,17 +377,17 @@ export function AdminPetlyticsDashboard({
       b: { rev: revB, pct: ((revB / sum) * 100).toFixed(1) },
       c: { rev: revC, pct: ((revC / sum) * 100).toFixed(1) },
     };
-  }, [items]);
+  }, [scopedItems]);
 
   const filteredItems = useMemo(() => {
-    return items.filter((it) => {
+    return scopedItems.filter((it) => {
       const matchFilter = selectedFilter === "todos" || it.classification === selectedFilter;
       const matchSearch =
         it.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         it.category.toLowerCase().includes(searchQuery.toLowerCase());
       return matchFilter && matchSearch;
     });
-  }, [items, selectedFilter, searchQuery]);
+  }, [scopedItems, selectedFilter, searchQuery]);
 
   return (
     <div
@@ -436,8 +446,43 @@ export function AdminPetlyticsDashboard({
           </div>
         </div>
 
-        {/* Controles: Filtros de Período, Busca, Alternador Preto/Branco, Exportar */}
+        {/* Controles: Escopo de Entidade, Filtros de Período, Busca, Alternador Preto/Branco, Exportar */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Seletor de Escopo de Entidade: Todos, Serviços, Produtos, Clientes */}
+          <div
+            className={cn(
+              "flex items-center p-1 rounded-xl border gap-0.5 overflow-x-auto",
+              isDark ? "bg-[#14221e] border-emerald-900/60" : "bg-white border-slate-300"
+            )}
+          >
+            {(
+              [
+                ["todos", "Todos"],
+                ["servicos", "Serviços"],
+                ["produtos", "Produtos"],
+                ["clientes", "Clientes"],
+              ] as const
+            ).map(([scope, label]) => (
+              <button
+                key={scope}
+                type="button"
+                onClick={() => setEntityScope(scope)}
+                className={cn(
+                  "px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all whitespace-nowrap",
+                  entityScope === scope
+                    ? isDark
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "bg-slate-900 text-white shadow-sm"
+                    : isDark
+                    ? "text-slate-400 hover:text-slate-200"
+                    : "text-slate-600 hover:text-slate-900"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           {/* Seletor de Período Expandido: Dia, Semana, Mês, Trimestre, Semestre, Ano */}
           <div
             className={cn(

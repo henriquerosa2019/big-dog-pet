@@ -41,7 +41,9 @@ import {
   Package,
   Stethoscope,
   AlertTriangle,
+  Menu,
 } from "lucide-react";
+import { AdminSidebar, type AdminActiveSection } from "@/components/admin/AdminSidebar";
 import { getCapacitySettings, saveCapacitySettings, type CapacitySettings } from "@/lib/schedulingCapacity";
 import { playStatusSound, testSoundAlert } from "@/lib/soundAlerts";
 import { startOfDay, startOfMonth, startOfWeek } from "date-fns";
@@ -324,6 +326,7 @@ function Admin() {
   const initialMapped = mapSearchToTabs(search?.tab);
   const [currentTab, setCurrentTab] = useState<string>(initialMapped.master);
   const [gestaoSubTab, setGestaoSubTab] = useState<string>(initialMapped.sub || "clientes");
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [adminUnlockPass, setAdminUnlockPass] = useState("");
   const [adminUnlockError, setAdminUnlockError] = useState(false);
 
@@ -2819,27 +2822,174 @@ function Admin() {
     }
   };
 
+  // Mapeamento dinâmico da seção ativa na sidebar com base nas tabs atuais
+  const activeSidebarSection: AdminActiveSection = useMemo(() => {
+    if (currentTab === "hoje") {
+      return operacionalViewMode === "agenda" ? "agenda-visual" : "visao-geral";
+    }
+    if (currentTab === "saude") return "vet-saude";
+    if (currentTab === "comunicacao") return "visao-geral";
+    if (currentTab === "gestao") {
+      if (gestaoSubTab === "clientes") return "clientes-todos";
+      if (gestaoSubTab === "novo-cliente") return "clientes-novo";
+      if (gestaoSubTab === "pedidos") return "pedidos-loja";
+      if (gestaoSubTab === "servicos") return "servicos";
+      if (gestaoSubTab === "produtos") return "estoque-produtos";
+      if (gestaoSubTab === "clinica") return "vet-prontuario";
+      if (gestaoSubTab === "saude") return "vet-saude";
+      if (gestaoSubTab === "agenda") return "agenda-detalhada";
+      if (gestaoSubTab === "retirada-entrega") return "taxi-pet";
+      if (gestaoSubTab === "relatorios") {
+        if (reportSubTab === "petlytics-bi") return "relatorios-curva-abc";
+        if (reportSubTab === "financeiro") return "financeiro-geral";
+        if (reportSubTab === "abc-produtos") return "relatorios-curva-abc";
+        if (reportSubTab === "abc-servicos") return "relatorios-curva-abc";
+        if (reportSubTab === "abc-clientes") return "relatorios-curva-abc";
+        if (reportSubTab === "entregas-motoristas") return "relatorios-entregas";
+        if (reportSubTab === "atendimentos-periodo") return "relatorios-atendimentos";
+        if (reportSubTab === "cronoanalise") return "cronoanalise";
+      }
+    }
+    return "visao-geral";
+  }, [currentTab, gestaoSubTab, reportSubTab, operacionalViewMode]);
+
+  // Handler para transição de abas a partir da Sidebar
+  const handleSelectSidebarSection = (section: AdminActiveSection) => {
+    switch (section) {
+      case "visao-geral":
+        setCurrentTab("hoje");
+        setOperacionalViewMode("kanban");
+        break;
+      case "agenda-visual":
+        setCurrentTab("hoje");
+        setOperacionalViewMode("agenda");
+        break;
+      case "agenda-detalhada":
+        setCurrentTab("gestao");
+        setGestaoSubTab("agenda");
+        break;
+      case "clientes-todos":
+        setCurrentTab("gestao");
+        setGestaoSubTab("clientes");
+        break;
+      case "clientes-novo":
+        setCurrentTab("gestao");
+        setGestaoSubTab("novo-cliente");
+        break;
+      case "clientes-alterar":
+        setCurrentTab("gestao");
+        setGestaoSubTab("clientes");
+        break;
+      case "clientes-excluir":
+        setCurrentTab("gestao");
+        setGestaoSubTab("clientes");
+        break;
+      case "vet-prontuario":
+        setCurrentTab("gestao");
+        setGestaoSubTab("clinica");
+        break;
+      case "vet-saude":
+        setCurrentTab("saude");
+        break;
+      case "pedidos-loja":
+        setCurrentTab("gestao");
+        setGestaoSubTab("pedidos");
+        break;
+      case "servicos":
+        setCurrentTab("gestao");
+        setGestaoSubTab("servicos");
+        break;
+      case "estoque-produtos":
+        setCurrentTab("gestao");
+        setGestaoSubTab("produtos");
+        break;
+      case "taxi-pet":
+        setCurrentTab("gestao");
+        setGestaoSubTab("retirada-entrega");
+        break;
+      case "relatorios-curva-abc":
+        setCurrentTab("gestao");
+        setGestaoSubTab("relatorios");
+        setReportSubTab("petlytics-bi");
+        break;
+      case "financeiro-geral":
+        setCurrentTab("gestao");
+        setGestaoSubTab("relatorios");
+        setReportSubTab("financeiro");
+        break;
+      case "relatorios-entregas":
+        setCurrentTab("gestao");
+        setGestaoSubTab("relatorios");
+        setReportSubTab("entregas-motoristas");
+        break;
+      case "relatorios-atendimentos":
+        setCurrentTab("gestao");
+        setGestaoSubTab("relatorios");
+        setReportSubTab("atendimentos-periodo");
+        break;
+      case "cronoanalise":
+        setCurrentTab("gestao");
+        setGestaoSubTab("relatorios");
+        setReportSubTab("cronoanalise");
+        break;
+      default:
+        setCurrentTab("hoje");
+        break;
+    }
+  };
+
   return (
-    <div className="p-4 space-y-4">
-      {/* 1. CABEÇALHO EXECUTIVO E DESPOLUÍDO */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-card p-4 rounded-3xl border border-border/70 shadow-card">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-            </span>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Central de Operações · Loja Aberta
-            </span>
+    <div className="flex min-h-screen bg-background">
+      {/* Sidebar Lateral Exclusiva Vetty/Petlytics */}
+      <AdminSidebar
+        activeSection={activeSidebarSection}
+        onSelectSection={handleSelectSidebarSection}
+        isOpenMobile={isMobileSidebarOpen}
+        onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        counts={{
+          todayServices: todayServicesCount,
+          unreadChat: totalChatUnread,
+          urgentHealth: urgentHealthPetsCount,
+          pendingAppts: pendingAppointmentsCount,
+          criticalStock: curveACriticalAlerts.length,
+        }}
+      />
+
+      {/* Conteúdo Principal do Painel */}
+      <div className="flex-1 min-w-0 p-3 sm:p-5 space-y-4 max-w-full overflow-x-hidden">
+        {/* 1. CABEÇALHO EXECUTIVO E DESPOLUÍDO */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-card p-4 rounded-3xl border border-border/70 shadow-card">
+          <div className="flex items-center gap-3">
+            {/* Botão Hambúrguer para abrir Sidebar no Mobile */}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="lg:hidden h-10 w-10 rounded-2xl shrink-0 border-border/80"
+              title="Abrir Menu de Navegação"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Central de Operações · Loja Aberta
+                </span>
+              </div>
+              <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight mt-0.5 text-foreground">
+                Painel Administrativo
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                {CLINIC.name} · {CLINIC.unit} (Franco da Rocha)
+              </p>
+            </div>
           </div>
-          <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight mt-0.5 text-foreground">
-            Painel Administrativo
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            {CLINIC.name} · {CLINIC.unit} (Franco da Rocha)
-          </p>
-        </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Button
@@ -6457,6 +6607,7 @@ function Admin() {
           </div>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }
