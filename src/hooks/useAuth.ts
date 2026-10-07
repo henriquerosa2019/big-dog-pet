@@ -7,6 +7,24 @@ export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const getMasterUser = (): User | null => {
+    if (typeof window === "undefined") return null;
+    const isMaster =
+      sessionStorage.getItem("vetty_master_authenticated") === "true" ||
+      localStorage.getItem("vetty_homologacao_admin") === "true";
+    if (isMaster) {
+      return {
+        id: "master-vetty-id",
+        email: "vetty@vetty.com.br",
+        app_metadata: {},
+        user_metadata: { full_name: "Administrador Master" },
+        aud: "authenticated",
+        created_at: new Date().toISOString(),
+      } as unknown as User;
+    }
+    return null;
+  };
+
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
@@ -19,7 +37,10 @@ export function useAuth() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  return { session, user: (session?.user ?? null) as User | null, loading };
+  const masterUser = getMasterUser();
+  const effectiveUser = (session?.user ?? masterUser ?? null) as User | null;
+
+  return { session, user: effectiveUser, loading };
 }
 
 export function useIsAdminStatus(userId?: string | null, userEmail?: string | null) {

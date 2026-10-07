@@ -162,6 +162,28 @@ export function AuthModal({
           </DialogDescription>
         </DialogHeader>
 
+        <div className="my-2 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-center shadow-xs">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-left">
+              <span className="block text-xs font-black text-emerald-700 dark:text-emerald-400">
+                🚀 Acesso de Homologação / Teste
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                Entre instantaneamente como Administrador Master
+              </span>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleDemoLogin}
+              disabled={loading}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer shrink-0"
+            >
+              ⚡ Entrar Demo
+            </Button>
+          </div>
+        </div>
+
         <Tabs value={tab} onValueChange={(val) => setTab(val as any)} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="signup" className="text-xs font-bold gap-1.5 cursor-pointer">

@@ -130,7 +130,7 @@ function Auth() {
           sessionStorage.setItem("vetty_master_authenticated", "true");
           localStorage.setItem("vetty_homologacao_admin", "true");
           toast.success("Login Master realizado com sucesso!");
-          navigate({ to: "/admin", replace: true });
+          window.location.href = "/admin";
           return;
         }
 
