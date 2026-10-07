@@ -48,10 +48,6 @@ import serviceVeterinaria from "@/assets/service-veterinaria.jpg";
 import serviceTaxiPet from "@/assets/service-taxi-pet.jpg";
 import serviceLojaPet from "@/assets/service-loja-pet.jpg";
 import bannerTeste7Dias from "@/assets/banner-teste-7dias.png";
-import petDogManagement from "@/assets/pet-dog-management.jpg";
-import petCatManagement from "@/assets/pet-cat-management.jpg";
-import petBunnyManagement from "@/assets/pet-bunny-management.jpg";
-import petGuineaManagement from "@/assets/pet-guinea-management.jpg";
 import animalIconsStrip from "@/assets/animal-icons-strip.png";
 import { Button } from "@/components/ui/button";
 import {
@@ -773,145 +769,6 @@ function Index() {
           </div>
         </section>
 
-        {/* Faixa Institucional de Soluções Vetty com Logo Oficial e Cards de Pets */}
-        <section className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 py-14 text-white border-y border-emerald-800/40 shadow-inner">
-          <div className="site-container">
-            <div className="flex flex-col items-center justify-center mb-12">
-              <div className="transition-transform duration-300 hover:scale-105">
-                <img
-                  src={logoWhiteImg}
-                  alt="Vetty - Sistema Inteligente Pet"
-                  className="h-24 sm:h-32 md:h-36 w-auto object-contain drop-shadow-xl"
-                />
-              </div>
-              <p className="mt-5 text-xs sm:text-base font-extrabold tracking-widest uppercase text-emerald-300 drop-shadow-sm text-center">
-                Padrão de Excelência em Cuidados Pet & Gestão Veterinária
-              </p>
-              <p className="mt-2 text-sm sm:text-base text-emerald-100/80 max-w-2xl text-center font-medium">
-                Tudo o que seu petshop, estética animal e clínica veterinária precisam para crescer com organização, agilidade e carinho em um só lugar.
-              </p>
-            </div>
-
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {/* Card 1: Cães - Agendamentos & Estética */}
-              <div className="group rounded-3xl bg-white/5 backdrop-blur-md border border-emerald-500/20 overflow-hidden transition-all duration-300 hover:border-emerald-400/50 hover:bg-white/10 hover:-translate-y-1.5 shadow-xl flex flex-col">
-                <div className="relative h-44 overflow-hidden">
-                  <img
-                    src={petDogManagement}
-                    alt="Gestão de Banho, Tosa e Agendamentos para Cães"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent" />
-                  <span className="absolute bottom-3 left-4 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-600/90 backdrop-blur-sm text-[11px] font-extrabold text-white uppercase tracking-wider">
-                    🐶 Estética & Banho
-                  </span>
-                </div>
-                <div className="p-5 flex-1 flex flex-col justify-between">
-                  <div>
-                    <h3 className="font-display text-lg font-bold text-white group-hover:text-emerald-300 transition-colors">
-                      Agendamentos 24h & Fila Zero
-                    </h3>
-                    <p className="mt-2 text-xs leading-relaxed text-emerald-100/75">
-                      Tutores agendam online a qualquer hora com confirmação automática, controle de profissionais e históricos completos de serviços.
-                    </p>
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-emerald-500/15 text-[11px] font-bold text-emerald-300 flex items-center justify-between">
-                    <span>Rotinas sem filas</span>
-                    <span>✓ 100% Automático</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 2: Gatos - Prontuário Clínico & Veterinária */}
-              <div className="group rounded-3xl bg-white/5 backdrop-blur-md border border-emerald-500/20 overflow-hidden transition-all duration-300 hover:border-emerald-400/50 hover:bg-white/10 hover:-translate-y-1.5 shadow-xl flex flex-col">
-                <div className="relative h-44 overflow-hidden">
-                  <img
-                    src={petCatManagement}
-                    alt="Prontuário Veterinário e Vacinas para Gatos e Pets"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent" />
-                  <span className="absolute bottom-3 left-4 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-teal-600/90 backdrop-blur-sm text-[11px] font-extrabold text-white uppercase tracking-wider">
-                    🐱 Clínica Veterinária
-                  </span>
-                </div>
-                <div className="p-5 flex-1 flex flex-col justify-between">
-                  <div>
-                    <h3 className="font-display text-lg font-bold text-white group-hover:text-teal-300 transition-colors">
-                      Prontuário Digital & Vacinas
-                    </h3>
-                    <p className="mt-2 text-xs leading-relaxed text-emerald-100/75">
-                      Histórico clínico completo, receitas digitais, controle de exames e lembretes automáticos de retornos e vacinação pelo sistema.
-                    </p>
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-emerald-500/15 text-[11px] font-bold text-teal-300 flex items-center justify-between">
-                    <span>Fichas protegidas</span>
-                    <span>✓ Segurança Total</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 3: Coelhos - Logística de Táxi Pet & Rotas */}
-              <div className="group rounded-3xl bg-white/5 backdrop-blur-md border border-emerald-500/20 overflow-hidden transition-all duration-300 hover:border-emerald-400/50 hover:bg-white/10 hover:-translate-y-1.5 shadow-xl flex flex-col">
-                <div className="relative h-44 overflow-hidden">
-                  <img
-                    src={petBunnyManagement}
-                    alt="Logística de Táxi Pet e Transporte Seguro"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent" />
-                  <span className="absolute bottom-3 left-4 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-600/90 backdrop-blur-sm text-[11px] font-extrabold text-white uppercase tracking-wider">
-                    🐰 Táxi Pet & Logística
-                  </span>
-                </div>
-                <div className="p-5 flex-1 flex flex-col justify-between">
-                  <div>
-                    <h3 className="font-display text-lg font-bold text-white group-hover:text-emerald-300 transition-colors">
-                      Transporte Pet Inteligente
-                    </h3>
-                    <p className="mt-2 text-xs leading-relaxed text-emerald-100/75">
-                      Roteirização de buscas e entregas, painel dedicado para motoristas e monitoramento para comodidade do tutor e da sua equipe.
-                    </p>
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-emerald-500/15 text-[11px] font-bold text-emerald-300 flex items-center justify-between">
-                    <span>Rotas otimizadas</span>
-                    <span>✓ Leva e Traz</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 4: Pequenos Pets - Vendas, Estoque & Canal Próprio */}
-              <div className="group rounded-3xl bg-white/5 backdrop-blur-md border border-emerald-500/20 overflow-hidden transition-all duration-300 hover:border-emerald-400/50 hover:bg-white/10 hover:-translate-y-1.5 shadow-xl flex flex-col">
-                <div className="relative h-44 overflow-hidden">
-                  <img
-                    src={petGuineaManagement}
-                    alt="Controle de Estoque, Loja e Relatórios Financeiros"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent" />
-                  <span className="absolute bottom-3 left-4 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-teal-600/90 backdrop-blur-sm text-[11px] font-extrabold text-white uppercase tracking-wider">
-                    🐹 Loja & Financeiro
-                  </span>
-                </div>
-                <div className="p-5 flex-1 flex flex-col justify-between">
-                  <div>
-                    <h3 className="font-display text-lg font-bold text-white group-hover:text-teal-300 transition-colors">
-                      Estoque & Canal Próprio
-                    </h3>
-                    <p className="mt-2 text-xs leading-relaxed text-emerald-100/75">
-                      Controle de produtos, relatórios Curva ABC de rentabilidade e Canal Próprio de atendimento exclusivo no app sem depender de terceiros.
-                    </p>
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-emerald-500/15 text-[11px] font-bold text-teal-300 flex items-center justify-between">
-                    <span>Curva ABC</span>
-                    <span>✓ Lucro Real</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* Planos Oficiais de Aluguel de Software PetShop & Clínica com Paleta de Verde */}
         <section id="planos" className="section-space bg-gradient-to-b from-emerald-50/40 via-background to-emerald-50/20 dark:from-emerald-950/20 dark:via-background dark:to-transparent">
           <div className="site-container">
@@ -1237,28 +1094,52 @@ function Index() {
         </div>
       </footer>
 
-      {/* Dock Inferior Mobile Integrado */}
+      {/* Dock Inferior Mobile Integrado (Atalhos B2B SaaS de Conversão) */}
       <nav className="mobile-dock md:hidden" aria-label="Atalhos para celular">
-        <a href="#inicio">
-          <PawPrint className="size-5" />
-          <span>Início</span>
+        <a href="#recursos">
+          <Sparkles className="size-5" />
+          <span>Recursos</span>
         </a>
-        <a href="#servicos">
-          <Scissors className="size-5" />
-          <span>Serviços</span>
+        <a href="#planos">
+          <PackageOpen className="size-5" />
+          <span>Planos</span>
         </a>
         <button
           type="button"
-          onClick={() => handleServiceNavigation("/agendar", undefined, "Dock Mobile Agendar")}
-          className="mobile-dock-primary cursor-pointer"
+          onClick={() => {
+            if (!user) {
+              setAuthModalTab("signup");
+              setAuthModalService("Teste 7 Dias Grátis");
+              setAuthModalOpen(true);
+            } else {
+              navigate({ to: "/painel" });
+            }
+          }}
+          className="mobile-dock-primary cursor-pointer bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg"
+          title="Testar 7 Dias Grátis"
         >
-          <CalendarDays className="size-6" />
-          <span>Agendar</span>
+          <Zap className="size-6" />
+          <span className="font-extrabold">{user ? "Painel" : "Grátis"}</span>
         </button>
-        <Link to="/loja">
-          <ShoppingBag className="size-5" />
-          <span>Loja</span>
-        </Link>
+        {!user ? (
+          <button
+            type="button"
+            onClick={() => {
+              setAuthModalTab("login");
+              setAuthModalService("Acesso ao Sistema");
+              setAuthModalOpen(true);
+            }}
+            className="cursor-pointer"
+          >
+            <LogIn className="size-5" />
+            <span>Entrar</span>
+          </button>
+        ) : (
+          <Link to="/conta">
+            <User className="size-5" />
+            <span>Conta</span>
+          </Link>
+        )}
         <a href="https://wa.me/5511993793746" target="_blank" rel="noreferrer">
           <MessageCircle className="size-5 text-[#25D366]" />
           <span>Whats</span>
