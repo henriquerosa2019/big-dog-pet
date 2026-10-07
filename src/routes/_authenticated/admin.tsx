@@ -2735,94 +2735,7 @@ function Admin() {
     }
   };
 
-  if (authLoading || (user && adminLoading)) {
-    return (
-      <div className="p-8 text-center text-sm text-muted-foreground">
-        Carregando painel administrativo...
-      </div>
-    );
-  }
-
-  const handleDirectAdminUnlock = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = adminUnlockPass.trim();
-    if (trimmed === "vetty26" || trimmed === "Ad16eoh28@") {
-      sessionStorage.setItem("vetty_master_authenticated", "true");
-      localStorage.setItem("vetty_homologacao_admin", "true");
-      toast.success("Acesso administrativo desbloqueado com sucesso!");
-      window.location.reload();
-    } else {
-      setAdminUnlockError(true);
-      toast.error("Senha incorreta!");
-    }
-  };
-
-  if (!isAdmin) {
-    return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center">
-        <div className="max-w-md w-full bg-card p-6 sm:p-8 rounded-3xl border border-border shadow-card space-y-5">
-          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 mx-auto">
-            <Lock className="size-7" />
-          </div>
-          <div>
-            <h1 className="font-display text-xl sm:text-2xl font-black text-foreground">
-              Acesso ao Painel Loja
-            </h1>
-            <p className="mt-1 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              Área operacional restrita. Digite a senha master de homologação (<strong>vetty26</strong>) para liberar o acesso:
-            </p>
-          </div>
-
-          <form onSubmit={handleDirectAdminUnlock} className="space-y-3">
-            <Input
-              type="password"
-              placeholder="Digite a senha (ex: vetty26)..."
-              value={adminUnlockPass}
-              onChange={(e) => {
-                setAdminUnlockPass(e.target.value);
-                setAdminUnlockError(false);
-              }}
-              className="h-11 rounded-xl text-center text-base tracking-widest"
-              autoFocus
-            />
-            {adminUnlockError && (
-              <p className="text-xs text-rose-500 font-bold">
-                Senha incorreta. Tente novamente com vetty26.
-              </p>
-            )}
-            <Button
-              type="submit"
-              className="w-full h-11 rounded-xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-md"
-            >
-              Desbloquear Painel Loja
-            </Button>
-          </form>
-
-          <div className="pt-2 border-t border-border/60">
-            <Link
-              to="/"
-              className="text-xs font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-            >
-              ← Voltar para a Página Inicial
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const selectedPet = (allPets ?? []).find((p) => p.id === recordPetId);
-
-  const handleExportPDF = () => {
-    try {
-      exportReportPDF(reportData, reportRange);
-    } catch (err) {
-      console.error(err);
-      toast.error("Não foi possível gerar o PDF.");
-    }
-  };
-
-  // Mapeamento dinâmico da seção ativa na sidebar com base nas tabs atuais
+  // Mapeamento dinâmico da seção ativa na sidebar com base nas tabs atuais (colocado antes dos returns condicionais para respeitar as Rules of Hooks)
   const activeSidebarSection: AdminActiveSection = useMemo(() => {
     if (currentTab === "hoje") {
       return operacionalViewMode === "agenda" ? "agenda-visual" : "visao-geral";
@@ -2935,6 +2848,93 @@ function Admin() {
       default:
         setCurrentTab("hoje");
         break;
+    }
+  };
+
+  if (authLoading || (user && adminLoading)) {
+    return (
+      <div className="p-8 text-center text-sm text-muted-foreground">
+        Carregando painel administrativo...
+      </div>
+    );
+  }
+
+  const handleDirectAdminUnlock = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = adminUnlockPass.trim();
+    if (trimmed === "vetty26" || trimmed === "Ad16eoh28@") {
+      sessionStorage.setItem("vetty_master_authenticated", "true");
+      localStorage.setItem("vetty_homologacao_admin", "true");
+      toast.success("Acesso administrativo desbloqueado com sucesso!");
+      window.location.reload();
+    } else {
+      setAdminUnlockError(true);
+      toast.error("Senha incorreta!");
+    }
+  };
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-md w-full bg-card p-6 sm:p-8 rounded-3xl border border-border shadow-card space-y-5">
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 mx-auto">
+            <Lock className="size-7" />
+          </div>
+          <div>
+            <h1 className="font-display text-xl sm:text-2xl font-black text-foreground">
+              Acesso ao Painel Loja
+            </h1>
+            <p className="mt-1 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+              Área operacional restrita. Digite a senha master de homologação (<strong>vetty26</strong>) para liberar o acesso:
+            </p>
+          </div>
+
+          <form onSubmit={handleDirectAdminUnlock} className="space-y-3">
+            <Input
+              type="password"
+              placeholder="Digite a senha (ex: vetty26)..."
+              value={adminUnlockPass}
+              onChange={(e) => {
+                setAdminUnlockPass(e.target.value);
+                setAdminUnlockError(false);
+              }}
+              className="h-11 rounded-xl text-center text-base tracking-widest"
+              autoFocus
+            />
+            {adminUnlockError && (
+              <p className="text-xs text-rose-500 font-bold">
+                Senha incorreta. Tente novamente com vetty26.
+              </p>
+            )}
+            <Button
+              type="submit"
+              className="w-full h-11 rounded-xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-md"
+            >
+              Desbloquear Painel Loja
+            </Button>
+          </form>
+
+          <div className="pt-2 border-t border-border/60">
+            <Link
+              to="/"
+              className="text-xs font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+            >
+              ← Voltar para a Página Inicial
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const selectedPet = (allPets ?? []).find((p) => p.id === recordPetId);
+
+  const handleExportPDF = () => {
+    try {
+      exportReportPDF(reportData, reportRange);
+    } catch (err) {
+      console.error(err);
+      toast.error("Não foi possível gerar o PDF.");
     }
   };
 
