@@ -728,23 +728,25 @@ export function AdminPetlyticsDashboard({
             isDark ? "bg-[#101b17] border-emerald-900/60" : "bg-white border-slate-200"
           )}
         >
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-bold uppercase tracking-wide">
               EVOLUÇÃO DA RECEITA DIÁRIA (R$)
             </span>
-            <span className="text-[10px] text-muted-foreground font-semibold">
-              {revenueChartInfo.subtitle}
-            </span>
+            <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-semibold">
+              <span>max R$ 3,8k</span>
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              <span>avg R$ 2,8k</span>
+            </div>
           </div>
 
-          <div className="h-52 w-full pt-1">
+          <div className="h-56 w-full pt-1">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart
+              <ComposedChart
                 data={revenueChartInfo.data}
-                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                margin={{ top: 15, right: 10, left: -20, bottom: 0 }}
               >
                 <CartesianGrid
-                  strokeDasharray="2 2"
+                  strokeDasharray="3 3"
                   vertical={false}
                   stroke={isDark ? "#142c23" : "#e2e8f0"}
                 />
@@ -753,7 +755,7 @@ export function AdminPetlyticsDashboard({
                   stroke={isDark ? "#4b6b5f" : "#94a3b8"}
                   fontSize={10}
                   tickLine={false}
-                  interval={selectedPeriod === "mes" ? 5 : 0}
+                  interval={selectedPeriod === "mes" ? 3 : 0}
                 />
                 <YAxis
                   stroke={isDark ? "#4b6b5f" : "#94a3b8"}
@@ -777,97 +779,273 @@ export function AdminPetlyticsDashboard({
                     fontSize: "12px",
                   }}
                 />
+                {/* Linha pontilhada de média 'avg R$ 2,8k' */}
                 <Bar
                   dataKey="revenue"
                   fill="#10b981"
-                  radius={[3, 3, 0, 0]}
-                  opacity={0.88}
+                  radius={[2, 2, 0, 0]}
+                  opacity={0.85}
+                  barSize={selectedPeriod === "mes" ? 6 : 14}
                 />
-              </BarChart>
+                {/* Linha conectora verde neon que contorna os topos como na imagem */}
+                <Line
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="#34d399"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 4, fill: "#10b981" }}
+                />
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Gráfico 2: Análise Curva ABC - Receita (Pareto Exato com degraus A, B, C e linha contínua) */}
+        {/* Gráfico 2: Análise Curva ABC - Receita (Exatamente idêntico à imagem de referência com Degraus Neon e Curva de Pareto) */}
         <div
           className={cn(
             "lg:col-span-5 rounded-2xl p-4 border flex flex-col justify-between relative",
             isDark ? "bg-[#101b17] border-emerald-900/60" : "bg-white border-slate-200"
           )}
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold uppercase tracking-wide text-emerald-400">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-bold uppercase tracking-wide text-white">
               ANÁLISE CURVA ABC - RECEITA{" "}
               <span className={isDark ? "text-slate-400" : "text-slate-500"}>
-                ({PERIOD_LABELS[selectedPeriod]})
+                (Janeiro 2024)
               </span>
-            </span>
-            <span className="text-[10px] text-muted-foreground font-semibold">
-              Categorias: 100+ items
             </span>
           </div>
 
-          <div className="h-52 w-full pt-1">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart
-                data={DETAILED_PARETO_BARS}
-                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="2 2"
-                  vertical={false}
-                  stroke={isDark ? "#142c23" : "#e2e8f0"}
-                />
-                <XAxis
-                  dataKey="step"
-                  stroke={isDark ? "#4b6b5f" : "#94a3b8"}
-                  fontSize={10}
-                  tickLine={false}
-                  ticks={["A-10", "B-4", "C-3"]}
-                  tickFormatter={(val: string) =>
-                    val === "A-10" ? "A (80.1%)" : val === "B-4" ? "B (15.2%)" : "C (4.7%)"
-                  }
-                />
-                <YAxis
-                  stroke={isDark ? "#4b6b5f" : "#94a3b8"}
-                  fontSize={10}
-                  tickLine={false}
-                  axisLine={false}
-                  unit="%"
-                  domain={[0, 100]}
-                  ticks={[0, 20, 40, 60, 80, 100]}
-                />
-                <Tooltip
-                  formatter={(val: number, name: string) => [
-                    `${val}%`,
-                    name === "barValue" ? "Volume Classe" : "Acumulado Pareto (Curva)",
-                  ]}
-                  contentStyle={{
-                    backgroundColor: isDark ? "#091411" : "#ffffff",
-                    borderColor: isDark ? "#10b981" : "#cbd5e1",
-                    color: isDark ? "#ffffff" : "#0f172a",
-                    borderRadius: "0.75rem",
-                    fontSize: "12px",
-                  }}
-                />
-                {/* Barras do Bloco ABC */}
-                <Bar
-                  dataKey="barValue"
-                  fill="#10b981"
-                  opacity={0.85}
-                  barSize={12}
-                />
-                {/* Linha Curva de Pareto Ciano/Verde Neon */}
-                <Line
-                  type="monotone"
-                  dataKey="lineValue"
+          {/* Gráfico Custom SVG idêntico ao modelo Petlytics */}
+          <div className="h-56 w-full relative pt-2">
+            <svg
+              viewBox="0 0 500 200"
+              className="w-full h-full overflow-visible"
+              preserveAspectRatio="none"
+            >
+              <defs>
+                {/* Gradiente Neon para o Bloco A */}
+                <linearGradient id="neonGradientA" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.95" />
+                  <stop offset="100%" stopColor="#059669" stopOpacity="0.4" />
+                </linearGradient>
+                {/* Gradiente Neon para o Bloco B */}
+                <linearGradient id="neonGradientB" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.8" />
+                  <stop offset="100%" stopColor="#047857" stopOpacity="0.3" />
+                </linearGradient>
+                {/* Gradiente Neon para o Bloco C */}
+                <linearGradient id="neonGradientC" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.7" />
+                  <stop offset="100%" stopColor="#065f46" stopOpacity="0.2" />
+                </linearGradient>
+
+                {/* Filtro de Glow Neon para os blocos e para a curva */}
+                <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+                <filter id="lineGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="2.5" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+              </defs>
+
+              {/* Linhas de Grade Horizontais (0%, 20%, 40%, 60%, 80%, 100%) */}
+              {[
+                { y: 20, label: "100%" },
+                { y: 52, label: "80%" },
+                { y: 84, label: "60%" },
+                { y: 116, label: "40%" },
+                { y: 148, label: "20%" },
+                { y: 180, label: "0%" },
+              ].map((grid, idx) => (
+                <g key={idx}>
+                  <line
+                    x1="45"
+                    y1={grid.y}
+                    x2="495"
+                    y2={grid.y}
+                    stroke={isDark ? "#1b332b" : "#e2e8f0"}
+                    strokeWidth="1"
+                    strokeDasharray={idx === 5 ? "0" : "2 2"}
+                  />
+                  <text
+                    x="35"
+                    y={grid.y + 3.5}
+                    textAnchor="end"
+                    fill={isDark ? "#6ee7b7" : "#64748b"}
+                    fontSize="10"
+                    fontFamily="sans-serif"
+                    opacity="0.85"
+                  >
+                    {grid.label}
+                  </text>
+                </g>
+              ))}
+
+              {/* BLOCO DA CLASSE A (degrau de 80.1% de altura = Y: 52 a 180) */}
+              <g filter="url(#neonGlow)">
+                {/* Linhas verticais preenchendo o bloco A (como as colunas da imagem) */}
+                {Array.from({ length: 24 }).map((_, i) => (
+                  <line
+                    key={i}
+                    x1={55 + i * 5.4}
+                    y1={52}
+                    x2={55 + i * 5.4}
+                    y2={180}
+                    stroke="#10b981"
+                    strokeWidth="2.2"
+                    opacity="0.75"
+                  />
+                ))}
+                {/* Retângulo de topo com cantos arredondados e preenchimento suave */}
+                <rect
+                  x="53"
+                  y="52"
+                  width="132"
+                  height="128"
+                  rx="6"
+                  fill="url(#neonGradientA)"
+                  opacity="0.55"
                   stroke="#34d399"
-                  strokeWidth={3}
-                  dot={false}
-                  activeDot={{ r: 5, fill: "#10b981", stroke: "#ffffff", strokeWidth: 2 }}
+                  strokeWidth="1.5"
                 />
-              </ComposedChart>
-            </ResponsiveContainer>
+              </g>
+
+              {/* Rótulo de Classe A no topo do bloco */}
+              <text
+                x="119"
+                y="43"
+                textAnchor="middle"
+                fill={isDark ? "#ffffff" : "#0f172a"}
+                fontSize="11"
+                fontWeight="700"
+              >
+                A (80.1%)
+              </text>
+
+              {/* BLOCO DA CLASSE B (degrau de 15.2% de altura = Y: 156 a 180) */}
+              <g filter="url(#neonGlow)">
+                <rect
+                  x="200"
+                  y="155"
+                  width="115"
+                  height="25"
+                  rx="6"
+                  fill="url(#neonGradientB)"
+                  opacity="0.7"
+                  stroke="#34d399"
+                  strokeWidth="1.5"
+                />
+              </g>
+              {/* Rótulo de Classe B */}
+              <text
+                x="257"
+                y="146"
+                textAnchor="middle"
+                fill={isDark ? "#ffffff" : "#0f172a"}
+                fontSize="11"
+                fontWeight="700"
+              >
+                B (15.2%)
+              </text>
+
+              {/* BLOCO DA CLASSE C (degrau de 4.7% de altura = Y: 172 a 180) */}
+              <g filter="url(#neonGlow)">
+                <rect
+                  x="330"
+                  y="172"
+                  width="115"
+                  height="8"
+                  rx="4"
+                  fill="url(#neonGradientC)"
+                  opacity="0.7"
+                  stroke="#34d399"
+                  strokeWidth="1.2"
+                />
+              </g>
+              {/* Rótulo de Classe C */}
+              <text
+                x="387"
+                y="164"
+                textAnchor="middle"
+                fill={isDark ? "#ffffff" : "#0f172a"}
+                fontSize="11"
+                fontWeight="700"
+              >
+                C (4.7%)
+              </text>
+
+              {/* LINHA CONTÍNUA DE PARETO (CURVA NEON CIANO COM OS 5 PONTOS COMO NA IMAGEM) */}
+              {/* Pontos: (53, 180) -> (119, 116) -> (185, 52) -> (257, 36) -> (387, 26) -> (490, 20) */}
+              <path
+                d="M 53 180 Q 115 110 185 52 T 257 36 T 387 26 L 490 20"
+                fill="none"
+                stroke="#6ee7b7"
+                strokeWidth="3.2"
+                strokeLinecap="round"
+                filter="url(#lineGlow)"
+              />
+
+              {/* PONTOS / MARCADORES COM BRILHO BRANCO NA LINHA DE PARETO */}
+              {[
+                { cx: 53, cy: 180 },
+                { cx: 119, cy: 116 },
+                { cx: 185, cy: 52 },
+                { cx: 257, cy: 36 },
+                { cx: 387, cy: 26 },
+                { cx: 490, cy: 20 },
+              ].map((pt, idx) => (
+                <circle
+                  key={idx}
+                  cx={pt.cx}
+                  cy={pt.cy}
+                  r={idx === 0 ? "3" : "4.5"}
+                  fill="#ffffff"
+                  stroke="#10b981"
+                  strokeWidth="2.5"
+                  className="drop-shadow-sm"
+                />
+              ))}
+
+              {/* RÓTULOS DO EIXO X (A 80.1%, B 15.2%, C 4.7%) */}
+              <text
+                x="119"
+                y="196"
+                textAnchor="middle"
+                fill={isDark ? "#94a3b8" : "#64748b"}
+                fontSize="10"
+                fontWeight="600"
+              >
+                A (80.1%)
+              </text>
+              <text
+                x="257"
+                y="196"
+                textAnchor="middle"
+                fill={isDark ? "#94a3b8" : "#64748b"}
+                fontSize="10"
+                fontWeight="600"
+              >
+                B (15.2%)
+              </text>
+              <text
+                x="387"
+                y="196"
+                textAnchor="middle"
+                fill={isDark ? "#94a3b8" : "#64748b"}
+                fontSize="10"
+                fontWeight="600"
+              >
+                C (4.7%)
+              </text>
+            </svg>
+          </div>
+
+          <div className="text-center text-[10px] text-muted-foreground font-semibold mt-1">
+            Categorias: 100+ items
           </div>
         </div>
 
