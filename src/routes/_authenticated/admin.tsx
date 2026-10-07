@@ -324,6 +324,8 @@ function Admin() {
   const initialMapped = mapSearchToTabs(search?.tab);
   const [currentTab, setCurrentTab] = useState<string>(initialMapped.master);
   const [gestaoSubTab, setGestaoSubTab] = useState<string>(initialMapped.sub || "clientes");
+  const [adminUnlockPass, setAdminUnlockPass] = useState("");
+  const [adminUnlockError, setAdminUnlockError] = useState(false);
 
   useEffect(() => {
     if (search?.tab) {
@@ -2737,9 +2739,6 @@ function Admin() {
       </div>
     );
   }
-
-  const [adminUnlockPass, setAdminUnlockPass] = useState("");
-  const [adminUnlockError, setAdminUnlockError] = useState(false);
 
   const handleDirectAdminUnlock = (e: React.FormEvent) => {
     e.preventDefault();
