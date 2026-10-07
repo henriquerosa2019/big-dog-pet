@@ -62,6 +62,7 @@ interface MasterUser {
 
 const MASTER_OVERRIDES_KEY = "vetty_master_user_overrides";
 const MASTER_ACCESS_PASSWORD = "Ad16eoh28@";
+const MASTER_ACCESS_PASSWORD_ALT = "vetty26";
 const MASTER_AUTH_SESSION_KEY = "vetty_master_authenticated";
 
 export function PainelMaster({ open, onOpenChange }: PainelMasterProps) {
@@ -89,12 +90,14 @@ export function PainelMaster({ open, onOpenChange }: PainelMasterProps) {
 
   const handleAuthenticate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputPassword === MASTER_ACCESS_PASSWORD) {
+    const trimmed = inputPassword.trim();
+    if (trimmed === MASTER_ACCESS_PASSWORD || trimmed.toLowerCase() === MASTER_ACCESS_PASSWORD_ALT.toLowerCase()) {
       sessionStorage.setItem(MASTER_AUTH_SESSION_KEY, "true");
+      localStorage.setItem("vetty_homologacao_admin", "true");
       setIsAuthenticated(true);
       setPasswordError(false);
       setInputPassword("");
-      toast.success("Acesso Master autenticado com sucesso!");
+      toast.success("Acesso Master & Homologação autenticado com sucesso!");
     } else {
       setPasswordError(true);
       toast.error("Senha Master incorreta!");

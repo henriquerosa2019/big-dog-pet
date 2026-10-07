@@ -27,14 +27,30 @@ export function useIsAdminStatus(userId?: string | null, userEmail?: string | nu
     if (typeof window !== "undefined") {
       const email = userEmail?.toLowerCase();
       if (email === "bigdog@gmail.com") return true;
+      if (
+        sessionStorage.getItem("vetty_master_authenticated") === "true" ||
+        localStorage.getItem("vetty_homologacao_admin") === "true"
+      ) {
+        return true;
+      }
     }
     return false;
   });
   const [loading, setLoading] = useState(Boolean(userId));
 
   useEffect(() => {
-    // 1. Verificação imediata por e-mail da conta oficial da loja
+    // 1. Verificação imediata por e-mail da conta oficial da loja ou sessão Master
     if (userEmail?.toLowerCase() === "bigdog@gmail.com") {
+      setIsAdmin(true);
+      setLoading(false);
+      return;
+    }
+
+    if (
+      typeof window !== "undefined" &&
+      (sessionStorage.getItem("vetty_master_authenticated") === "true" ||
+        localStorage.getItem("vetty_homologacao_admin") === "true")
+    ) {
       setIsAdmin(true);
       setLoading(false);
       return;
