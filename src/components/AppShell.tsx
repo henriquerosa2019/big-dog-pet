@@ -114,19 +114,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   const isLandingPage = pathname === "/";
+  const isAdminOrDriverPage = !isPreviewClient && (pathname === "/admin" || pathname.startsWith("/admin") || pathname === "/motorista" || pathname.startsWith("/motorista"));
 
   return (
     // O app nasceu como PWA de celular (coluna de 448px). Em tablet e desktop a
-    // coluna passa a acompanhar a tela, senao telas densas como Relatorios e
-    // Dashboard ficam espremidas num quarto do monitor. Na Landing Page (/) usamos largura livre.
+    // tela admin/motorista e landing page usam largura total (100% da tela) para aproveitar monitores inteiros.
     <div
       className={cn(
         "mx-auto flex min-h-screen w-full flex-col bg-background",
-        isLandingPage ? "max-w-none shadow-none" : "max-w-md shadow-soft md:max-w-3xl lg:max-w-5xl"
+        isLandingPage || isAdminOrDriverPage
+          ? "max-w-none shadow-none"
+          : "max-w-md shadow-soft md:max-w-3xl lg:max-w-5xl"
       )}
     >
       <StatusAlertNotifier />
-      {!isLandingPage && (
+      {!isLandingPage && !isAdminOrDriverPage && (
         <header className="sticky top-0 z-20 border-b border-border/60 bg-background/90 backdrop-blur">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3">
           <Link to="/" className="flex min-w-0 items-center gap-2">

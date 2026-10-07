@@ -39,6 +39,7 @@ export type AdminActiveSection =
   | "vet-prontuario"
   | "vet-saude"
   | "agenda-visual"
+  | "agenda-clientes"
   | "agenda-detalhada"
   | "taxi-pet"
   | "cronoanalise"
@@ -423,6 +424,19 @@ export function AdminSidebar({
                 >
                   <Clock className="h-3.5 w-3.5" />
                   <span>Agenda por Profissional</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelect("agenda-clientes")}
+                  className={cn(
+                    "w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-2",
+                    activeSection === "agenda-clientes"
+                      ? "text-emerald-400 bg-emerald-950/60 font-bold"
+                      : "text-slate-400 hover:text-white hover:bg-emerald-950/30"
+                  )}
+                >
+                  <Users className="h-3.5 w-3.5" />
+                  <span>Agenda de Clientes</span>
                 </button>
                 <button
                   type="button"

@@ -1,4 +1,14 @@
-import { CalendarClock, MessageCircle, Truck, Scissors, AlertTriangle, ChevronRight, Check, ShoppingBag } from "lucide-react";
+import React from "react";
+import {
+  CalendarClock,
+  MessageCircle,
+  Truck,
+  Scissors,
+  Check,
+  ShoppingBag,
+  Clock,
+  Car,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -49,8 +59,6 @@ export function AdminKpiPills({
 }: AdminKpiPillsProps) {
   const inRouteCount = inRouteDeliveriesCount ?? 0;
   const todayTaxiTotal = todayTaxiCount ?? activeDeliveriesCount;
-  const urgentPets = urgentHealthPetsCount ?? ((urgentHealthAlertsCount ?? 0) > 0 ? urgentHealthAlertsCount! : 0);
-  const totalPendingAlerts = urgentPets + criticalStockCount;
   const pendingCount = pendingAppointmentsCount ?? 0;
   const waitingCount = waitingServicesCount ?? 0;
   const completedCount = completedServicesCount ?? 0;
@@ -58,17 +66,14 @@ export function AdminKpiPills({
   const todayOrders = todayOrdersCount ?? 0;
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
-      {/* 1. Agendamentos - Sinaliza novos pedidos e leva para Confirmar Agendamento */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-3.5">
+      {/* 1. AGENDAMENTOS - Destaque em Verde Escuro Nobre (Fiel à Imagem 1) */}
       <div
         role="button"
         tabIndex={0}
         onClick={() => {
-          if (onNavigateToAgenda) {
-            onNavigateToAgenda();
-          } else {
-            onSelectTab("gestao");
-          }
+          if (onNavigateToAgenda) onNavigateToAgenda();
+          else onSelectTab("gestao");
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -78,57 +83,40 @@ export function AdminKpiPills({
           }
         }}
         className={cn(
-          "flex flex-col justify-between rounded-2xl p-3 sm:p-3.5 text-left transition-all duration-200 border shadow-xs cursor-pointer group hover:-translate-y-0.5 hover:shadow-md select-none",
-          currentTab === "gestao"
-            ? "border-amber-500 bg-amber-50/70 dark:bg-amber-950/30 ring-2 ring-amber-400/40"
-            : pendingCount > 0
-            ? "border-amber-500 bg-amber-50/80 dark:bg-amber-950/40 ring-2 ring-amber-400/30 hover:bg-amber-100/70 dark:hover:bg-amber-950/60"
-            : "border-border/70 bg-card hover:bg-muted/40 hover:border-border"
+          "flex flex-col justify-between rounded-3xl p-4 sm:p-4.5 text-left transition-all duration-200 shadow-md cursor-pointer group hover:-translate-y-0.5 hover:shadow-lg select-none relative overflow-hidden",
+          "bg-[#0c4a34] text-white border border-emerald-700/50"
         )}
       >
-        <div className="flex items-center justify-between w-full gap-2 mb-2.5">
-          <div
-            className={cn(
-              "grid h-8 w-8 sm:h-9 sm:w-9 shrink-0 place-items-center rounded-xl transition-colors font-bold",
-              pendingCount > 0
-                ? "bg-amber-500 text-slate-950 font-black shadow-xs"
-                : "bg-amber-500/10 text-amber-700 dark:text-amber-300 group-hover:bg-amber-500/20"
-            )}
-          >
-            <CalendarClock className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+        <div className="flex items-center justify-between w-full gap-2 mb-3">
+          <div className="h-10 w-10 shrink-0 place-items-center grid rounded-2xl bg-white/15 text-white shadow-xs backdrop-blur-xs">
+            <CalendarClock className="h-5 w-5" />
           </div>
 
           {pendingCount > 0 ? (
-            <Badge className="bg-amber-500 text-slate-950 font-black text-[10px] px-2 py-0.5 shrink-0 shadow-xs animate-pulse">
+            <Badge className="bg-amber-400 text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded-full shadow-xs animate-pulse">
               Aprovar ({pendingCount})
             </Badge>
           ) : (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
-              <Check className="h-3 w-3" /> Em dia
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-white bg-white/20 px-2.5 py-0.5 rounded-full backdrop-blur-xs">
+              <Check className="h-3 w-3 stroke-[3]" /> Em dia
             </span>
           )}
         </div>
 
-        <div className="space-y-0.5 min-w-0 w-full">
-          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-            Agendamentos
+        <div className="space-y-1 min-w-0 w-full">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-100/70">
+            AGENDAMENTOS
           </p>
-          <p className="text-sm sm:text-base font-extrabold font-display text-foreground leading-snug">
-            {pendingCount > 0 ? (
-              <span className="text-amber-950 dark:text-amber-200">
-                {pendingCount} pendente{pendingCount > 1 ? "s" : ""}
-              </span>
-            ) : (
-              <span>Tudo em dia</span>
-            )}
+          <p className="text-base sm:text-lg font-black tracking-tight text-white leading-tight">
+            {pendingCount > 0 ? `${pendingCount} pendente(s)` : "Tudo em dia"}
           </p>
-          <p className="text-[11px] text-muted-foreground font-medium leading-none pt-0.5 truncate">
+          <p className="text-[11px] text-emerald-100/80 font-medium leading-none pt-0.5 truncate">
             {pendingCount > 0 ? "Requer confirmação" : "Nenhum pedido pendente"}
           </p>
         </div>
       </div>
 
-      {/* 2. Chat & Comunicação - Alto contraste sem texto verde em fundo azul */}
+      {/* 2. CHAT TUTORES - Card Branco Clean com Ícone Verde Menta */}
       <div
         role="button"
         tabIndex={0}
@@ -140,55 +128,32 @@ export function AdminKpiPills({
           }
         }}
         className={cn(
-          "flex flex-col justify-between rounded-2xl p-3 sm:p-3.5 text-left transition-all duration-200 border shadow-xs cursor-pointer group hover:-translate-y-0.5 hover:shadow-md select-none",
-          currentTab === "comunicacao"
-            ? "border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/30 ring-2 ring-emerald-400/40"
-            : unreadChatCount > 0
-            ? "border-emerald-500 bg-emerald-50/80 dark:bg-emerald-950/40 ring-2 ring-emerald-400/40 hover:bg-emerald-100/70 dark:hover:bg-emerald-950/60 animate-pulse"
-            : "border-border/70 bg-card hover:bg-muted/40 hover:border-border"
+          "flex flex-col justify-between rounded-3xl p-4 sm:p-4.5 text-left transition-all duration-200 border shadow-xs cursor-pointer group hover:-translate-y-0.5 hover:shadow-md select-none",
+          "bg-white dark:bg-card border-border/80 text-foreground"
         )}
       >
-        <div className="flex items-center justify-between w-full gap-2 mb-2.5">
-          <div
-            className={cn(
-              "grid h-8 w-8 sm:h-9 sm:w-9 shrink-0 place-items-center rounded-xl transition-colors font-bold",
-              unreadChatCount > 0
-                ? "bg-emerald-600 text-white shadow-xs animate-pulse"
-                : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 group-hover:bg-emerald-500/20"
-            )}
-          >
-            <MessageCircle className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+        <div className="flex items-center justify-between w-full gap-2 mb-3">
+          <div className="h-10 w-10 shrink-0 place-items-center grid rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40">
+            <MessageCircle className="h-5 w-5" />
           </div>
 
           {unreadChatCount > 0 ? (
-            <Badge className="bg-emerald-600 text-white font-black text-[10px] px-2 py-0.5 shrink-0 shadow-xs animate-pulse">
-              ● {unreadChatCount} nova{unreadChatCount > 1 ? "s" : ""}
+            <Badge className="bg-rose-500 text-white font-black text-[10px] px-2.5 py-0.5 rounded-full shadow-xs animate-pulse">
+              ● {unreadChatCount} nova(s)
             </Badge>
-          ) : totalChatConversations > 0 ? (
-            <span className="text-[10px] font-semibold text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full">
-              {totalChatConversations} aberta{totalChatConversations > 1 ? "s" : ""}
-            </span>
           ) : (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
-              <Check className="h-3 w-3" /> Lido
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-200/50">
+              <Check className="h-3 w-3 stroke-[3]" /> Lido
             </span>
           )}
         </div>
 
-        <div className="space-y-0.5 min-w-0 w-full">
-          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-            Chat Tutores
+        <div className="space-y-1 min-w-0 w-full">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            CHAT TUTORES
           </p>
-          <p className="text-sm sm:text-base font-extrabold font-display text-foreground leading-snug">
-            {unreadChatCount > 0 ? (
-              <span className="text-emerald-950 dark:text-emerald-200">
-                {unreadChatCount} nova{unreadChatCount > 1 ? "s" : ""}
-              </span>
-            ) : totalChatConversations > 0 ? (
-              <span>{totalChatConversations} em aberto</span>
-            ) : (
-              <span>Sem novas mensagens</span>
-            )}
+          <p className="text-base sm:text-lg font-black tracking-tight text-foreground leading-tight">
+            {unreadChatCount > 0 ? `${unreadChatCount} nova(s)` : "Sem novas mensagens"}
           </p>
           <p className="text-[11px] text-muted-foreground font-medium leading-none pt-0.5 truncate">
             {unreadChatCount > 0 ? "Resposta de tutor pendente" : "Atendimento aos tutores"}
@@ -196,7 +161,7 @@ export function AdminKpiPills({
         </div>
       </div>
 
-      {/* 3. Delivery & Táxi Pet */}
+      {/* 3. TRANSPORTE & TÁXI - Card Branco Clean com Ícone Azul */}
       <div
         role="button"
         tabIndex={0}
@@ -208,67 +173,44 @@ export function AdminKpiPills({
           }
         }}
         className={cn(
-          "flex flex-col justify-between rounded-2xl p-3 sm:p-3.5 text-left transition-all duration-200 border shadow-xs cursor-pointer group hover:-translate-y-0.5 hover:shadow-md select-none",
-          inRouteCount > 0
-            ? "border-sky-500 bg-sky-50/70 dark:bg-sky-950/30 ring-2 ring-sky-400/40"
-            : activeDeliveriesCount > 0
-            ? "border-sky-300/80 dark:border-sky-800 bg-card hover:bg-sky-50/40 dark:hover:bg-sky-950/20"
-            : "border-border/70 bg-card hover:bg-muted/40 hover:border-border"
+          "flex flex-col justify-between rounded-3xl p-4 sm:p-4.5 text-left transition-all duration-200 border shadow-xs cursor-pointer group hover:-translate-y-0.5 hover:shadow-md select-none",
+          "bg-white dark:bg-card border-border/80 text-foreground"
         )}
       >
-        <div className="flex items-center justify-between w-full gap-2 mb-2.5">
-          <div
-            className={cn(
-              "grid h-8 w-8 sm:h-9 sm:w-9 shrink-0 place-items-center rounded-xl transition-colors",
-              inRouteCount > 0
-                ? "bg-sky-600 text-white shadow-xs animate-pulse"
-                : "bg-sky-500/10 text-sky-700 dark:text-sky-300 group-hover:bg-sky-500/20"
-            )}
-          >
-            <Truck className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+        <div className="flex items-center justify-between w-full gap-2 mb-3">
+          <div className="h-10 w-10 shrink-0 place-items-center grid rounded-2xl bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 border border-sky-200/60 dark:border-sky-800/40">
+            <Truck className="h-5 w-5" />
           </div>
 
           {inRouteCount > 0 ? (
-            <Badge className="bg-sky-600 text-white font-black text-[10px] px-2 py-0.5 shrink-0 shadow-xs animate-pulse">
+            <Badge className="bg-sky-500 text-white font-black text-[10px] px-2.5 py-0.5 rounded-full shadow-xs animate-pulse">
               ● Em rota ({inRouteCount})
             </Badge>
-          ) : activeDeliveriesCount > 0 ? (
-            <Badge variant="secondary" className="bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-200 font-bold text-[10px] px-2 py-0.5 shrink-0">
-              {activeDeliveriesCount} hoje
-            </Badge>
           ) : (
-            <span className="text-[10px] font-semibold text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full">
-              0 hoje
+            <span className="text-[11px] font-bold text-sky-800 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/40 px-2.5 py-0.5 rounded-full border border-sky-200/50">
+              {activeDeliveriesCount} hoje
             </span>
           )}
         </div>
 
-        <div className="space-y-0.5 min-w-0 w-full">
-          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-            Transporte & Táxi
+        <div className="space-y-1 min-w-0 w-full">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            TRANSPORTE & TÁXI
           </p>
-          <p className="text-sm sm:text-base font-extrabold font-display text-foreground leading-snug">
-            {inRouteCount > 0 ? (
-              <span className="text-sky-950 dark:text-sky-200">{inRouteCount} em rota agora</span>
-            ) : activeDeliveriesCount > 0 ? (
-              <span>{activeDeliveriesCount} agendado{activeDeliveriesCount > 1 ? "s" : ""} hoje</span>
-            ) : todayTaxiTotal > 0 ? (
-              <span>{todayTaxiTotal} concluído{todayTaxiTotal > 1 ? "s" : ""}</span>
-            ) : (
-              <span>Sem corridas hoje</span>
-            )}
+          <p className="text-base sm:text-lg font-black tracking-tight text-foreground leading-tight">
+            {inRouteCount > 0
+              ? `${inRouteCount} em rota agora`
+              : activeDeliveriesCount > 0
+              ? `${activeDeliveriesCount} agendado(s) hoje`
+              : "Sem corridas hoje"}
           </p>
           <p className="text-[11px] text-muted-foreground font-medium leading-none pt-0.5 truncate">
-            {inRouteCount > 0
-              ? "Motorista a caminho"
-              : activeDeliveriesCount > 0
-              ? "Leva e traz programado"
-              : "Leva e traz do petshop"}
+            {inRouteCount > 0 ? "Motorista a caminho" : "Leva e traz do petshop"}
           </p>
         </div>
       </div>
 
-      {/* 4. Atendimentos do Dia (Fila Operacional / Kanban) */}
+      {/* 4. FILA DE ATENDIMENTO - Card Bege Suave com Ícone Verde Água (Fiel à Imagem 1) */}
       <div
         role="button"
         tabIndex={0}
@@ -280,80 +222,56 @@ export function AdminKpiPills({
           }
         }}
         className={cn(
-          "flex flex-col justify-between rounded-2xl p-3 sm:p-3.5 text-left transition-all duration-200 border shadow-xs cursor-pointer group hover:-translate-y-0.5 hover:shadow-md select-none",
-          currentTab === "hoje"
-            ? "border-violet-500 bg-violet-50/60 dark:bg-violet-950/30 ring-2 ring-violet-400/40"
-            : inProgressServicesCount > 0
-            ? "border-violet-500/60 bg-card hover:bg-violet-50/50 dark:hover:bg-violet-950/20"
-            : "border-border/70 bg-card hover:bg-muted/40 hover:border-border"
+          "flex flex-col justify-between rounded-3xl p-4 sm:p-4.5 text-left transition-all duration-200 border shadow-xs cursor-pointer group hover:-translate-y-0.5 hover:shadow-md select-none",
+          "bg-[#fef8eb] dark:bg-[#251d10] border-amber-200/80 dark:border-amber-900/50 text-amber-950 dark:text-amber-100"
         )}
       >
-        <div className="flex items-center justify-between w-full gap-2 mb-2.5">
-          <div
-            className={cn(
-              "grid h-8 w-8 sm:h-9 sm:w-9 shrink-0 place-items-center rounded-xl transition-colors",
-              inProgressServicesCount > 0
-                ? "bg-violet-600 text-white shadow-xs"
-                : "bg-violet-500/10 text-violet-700 dark:text-violet-300 group-hover:bg-violet-500/20"
-            )}
-          >
-            <Scissors className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+        <div className="flex items-center justify-between w-full gap-2 mb-3">
+          <div className="h-10 w-10 shrink-0 place-items-center grid rounded-2xl bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 border border-teal-200/60 dark:border-teal-800/40">
+            <Scissors className="h-5 w-5" />
           </div>
 
           {inProgressServicesCount > 0 ? (
-            <Badge className="bg-violet-600 text-white font-black text-[10px] px-2 py-0.5 shrink-0 shadow-xs">
+            <Badge className="bg-amber-500 text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded-full shadow-xs">
               ● {inProgressServicesCount} no banho
             </Badge>
           ) : waitingCount > 0 ? (
-            <Badge variant="outline" className="text-amber-800 dark:text-amber-200 border-amber-400/50 bg-amber-50/60 dark:bg-amber-950/30 text-[10px] font-bold px-2 py-0.5 shrink-0">
+            <Badge className="bg-amber-200 text-amber-900 font-bold text-[10px] px-2.5 py-0.5 rounded-full">
               {waitingCount} aguardando
             </Badge>
-          ) : todayServicesCount > 0 ? (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
-              <Check className="h-3 w-3" /> Finalizados
-            </span>
           ) : (
-            <span className="text-[10px] font-semibold text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full">
+            <span className="text-[11px] font-bold text-sky-800 dark:text-sky-300 bg-sky-100/70 dark:bg-sky-950/40 px-2.5 py-0.5 rounded-full border border-sky-200/60">
               Fila livre
             </span>
           )}
         </div>
 
-        <div className="space-y-0.5 min-w-0 w-full">
-          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-            Fila de Atendimento
+        <div className="space-y-1 min-w-0 w-full">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-amber-900/70 dark:text-amber-300/70">
+            FILA DE ATENDIMENTO
           </p>
-          <p className="text-sm sm:text-base font-extrabold font-display text-foreground leading-snug">
-            {inProgressServicesCount > 0 ? (
-              <span className="text-violet-950 dark:text-violet-200">
-                {inProgressServicesCount} em andamento
-              </span>
-            ) : waitingCount > 0 ? (
-              <span>{waitingCount} na espera</span>
-            ) : todayServicesCount > 0 ? (
-              <span>{todayServicesCount} agendado{todayServicesCount > 1 ? "s" : ""} hoje</span>
-            ) : (
-              <span>Fila vazia hoje</span>
-            )}
+          <p className="text-base sm:text-lg font-black tracking-tight text-amber-950 dark:text-amber-100 leading-tight">
+            {inProgressServicesCount > 0
+              ? `${inProgressServicesCount} em andamento`
+              : waitingCount > 0
+              ? `${waitingCount} na espera`
+              : todayServicesCount > 0
+              ? `${todayServicesCount} agendado(s) hoje`
+              : "Fila vazia hoje"}
           </p>
-          <p className="text-[11px] text-muted-foreground font-medium leading-none pt-0.5 truncate">
-            {todayServicesCount > 0
-              ? `${waitingCount} aguardando · ${completedCount} prontos`
-              : "Banho, tosa e estética"}
+          <p className="text-[11px] text-amber-900/70 dark:text-amber-300/70 font-medium leading-none pt-0.5 truncate">
+            Banho, tosa e estética
           </p>
         </div>
       </div>
 
-      {/* 5. Pedidos na Loja (Produtos) */}
+      {/* 5. PEDIDOS NA LOJA (PRODUTOS) - Card Branco Clean com Ícone Azul */}
       <div
         role="button"
         tabIndex={0}
         onClick={() => {
-          if (onNavigateToOrders) {
-            onNavigateToOrders();
-          } else {
-            onSelectTab("pedidos");
-          }
+          if (onNavigateToOrders) onNavigateToOrders();
+          else onSelectTab("pedidos");
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -363,69 +281,44 @@ export function AdminKpiPills({
           }
         }}
         className={cn(
-          "flex flex-col justify-between rounded-2xl p-3 sm:p-3.5 text-left transition-all duration-200 border shadow-xs cursor-pointer group hover:-translate-y-0.5 hover:shadow-md col-span-2 sm:col-span-1 lg:col-span-1 select-none",
-          currentTab === "pedidos"
-            ? "border-blue-500 bg-blue-50/70 dark:bg-blue-950/30 ring-2 ring-blue-400/40"
-            : pendingOrders > 0
-            ? "border-blue-500 bg-blue-50/80 dark:bg-blue-950/40 ring-2 ring-blue-400/30 hover:bg-blue-100/70 dark:hover:bg-blue-950/60"
-            : criticalStockCount > 0
-            ? "border-amber-500/60 bg-card hover:bg-amber-50/50 dark:hover:bg-amber-950/20"
-            : "border-border/70 bg-card hover:bg-muted/40 hover:border-border"
+          "flex flex-col justify-between rounded-3xl p-4 sm:p-4.5 text-left transition-all duration-200 border shadow-xs cursor-pointer group hover:-translate-y-0.5 hover:shadow-md select-none",
+          "bg-white dark:bg-card border-border/80 text-foreground"
         )}
       >
-        <div className="flex items-center justify-between w-full gap-2 mb-2.5">
-          <div
-            className={cn(
-              "grid h-8 w-8 sm:h-9 sm:w-9 shrink-0 place-items-center rounded-xl transition-colors",
-              pendingOrders > 0
-                ? "bg-blue-600 text-white font-black shadow-xs animate-pulse"
-                : criticalStockCount > 0
-                ? "bg-amber-500 text-slate-950 font-black shadow-xs"
-                : "bg-blue-500/10 text-blue-700 dark:text-blue-300 group-hover:bg-blue-500/20"
-            )}
-          >
-            <ShoppingBag className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+        <div className="flex items-center justify-between w-full gap-2 mb-3">
+          <div className="h-10 w-10 shrink-0 place-items-center grid rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/40">
+            <ShoppingBag className="h-5 w-5" />
           </div>
 
           {pendingOrders > 0 ? (
-            <Badge className="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 shrink-0 shadow-xs animate-pulse">
+            <Badge className="bg-blue-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs animate-pulse">
               ● {pendingOrders} em preparo
             </Badge>
           ) : criticalStockCount > 0 ? (
-            <Badge variant="secondary" className="bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 font-bold text-[10px] px-2 py-0.5 shrink-0">
-              ⚠️ {criticalStockCount} estoque baixo
-            </Badge>
-          ) : todayOrders > 0 ? (
-            <Badge variant="secondary" className="bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-200 font-bold text-[10px] px-2 py-0.5 shrink-0">
-              {todayOrders} hoje
+            <Badge className="bg-amber-100 text-amber-900 font-bold text-[10px] px-2.5 py-0.5 rounded-full">
+              ⚠️ {criticalStockCount} baixo
             </Badge>
           ) : (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
-              <Check className="h-3 w-3" /> Em dia
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-200/50">
+              <Check className="h-3 w-3 stroke-[3]" /> Em dia
             </span>
           )}
         </div>
 
-        <div className="space-y-0.5 min-w-0 w-full">
-          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-            Pedidos na Loja (Produtos)
+        <div className="space-y-1 min-w-0 w-full">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            PEDIDOS NA LOJA (PRODUTOS)
           </p>
-          <p className="text-sm sm:text-base font-extrabold font-display text-foreground leading-snug">
-            {pendingOrders > 0 ? (
-              <span className="text-blue-950 dark:text-blue-200">
-                {pendingOrders} pedido{pendingOrders > 1 ? "s" : ""} em aberto
-              </span>
-            ) : todayOrders > 0 ? (
-              <span>{todayOrders} pedido{todayOrders > 1 ? "s" : ""} hoje</span>
-            ) : (
-              <span>Tudo em dia</span>
-            )}
+          <p className="text-base sm:text-lg font-black tracking-tight text-foreground leading-tight">
+            {pendingOrders > 0
+              ? `${pendingOrders} pedido(s) em aberto`
+              : todayOrders > 0
+              ? `${todayOrders} pedido(s) hoje`
+              : "Tudo em dia"}
           </p>
           <p className="text-[11px] text-muted-foreground font-medium leading-none pt-0.5 truncate">
             {criticalStockCount > 0
               ? `${criticalStockCount} item(ns) em estoque crítico`
-              : pendingOrders > 0
-              ? "Separação e entrega de produtos"
               : "Nenhum pedido pendente"}
           </p>
         </div>

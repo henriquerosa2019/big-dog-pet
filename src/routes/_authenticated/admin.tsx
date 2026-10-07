@@ -129,6 +129,7 @@ import {
   type PaymentMethod,
 } from "@/components/admin/AdminOperationalKanban";
 import { AdminVisualAgenda, type VisualAgendaItem } from "@/components/admin/AdminVisualAgenda";
+import { AdminClientAgenda } from "@/components/admin/AdminClientAgenda";
 import { VetEhrRecord } from "@/components/pets/VetEhrRecord";
 import { AdminPetlyticsDashboard } from "@/components/admin/AdminPetlyticsDashboard";
 import { AdminHealthAlertsGrouped, type HealthAlertItem } from "@/components/admin/AdminHealthAlertsGrouped";
@@ -2329,7 +2330,7 @@ function Admin() {
     onError: () => toast.error("Não foi possível atualizar"),
   });
 
-  const [operacionalViewMode, setOperacionalViewMode] = useState<"kanban" | "agenda">("kanban");
+  const [operacionalViewMode, setOperacionalViewMode] = useState<"kanban" | "agenda" | "agenda-clientes">("agenda");
 
   const [showDeliverySimulator, setShowDeliverySimulator] = useState(false);
 
@@ -2738,7 +2739,9 @@ function Admin() {
   // Mapeamento dinâmico da seção ativa na sidebar com base nas tabs atuais (colocado antes dos returns condicionais para respeitar as Rules of Hooks)
   const activeSidebarSection: AdminActiveSection = useMemo(() => {
     if (currentTab === "hoje") {
-      return operacionalViewMode === "agenda" ? "agenda-visual" : "visao-geral";
+      if (operacionalViewMode === "agenda") return "agenda-visual";
+      if (operacionalViewMode === "agenda-clientes") return "agenda-clientes";
+      return "visao-geral";
     }
     if (currentTab === "saude") return "vet-saude";
     if (currentTab === "comunicacao") return "visao-geral";
@@ -2776,6 +2779,10 @@ function Admin() {
       case "agenda-visual":
         setCurrentTab("hoje");
         setOperacionalViewMode("agenda");
+        break;
+      case "agenda-clientes":
+        setCurrentTab("hoje");
+        setOperacionalViewMode("agenda-clientes");
         break;
       case "agenda-detalhada":
         setCurrentTab("gestao");
@@ -2957,16 +2964,16 @@ function Admin() {
 
       {/* Conteúdo Principal do Painel */}
       <div className="flex-1 min-w-0 p-3 sm:p-5 space-y-4 max-w-full overflow-x-hidden">
-        {/* 1. CABEÇALHO EXECUTIVO E DESPOLUÍDO */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-card p-4 rounded-3xl border border-border/70 shadow-card">
-          <div className="flex items-center gap-3">
-            {/* Botão Hambúrguer para abrir Sidebar no Mobile */}
+        {/* 1. HERO BANNER DA CENTRAL DE OPERAÇÕES (FIEL À IMAGEM 1) */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 bg-[#0c4a34] dark:bg-[#073022] p-4 sm:p-5 rounded-3xl border border-emerald-700/50 shadow-md text-white">
+          <div className="flex items-center gap-3.5">
+            {/* Botão Hambúrguer Circular Translúcido para Mobile */}
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="icon"
               onClick={() => setIsMobileSidebarOpen(true)}
-              className="lg:hidden h-10 w-10 rounded-2xl shrink-0 border-border/80"
+              className="lg:hidden h-11 w-11 rounded-full shrink-0 border border-white/20 bg-white/10 hover:bg-white/20 text-white"
               title="Abrir Menu de Navegação"
             >
               <Menu className="h-5 w-5" />
@@ -2975,99 +2982,93 @@ function Admin() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-300"></span>
                 </span>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Central de Operações · Loja Aberta
+                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-200/90">
+                  CENTRAL DE OPERAÇÕES · LOJA ABERTA
                 </span>
               </div>
-              <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight mt-0.5 text-foreground">
+              <h1 className="font-display text-2xl sm:text-3xl font-black tracking-tight text-white mt-0.5">
                 Painel Administrativo
               </h1>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-emerald-100/80 font-medium">
                 {CLINIC.name} · {CLINIC.unit} (Franco da Rocha)
               </p>
             </div>
           </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="h-9 px-3.5 rounded-xl text-xs font-semibold gap-2 border-border/80 hover:bg-muted"
-          >
-            <Link to="/conta">
-              <User className="h-4 w-4 text-muted-foreground" />
-              Minha Conta (Tutor)
-            </Link>
-          </Button>
+          {/* Botões Rápidos em Pílulas Arredondadas (Fiel à Imagem 1) */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="h-9 px-3.5 rounded-2xl text-xs font-bold gap-2 bg-white/95 text-slate-800 hover:bg-white border-slate-200/80 shadow-xs"
+            >
+              <Link to="/conta">
+                <User className="h-4 w-4 text-slate-600" />
+                Minha Conta (Tutor)
+              </Link>
+            </Button>
 
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="h-9 px-3.5 rounded-xl text-xs font-semibold gap-2 border-border/80 hover:bg-muted"
-          >
-            <Link to="/" search={{ preview: "cliente" }}>
-              <Eye className="h-4 w-4 text-muted-foreground" />
-              Ver como Cliente
-            </Link>
-          </Button>
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="h-9 px-3.5 rounded-2xl text-xs font-bold gap-2 bg-white/95 text-slate-800 hover:bg-white border-slate-200/80 shadow-xs"
+            >
+              <Link to="/" search={{ preview: "cliente" }}>
+                <Eye className="h-4 w-4 text-slate-600" />
+                Ver como Cliente
+              </Link>
+            </Button>
 
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="h-9 px-3.5 rounded-xl text-xs font-semibold gap-2 border-border/80 hover:bg-muted bg-amber-500/10 text-amber-950 dark:text-amber-200 border-amber-500/30 hover:bg-amber-500/20"
-          >
-            <Link to="/motorista">
-              <Truck className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              Painel do Motorista
-            </Link>
-          </Button>
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="h-9 px-3.5 rounded-2xl text-xs font-bold gap-2 bg-[#fef3c7] hover:bg-[#fde68a] text-[#92400e] border-[#fde68a] shadow-xs"
+            >
+              <Link to="/motorista">
+                <Truck className="h-4 w-4 text-[#b45309]" />
+                Painel do Motorista
+              </Link>
+            </Button>
 
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => openMiroModal()}
-            className="h-9 px-3.5 rounded-xl text-xs font-semibold gap-2 border-border/80 hover:bg-muted bg-emerald-500/10 text-emerald-950 dark:text-emerald-200 border-emerald-500/30 hover:bg-emerald-500/20 cursor-pointer"
-          >
-            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            Matriz Miro (QA)
-          </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => openMiroModal()}
+              className="h-9 px-3.5 rounded-2xl text-xs font-bold gap-2 bg-[#d1fae5] hover:bg-[#a7f3d0] text-[#065f46] border-[#a7f3d0] shadow-xs cursor-pointer"
+            >
+              <CheckCircle2 className="h-4 w-4 text-[#059669]" />
+              Matriz Miro (QA)
+            </Button>
 
-          <Button
-            size="sm"
-            onClick={() => {
-              setCurrentTab("comunicacao");
-              openInAppChat();
-            }}
-            className={cn(
-              "h-9 px-3.5 rounded-xl text-xs font-bold gap-2 transition-all shadow-xs cursor-pointer",
-              totalChatUnread > 0
-                ? "bg-rose-600 hover:bg-rose-700 text-white ring-2 ring-rose-400/50 animate-pulse"
-                : openConversations.length > 0
-                ? "bg-rose-600 hover:bg-rose-700 text-white shadow-xs"
-                : "bg-primary text-primary-foreground hover:bg-primary/90"
-            )}
-          >
-            <MessageCircle className="h-4 w-4" />
-            Central de Chat
-            {totalChatUnread > 0 ? (
-              <span className="bg-white text-rose-900 animate-pulse text-[10px] py-0 px-1.5 h-5 font-black shadow-xs rounded-full inline-flex items-center">
-                {totalChatUnread} nova{totalChatUnread > 1 ? "s" : ""}
-              </span>
-            ) : openConversations.length > 0 ? (
-              <span className="text-[11px] font-semibold text-primary-foreground/80">
-                ({openConversations.length})
-              </span>
-            ) : null}
-          </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                setCurrentTab("comunicacao");
+                openInAppChat();
+              }}
+              className="h-9 px-3.5 rounded-2xl text-xs font-black gap-2 transition-all shadow-xs cursor-pointer bg-[#063022] hover:bg-[#042017] text-white border border-emerald-500/30"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Central de Chat
+              {totalChatUnread > 0 ? (
+                <span className="bg-rose-500 text-white animate-pulse text-[10px] py-0 px-1.5 h-5 font-black shadow-xs rounded-full inline-flex items-center">
+                  {totalChatUnread}
+                </span>
+              ) : openConversations.length > 0 ? (
+                <span className="text-[11px] font-semibold text-emerald-300">
+                  ({openConversations.length})
+                </span>
+              ) : null}
+            </Button>
+          </div>
         </div>
-      </div>
 
       {/* 2. KPIS RÁPIDOS NO TOPO (PÍLULAS OPERACIONAIS SINCRONIZADAS) */}
       <AdminKpiPills
@@ -3098,60 +3099,77 @@ function Admin() {
         }}
       />
 
-      {/* 3. FILTROS RÁPIDOS: TODOS, BANHO & TOSA, TÁXI PET */}
-      <div className="mt-4 flex items-center justify-between gap-2.5 bg-card p-2.5 sm:p-3 rounded-2xl border border-border/70 shadow-xs">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <Button
-            size="sm"
-            variant={kanbanFilterType === "todos" ? "default" : "outline"}
-            onClick={() => {
-              setKanbanFilterType("todos");
-              if (currentTab !== "hoje") setCurrentTab("hoje");
-            }}
-            className="h-8 rounded-xl text-xs font-semibold px-3 cursor-pointer"
-          >
-            Todos ({totalActiveKanbanItems})
-          </Button>
-          <Button
-            size="sm"
-            variant={kanbanFilterType === "banho" ? "default" : "outline"}
-            onClick={() => {
-              setKanbanFilterType("banho");
-              if (currentTab !== "hoje") setCurrentTab("hoje");
-            }}
-            className="h-8 rounded-xl text-xs font-semibold px-3 gap-1 cursor-pointer"
-          >
-            <Scissors className="h-3.5 w-3.5" />
-            Banho & Tosa
-          </Button>
-          <Button
-            size="sm"
-            variant={kanbanFilterType === "delivery" ? "default" : "outline"}
-            onClick={() => {
-              setKanbanFilterType("delivery");
-              if (currentTab !== "hoje") setCurrentTab("hoje");
-            }}
-            className="h-8 rounded-xl text-xs font-semibold px-3 gap-1 cursor-pointer"
-          >
-            <Truck className="h-3.5 w-3.5" />
-            Táxi Pet
-          </Button>
-          <Button
-            size="sm"
-            variant={kanbanFilterType === "vet" ? "default" : "outline"}
-            onClick={() => {
-              setKanbanFilterType("vet");
-              if (currentTab !== "hoje") setCurrentTab("hoje");
-            }}
-            className="h-8 rounded-xl text-xs font-semibold px-3 gap-1 cursor-pointer"
-          >
-            <Stethoscope className="h-3.5 w-3.5" />
-            Veterinário
-          </Button>
-        </div>
+      {/* 3. FILTROS RÁPIDOS: TODOS, BANHO & TOSA, TÁXI PET, VETERINÁRIO (FIEL À IMAGEM 1) */}
+      <div className="flex items-center gap-2 flex-wrap pt-1">
+        <button
+          type="button"
+          onClick={() => {
+            setKanbanFilterType("todos");
+            if (currentTab !== "hoje") setCurrentTab("hoje");
+          }}
+          className={cn(
+            "px-4 py-2 rounded-2xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer",
+            kanbanFilterType === "todos"
+              ? "bg-[#0c4a34] text-white font-black shadow-sm"
+              : "bg-card hover:bg-muted/60 text-foreground border border-border/80"
+          )}
+        >
+          <span>Todos ({totalActiveKanbanItems})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setKanbanFilterType("banho");
+            if (currentTab !== "hoje") setCurrentTab("hoje");
+          }}
+          className={cn(
+            "px-4 py-2 rounded-2xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer",
+            kanbanFilterType === "banho"
+              ? "bg-[#0c4a34] text-white font-black shadow-sm"
+              : "bg-card hover:bg-muted/60 text-foreground border border-border/80"
+          )}
+        >
+          <Scissors className="h-3.5 w-3.5" />
+          <span>Banho & Tosa</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setKanbanFilterType("delivery");
+            if (currentTab !== "hoje") setCurrentTab("hoje");
+          }}
+          className={cn(
+            "px-4 py-2 rounded-2xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer",
+            kanbanFilterType === "delivery"
+              ? "bg-[#0c4a34] text-white font-black shadow-sm"
+              : "bg-card hover:bg-muted/60 text-foreground border border-border/80"
+          )}
+        >
+          <Truck className="h-3.5 w-3.5" />
+          <span>Táxi Pet</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setKanbanFilterType("vet");
+            if (currentTab !== "hoje") setCurrentTab("hoje");
+          }}
+          className={cn(
+            "px-4 py-2 rounded-2xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer",
+            kanbanFilterType === "vet"
+              ? "bg-[#0c4a34] text-white font-black shadow-sm"
+              : "bg-card hover:bg-muted/60 text-foreground border border-border/80"
+          )}
+        >
+          <Stethoscope className="h-3.5 w-3.5" />
+          <span>Veterinário</span>
+        </button>
       </div>
 
-      {/* 4. ABAS PRINCIPAIS DE NAVEGAÇÃO */}
+      {/* 4. ABAS PRINCIPAIS DE NAVEGAÇÃO (FIEL À IMAGEM 1) */}
       <Tabs
         value={currentTab}
         onValueChange={(val) => {
@@ -3160,17 +3178,17 @@ function Admin() {
             window.scrollTo({ top: 0, behavior: "smooth" });
           }
         }}
-        className="mt-3"
+        className="mt-2"
       >
-        <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full h-auto p-1 bg-muted/70 rounded-2xl gap-1">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full h-auto p-1.5 bg-muted/60 rounded-3xl gap-1.5 border border-border/60">
           <TabsTrigger
             value="hoje"
-            className="group h-11 rounded-xl text-xs font-bold gap-1.5 px-3 transition-all text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/40 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-md [&[data-state=active]>svg]:text-white [&[data-state=active]>span]:text-white cursor-pointer"
+            className="group h-11 rounded-2xl text-xs font-bold gap-1.5 px-3 transition-all text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/40 data-[state=active]:bg-[#0c4a34] data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-md [&[data-state=active]>svg]:text-white [&[data-state=active]>span]:text-white cursor-pointer"
           >
-            <Scissors className="h-4 w-4 text-primary transition-colors shrink-0" />
+            <Scissors className="h-4 w-4 text-emerald-700 dark:text-emerald-400 transition-colors shrink-0" />
             <span>Operacional (Hoje)</span>
             {todayServicesCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-800 group-data-[state=active]:bg-white group-data-[state=active]:text-primary transition-colors">
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-800 group-data-[state=active]:bg-white group-data-[state=active]:text-[#0c4a34] transition-colors">
                 {todayServicesCount}
               </span>
             )}
@@ -3178,16 +3196,16 @@ function Admin() {
 
           <TabsTrigger
             value="comunicacao"
-            className="group h-11 rounded-xl text-xs font-bold gap-1.5 px-3 transition-all text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/40 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-md [&[data-state=active]>svg]:text-white [&[data-state=active]>span]:text-white cursor-pointer"
+            className="group h-11 rounded-2xl text-xs font-bold gap-1.5 px-3 transition-all text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/40 data-[state=active]:bg-[#0c4a34] data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-md [&[data-state=active]>svg]:text-white [&[data-state=active]>span]:text-white cursor-pointer"
           >
-            <MessageCircle className="h-4 w-4 text-primary transition-colors shrink-0" />
+            <MessageCircle className="h-4 w-4 text-emerald-700 dark:text-emerald-400 transition-colors shrink-0" />
             <span>Atendimento & Chat</span>
             {unreadConversationsCount > 0 ? (
               <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-white animate-pulse shadow-xs">
                 {unreadConversationsCount}
               </span>
             ) : openConversations.length > 0 ? (
-              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-800 group-data-[state=active]:bg-white group-data-[state=active]:text-primary transition-colors">
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-800 group-data-[state=active]:bg-white group-data-[state=active]:text-[#0c4a34] transition-colors">
                 {openConversations.length}
               </span>
             ) : null}
@@ -3195,16 +3213,16 @@ function Admin() {
 
           <TabsTrigger
             value="saude"
-            className="group h-11 rounded-xl text-xs font-bold gap-1.5 px-3 transition-all text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/40 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-md [&[data-state=active]>svg]:text-white [&[data-state=active]>span]:text-white cursor-pointer"
+            className="group h-11 rounded-2xl text-xs font-bold gap-1.5 px-3 transition-all text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/40 data-[state=active]:bg-[#0c4a34] data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-md [&[data-state=active]>svg]:text-white [&[data-state=active]>span]:text-white cursor-pointer"
           >
-            <Syringe className="h-4 w-4 text-primary transition-colors shrink-0" />
+            <Syringe className="h-4 w-4 text-emerald-700 dark:text-emerald-400 transition-colors shrink-0" />
             <span>Saúde & Retornos</span>
             {urgentHealthPetsCount > 0 ? (
               <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white shadow-xs">
                 {urgentHealthPetsCount}
               </span>
             ) : healthAlertItems.length > 0 ? (
-              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-800 group-data-[state=active]:bg-white group-data-[state=active]:text-primary transition-colors">
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-800 group-data-[state=active]:bg-white group-data-[state=active]:text-[#0c4a34] transition-colors">
                 {healthAlertItems.length}
               </span>
             ) : null}
@@ -3212,9 +3230,9 @@ function Admin() {
 
           <TabsTrigger
             value="gestao"
-            className="group h-11 rounded-xl text-xs font-bold gap-1.5 px-3 transition-all text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/40 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-md [&[data-state=active]>svg]:text-white [&[data-state=active]>span]:text-white cursor-pointer"
+            className="group h-11 rounded-2xl text-xs font-bold gap-1.5 px-3 transition-all text-slate-700 dark:text-slate-200 hover:text-foreground hover:bg-card/40 data-[state=active]:bg-[#0c4a34] data-[state=active]:text-white data-[state=active]:font-extrabold data-[state=active]:shadow-md [&[data-state=active]>svg]:text-white [&[data-state=active]>span]:text-white cursor-pointer"
           >
-            <Settings className="h-4 w-4 text-primary transition-colors shrink-0" />
+            <Settings className="h-4 w-4 text-emerald-700 dark:text-emerald-400 transition-colors shrink-0" />
             <span>Gestão & Cadastros</span>
             {curveACriticalAlerts.length > 0 && (
               <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-400 text-amber-950 shadow-xs">
@@ -3226,23 +3244,23 @@ function Admin() {
 
         {/* ABA 1: OPERACIONAL (HOJE) */}
         <TabsContent value="hoje" className="mt-4 space-y-4">
-          {/* Resumo de Agendamentos e Faturamento do Dia (Posicionado no Topo) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Resumo de Agendamentos e Faturamento do Dia (Fiel à Imagem 2) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             {/* Card 1: Agendamentos por Categoria */}
-            <div className="rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 p-3.5 shadow-sm border border-blue-200/80 dark:border-blue-800/60">
-              <div className="border-b border-blue-200/90 dark:border-blue-700/60 pb-2 mb-2">
-                <p className="text-center font-display text-xs sm:text-sm font-extrabold uppercase tracking-wider text-blue-900 dark:text-blue-200 [text-shadow:_0_1px_3px_rgba(59,130,246,0.35)]">
+            <div className="rounded-3xl bg-card p-4 sm:p-5 shadow-sm border border-border/80">
+              <div className="border-b border-border/70 pb-3 mb-3">
+                <p className="text-center font-display text-xs sm:text-sm font-black uppercase tracking-wider text-foreground">
                   Agendamentos por Categoria
                 </p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b-2 border-blue-300/80 dark:border-blue-700/70">
-                      <th className="py-1.5 pr-2 text-left font-bold uppercase tracking-wider text-blue-900 dark:text-blue-200">Categoria</th>
-                      <th className="px-2 py-1.5 text-center font-bold uppercase tracking-wider text-blue-900 dark:text-blue-200">Hoje</th>
-                      <th className="px-2 py-1.5 text-center font-bold uppercase tracking-wider text-blue-900 dark:text-blue-200">Semana</th>
-                      <th className="px-2 py-1.5 text-center font-bold uppercase tracking-wider text-blue-900 dark:text-blue-200">Mês</th>
+                    <tr className="border-b-2 border-border/80">
+                      <th className="py-2 pr-2 text-left font-bold uppercase tracking-wider text-muted-foreground">Categoria</th>
+                      <th className="px-2 py-2 text-center font-bold uppercase tracking-wider text-muted-foreground">Hoje</th>
+                      <th className="px-2 py-2 text-center font-bold uppercase tracking-wider text-muted-foreground">Semana</th>
+                      <th className="px-2 py-2 text-center font-bold uppercase tracking-wider text-muted-foreground">Mês</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3339,20 +3357,20 @@ function Admin() {
             </div>
 
             {/* Card 2: Produtos por Categoria */}
-            <div className="rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 p-3.5 shadow-sm border border-blue-200/80 dark:border-blue-800/60">
-              <div className="border-b border-blue-200/90 dark:border-blue-700/60 pb-2 mb-2">
-                <p className="text-center font-display text-xs sm:text-sm font-extrabold uppercase tracking-wider text-blue-900 dark:text-blue-200 [text-shadow:_0_1px_3px_rgba(59,130,246,0.35)]">
+            <div className="rounded-3xl bg-card p-4 sm:p-5 shadow-sm border border-border/80">
+              <div className="border-b border-border/70 pb-3 mb-3">
+                <p className="text-center font-display text-xs sm:text-sm font-black uppercase tracking-wider text-foreground">
                   Produtos por Categoria
                 </p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b-2 border-blue-300/80 dark:border-blue-700/70">
-                      <th className="py-1.5 pr-2 text-left font-bold uppercase tracking-wider text-blue-900 dark:text-blue-200">Categoria</th>
-                      <th className="px-2 py-1.5 text-center font-bold uppercase tracking-wider text-blue-900 dark:text-blue-200">Hoje</th>
-                      <th className="px-2 py-1.5 text-center font-bold uppercase tracking-wider text-blue-900 dark:text-blue-200">Semana</th>
-                      <th className="px-2 py-1.5 text-center font-bold uppercase tracking-wider text-blue-900 dark:text-blue-200">Mês</th>
+                    <tr className="border-b-2 border-border/80">
+                      <th className="py-2 pr-2 text-left font-bold uppercase tracking-wider text-muted-foreground">Categoria</th>
+                      <th className="px-2 py-2 text-center font-bold uppercase tracking-wider text-muted-foreground">Hoje</th>
+                      <th className="px-2 py-2 text-center font-bold uppercase tracking-wider text-muted-foreground">Semana</th>
+                      <th className="px-2 py-2 text-center font-bold uppercase tracking-wider text-muted-foreground">Mês</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3390,9 +3408,9 @@ function Admin() {
             </div>
           </div>
 
-          {/* Seletor de Modo de Exibição Operacional (Kanban vs Agenda Visual) */}
-          <div className="flex items-center justify-between gap-2 bg-muted/40 p-2 rounded-2xl border border-border/70">
-            <div className="flex items-center gap-1 bg-card rounded-xl p-1 border border-border/60 shadow-xs">
+          {/* Seletor de Modo de Exibição Operacional (Kanban vs Agenda por Profissional vs Agenda de Clientes) */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-muted/40 p-2 rounded-2xl border border-border/70">
+            <div className="flex items-center gap-1 bg-card rounded-xl p-1 border border-border/60 shadow-xs flex-wrap sm:flex-nowrap">
               <button
                 type="button"
                 onClick={() => setOperacionalViewMode("kanban")}
@@ -3415,16 +3433,33 @@ function Admin() {
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <span>📅 Agenda Visual por Profissional</span>
-                <span className="text-[10px] bg-emerald-500 text-white font-extrabold px-1.5 py-0.2 rounded-full">
+                <span>👤 Agenda por Profissional</span>
+                <span className="text-[10px] bg-emerald-500 text-slate-950 font-black px-1.5 py-0.2 rounded-full">
+                  Módulo 1
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setOperacionalViewMode("agenda-clientes")}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-black rounded-lg transition-all flex items-center gap-1.5",
+                  operacionalViewMode === "agenda-clientes"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <span>👥 Agenda de Clientes</span>
+                <span className="text-[10px] bg-sky-500 text-slate-950 font-black px-1.5 py-0.2 rounded-full">
                   Novo
                 </span>
               </button>
             </div>
-            <p className="text-[11px] text-muted-foreground hidden sm:block pr-2">
+            <p className="text-[11px] text-muted-foreground hidden lg:block pr-2">
               {operacionalViewMode === "kanban"
                 ? "Controle de esteira: Aguardando ➜ Em Andamento ➜ Pronto"
-                : "Grade de horários por profissional estilo PawsomeGroom"}
+                : operacionalViewMode === "agenda"
+                ? "Linha do tempo por tosador em tempo real (Banho & Tosa)"
+                : "Visão agrupada por cliente/tutor com histórico de atendimentos"}
             </p>
           </div>
 
@@ -3451,8 +3486,40 @@ function Admin() {
                 setGestaoSubTab("clinica");
               }}
             />
+          ) : operacionalViewMode === "agenda-clientes" ? (
+            /* Agenda de Clientes (Agrupada por Tutor) */
+            <AdminClientAgenda
+              items={kanbanItems.map((ki) => ({
+                id: ki.id,
+                petId: ki.petId,
+                petName: ki.petName,
+                petBreed: ki.petBreed,
+                petPhotoUrl: ki.petPhotoUrl,
+                tutorName: ki.tutorName,
+                tutorPhone: ki.tutorPhone,
+                serviceName: ki.serviceName,
+                scheduledAt: ki.scheduledAt,
+                status: ki.status as any,
+                totalCents: ki.totalCents,
+              }))}
+              onSelectAppointment={(item) => {
+                const appt = (appointments ?? []).find((a) => a.id === item.id);
+                if (appt && appt.status === "pendente") {
+                  confirmAppointment.mutate(appt);
+                }
+              }}
+              onNewAppointment={() => {
+                setCurrentTab("gestao");
+                setGestaoSubTab("agenda");
+              }}
+              onOpenPetRecord={(petId) => {
+                setRecordPetId(petId);
+                setCurrentTab("gestao");
+                setGestaoSubTab("clinica");
+              }}
+            />
           ) : (
-            /* Agenda Visual de Banho & Tosa por Profissional */
+            /* Agenda Visual de Banho & Tosa por Profissional (Módulo 1) */
             <AdminVisualAgenda
               items={kanbanItems.map((ki) => ({
                 id: ki.id,
@@ -3472,6 +3539,10 @@ function Admin() {
                 if (appt && appt.status === "pendente") {
                   confirmAppointment.mutate(appt);
                 }
+              }}
+              onNewAppointment={() => {
+                setCurrentTab("gestao");
+                setGestaoSubTab("agenda");
               }}
               onOpenPetRecord={(petId) => {
                 setRecordPetId(petId);

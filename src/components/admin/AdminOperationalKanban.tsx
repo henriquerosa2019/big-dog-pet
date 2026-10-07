@@ -457,23 +457,26 @@ export function AdminOperationalKanban({
         ref={scrollContainerRef}
         className="flex md:grid md:grid-cols-3 gap-3.5 items-start overflow-x-auto snap-x snap-mandatory pb-3 pt-1 scroll-smooth"
       >
-        {/* COLUNA 1: AGUARDANDO (LARANJA / ÂMBAR) */}
-        <div className="w-[86vw] max-w-[340px] shrink-0 snap-center md:w-auto md:max-w-none rounded-2xl border border-amber-500/30 bg-card p-3 space-y-2.5 shadow-xs transition-all">
-          <div className="flex items-center justify-between pb-2 border-b border-amber-500/20">
-            <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500/15 text-amber-900 dark:text-amber-300 border border-amber-500/30">
-                <Clock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-                Aguardando Início
+        {/* COLUNA 1: AGUARDANDO (ÂMBAR / PASTEL) */}
+        <div className="w-[86vw] max-w-[340px] shrink-0 snap-center md:w-auto md:max-w-none rounded-3xl border border-[#fed7aa]/80 dark:border-amber-900/50 bg-[#fffdfa] dark:bg-card p-3.5 space-y-3 shadow-xs transition-all">
+          <div className="flex items-center justify-between pb-2 border-b border-[#fed7aa]/60">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-[#fef3c7] text-[#92400e] border border-[#fde68a]">
+              <Clock className="h-3.5 w-3.5 text-[#b45309]" />
+              <span>Aguardando Início</span>
+              <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-[#92400e] text-[10px] font-black shadow-xs ml-0.5">
+                {stages.aguardandoRaw.length}
               </span>
             </div>
-            <Badge variant="secondary" className="bg-amber-500/15 text-amber-900 dark:text-amber-300 border border-amber-500/30 font-bold text-[10px]">
-              {stages.aguardandoRaw.length} {stages.aguardando.length !== stages.aguardandoRaw.length ? `(${stages.aguardando.length} pets)` : ""}
-            </Badge>
+            {stages.aguardando.length !== stages.aguardandoRaw.length && (
+              <span className="text-[10px] text-muted-foreground font-semibold">
+                ({stages.aguardando.length} pets)
+              </span>
+            )}
           </div>
 
           <div className="space-y-2.5">
             {stages.aguardando.length === 0 ? (
-              <div className="p-4 rounded-xl border border-dashed border-amber-500/30 text-center text-xs text-muted-foreground">
+              <div className="p-8 rounded-2xl border border-dashed border-[#fde68a] text-center text-xs text-muted-foreground bg-white/40 dark:bg-muted/10">
                 Nenhum pet aguardando no momento.
               </div>
             ) : (
@@ -497,26 +500,26 @@ export function AdminOperationalKanban({
           </div>
         </div>
 
-        {/* COLUNA 2: EM ANDAMENTO (AZUL) */}
-        <div className="w-[86vw] max-w-[340px] shrink-0 snap-center md:w-auto md:max-w-none rounded-2xl border border-sky-500/30 bg-card p-3 space-y-2.5 shadow-xs transition-all">
-          <div className="flex items-center justify-between pb-2 border-b border-sky-500/20">
-            <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-sky-500/15 text-sky-900 dark:text-sky-300 border border-sky-500/30">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
-                </span>
-                Em Andamento / Rota
+        {/* COLUNA 2: EM ANDAMENTO / ROTA (AZUL PASTEL) */}
+        <div className="w-[86vw] max-w-[340px] shrink-0 snap-center md:w-auto md:max-w-none rounded-3xl border border-[#bae6fd]/80 dark:border-sky-900/50 bg-[#f8fbfe] dark:bg-card p-3.5 space-y-3 shadow-xs transition-all">
+          <div className="flex items-center justify-between pb-2 border-b border-[#bae6fd]/60">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-[#e0f2fe] text-[#075985] border border-[#bae6fd]">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#0284c7]" />
+              <span>Em Andamento / Rota</span>
+              <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-[#075985] text-[10px] font-black shadow-xs ml-0.5">
+                {stages.andamentoRaw.length}
               </span>
             </div>
-            <Badge variant="secondary" className="bg-sky-500/15 text-sky-900 dark:text-sky-300 border border-sky-500/30 font-bold text-[10px]">
-              {stages.andamentoRaw.length} {stages.andamento.length !== stages.andamentoRaw.length ? `(${stages.andamento.length} pets)` : ""}
-            </Badge>
+            {stages.andamento.length !== stages.andamentoRaw.length && (
+              <span className="text-[10px] text-muted-foreground font-semibold">
+                ({stages.andamento.length} pets)
+              </span>
+            )}
           </div>
 
           <div className="space-y-2.5">
             {stages.andamento.length === 0 ? (
-              <div className="p-4 rounded-xl border border-dashed border-sky-500/30 text-center text-xs text-muted-foreground">
+              <div className="p-8 rounded-2xl border border-dashed border-[#bae6fd] text-center text-xs text-muted-foreground bg-white/40 dark:bg-muted/10">
                 Nenhum atendimento em andamento no momento.
               </div>
             ) : (
@@ -540,23 +543,26 @@ export function AdminOperationalKanban({
           </div>
         </div>
 
-        {/* COLUNA 3: PRONTO / CONCLUÍDO (VERDE) */}
-        <div className="w-[86vw] max-w-[340px] shrink-0 snap-center md:w-auto md:max-w-none rounded-2xl border border-emerald-500/30 bg-card p-3 space-y-2.5 shadow-xs transition-all">
-          <div className="flex items-center justify-between pb-2 border-b border-emerald-500/20">
-            <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-900 dark:text-emerald-300 border border-emerald-500/30">
-                <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
-                Pronto / Concluído
+        {/* COLUNA 3: PRONTO / CONCLUÍDO (VERDE PASTEL) */}
+        <div className="w-[86vw] max-w-[340px] shrink-0 snap-center md:w-auto md:max-w-none rounded-3xl border border-[#bbf7d0]/80 dark:border-emerald-900/50 bg-[#f7fcf9] dark:bg-card p-3.5 space-y-3 shadow-xs transition-all">
+          <div className="flex items-center justify-between pb-2 border-b border-[#bbf7d0]/60">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-[#dcfce7] text-[#166534] border border-[#bbf7d0]">
+              <CheckCircle2 className="h-3.5 w-3.5 text-[#15803d]" />
+              <span>Pronto / Concluído</span>
+              <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-[#166534] text-[10px] font-black shadow-xs ml-0.5">
+                {stages.concluidoRaw.length}
               </span>
             </div>
-            <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-900 dark:text-emerald-300 border border-emerald-500/30 font-bold text-[10px]">
-              {stages.concluidoRaw.length} {stages.concluido.length !== stages.concluidoRaw.length ? `(${stages.concluido.length} pets)` : ""}
-            </Badge>
+            {stages.concluido.length !== stages.concluidoRaw.length && (
+              <span className="text-[10px] text-muted-foreground font-semibold">
+                ({stages.concluido.length} pets)
+              </span>
+            )}
           </div>
 
           <div className="space-y-2.5">
             {stages.concluido.length === 0 ? (
-              <div className="p-4 rounded-xl border border-dashed border-emerald-500/30 text-center text-xs text-muted-foreground">
+              <div className="p-8 rounded-2xl border border-dashed border-[#bbf7d0] text-center text-xs text-muted-foreground bg-white/40 dark:bg-muted/10">
                 Nenhum serviço finalizado hoje ainda.
               </div>
             ) : (
