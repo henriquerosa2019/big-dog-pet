@@ -3,6 +3,15 @@ import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { isRegisteredDriverUser } from "@/lib/driversManager";
 
+const STATIC_MASTER_USER: User = Object.freeze({
+  id: "master-vetty-id",
+  email: "vetty@vetty.com.br",
+  app_metadata: {},
+  user_metadata: { full_name: "Administrador Master" },
+  aud: "authenticated",
+  created_at: "2025-01-01T00:00:00.000Z",
+}) as unknown as User;
+
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -13,14 +22,7 @@ export function useAuth() {
       sessionStorage.getItem("vetty_master_authenticated") === "true" ||
       localStorage.getItem("vetty_homologacao_admin") === "true";
     if (isMaster) {
-      return {
-        id: "master-vetty-id",
-        email: "vetty@vetty.com.br",
-        app_metadata: {},
-        user_metadata: { full_name: "Administrador Master" },
-        aud: "authenticated",
-        created_at: new Date().toISOString(),
-      } as unknown as User;
+      return STATIC_MASTER_USER;
     }
     return null;
   };
@@ -48,9 +50,6 @@ export function useAuth() {
       console.error(e);
     } finally {
       setSession(null);
-      if (typeof window !== "undefined") {
-        window.location.reload();
-      }
     }
   };
 

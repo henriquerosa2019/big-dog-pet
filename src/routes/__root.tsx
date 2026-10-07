@@ -63,8 +63,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   useEffect(() => {
     if (typeof window === "undefined" || !isStaleChunkError(error)) return;
     try {
-      if (sessionStorage.getItem(STALE_CHUNK_RELOAD_FLAG)) return;
-      sessionStorage.setItem(STALE_CHUNK_RELOAD_FLAG, "1");
+      const lastReload = sessionStorage.getItem(STALE_CHUNK_RELOAD_FLAG);
+      const now = Date.now();
+      if (lastReload && now - parseInt(lastReload, 10) < 60000) {
+        // Já recarregou há menos de 1 minuto, aborta para evitar loop infinito
+        return;
+      }
+      sessionStorage.setItem(STALE_CHUNK_RELOAD_FLAG, String(now));
     } catch {
       return;
     }

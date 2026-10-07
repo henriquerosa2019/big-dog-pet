@@ -36,7 +36,13 @@ function AuthenticatedLayout() {
 
   useEffect(() => {
     if (!loading && !user) {
-      navigate({ to: "/auth", replace: true });
+      const hasMasterSession =
+        typeof window !== "undefined" &&
+        (sessionStorage.getItem("vetty_master_authenticated") === "true" ||
+          localStorage.getItem("vetty_homologacao_admin") === "true");
+      if (!hasMasterSession) {
+        navigate({ to: "/auth", replace: true });
+      }
     }
   }, [user, loading, navigate]);
 
