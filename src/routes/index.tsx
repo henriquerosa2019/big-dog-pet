@@ -244,19 +244,17 @@ function Index() {
             </Button>
 
             {/* Botão Entrar (Login) */}
-            {!user ? (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setAuthModalTab("login");
-                  setAuthModalService("Acesso ao Sistema");
-                  setAuthModalOpen(true);
-                }}
-                className="font-bold cursor-pointer border-emerald-600/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
-              >
-                <LogIn className="size-4" /> Entrar
-              </Button>
-            ) : null}
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAuthModalTab("login");
+                setAuthModalService("Acesso ao Sistema");
+                setAuthModalOpen(true);
+              }}
+              className="font-bold cursor-pointer border-emerald-600/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+            >
+              <LogIn className="size-4" /> Entrar
+            </Button>
 
             {/* Botão Testar Grátis / Demonstração */}
             <Button
@@ -1121,25 +1119,18 @@ function Index() {
           <Zap className="size-6" />
           <span className="font-extrabold">{user ? "Painel" : "Grátis"}</span>
         </button>
-        {!user ? (
-          <button
-            type="button"
-            onClick={() => {
-              setAuthModalTab("login");
-              setAuthModalService("Acesso ao Sistema");
-              setAuthModalOpen(true);
-            }}
-            className="cursor-pointer"
-          >
-            <LogIn className="size-5" />
-            <span>Entrar</span>
-          </button>
-        ) : (
-          <Link to="/conta">
-            <User className="size-5" />
-            <span>Conta</span>
-          </Link>
-        )}
+        <button
+          type="button"
+          onClick={() => {
+            setAuthModalTab("login");
+            setAuthModalService("Acesso ao Sistema");
+            setAuthModalOpen(true);
+          }}
+          className="cursor-pointer"
+        >
+          <LogIn className="size-5" />
+          <span>Entrar</span>
+        </button>
         <a href="https://wa.me/5511993793746" target="_blank" rel="noreferrer">
           <MessageCircle className="size-5 text-[#25D366]" />
           <span>Whats</span>

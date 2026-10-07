@@ -37,10 +37,27 @@ export function useAuth() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  const signOut = async () => {
+    try {
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("vetty_master_authenticated");
+        localStorage.removeItem("vetty_homologacao_admin");
+      }
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSession(null);
+      if (typeof window !== "undefined") {
+        window.location.reload();
+      }
+    }
+  };
+
   const masterUser = getMasterUser();
   const effectiveUser = (session?.user ?? masterUser ?? null) as User | null;
 
-  return { session, user: effectiveUser, loading };
+  return { session, user: effectiveUser, loading, signOut };
 }
 
 export function useIsAdminStatus(userId?: string | null, userEmail?: string | null) {
