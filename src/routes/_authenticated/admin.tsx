@@ -4623,7 +4623,7 @@ function Admin() {
                 ((dashboardStats?.serviceRevenue?.month ?? 0) + (dashboardStats?.orderRevenue?.month ?? 0)) ||
                 4250000
               }
-              clientsCount={allClients.length || 312}
+              clientsCount={(profiles?.length ?? 0) || 312}
               onExportReport={handleExportPDF}
             />
           )}
