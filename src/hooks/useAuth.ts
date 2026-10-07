@@ -23,10 +23,14 @@ export function useAuth() {
 }
 
 export function useIsAdminStatus(userId?: string | null, userEmail?: string | null) {
+  const isMasterEmail = (email?: string | null) => {
+    const e = email?.toLowerCase();
+    return e === "bigdog@gmail.com" || e === "vetty@vetty.com.br";
+  };
+
   const [isAdmin, setIsAdmin] = useState(() => {
     if (typeof window !== "undefined") {
-      const email = userEmail?.toLowerCase();
-      if (email === "bigdog@gmail.com") return true;
+      if (isMasterEmail(userEmail)) return true;
       if (
         sessionStorage.getItem("vetty_master_authenticated") === "true" ||
         localStorage.getItem("vetty_homologacao_admin") === "true"
@@ -40,7 +44,7 @@ export function useIsAdminStatus(userId?: string | null, userEmail?: string | nu
 
   useEffect(() => {
     // 1. Verificação imediata por e-mail da conta oficial da loja ou sessão Master
-    if (userEmail?.toLowerCase() === "bigdog@gmail.com") {
+    if (isMasterEmail(userEmail)) {
       setIsAdmin(true);
       setLoading(false);
       return;
@@ -65,10 +69,10 @@ export function useIsAdminStatus(userId?: string | null, userEmail?: string | nu
     setLoading(true);
 
     async function checkRole() {
-      // 2. Checa se o usuário logado no Supabase Auth é bigdog@gmail.com
+      // 2. Checa se o usuário logado no Supabase Auth é master (bigdog@gmail.com ou vetty@vetty.com.br)
       try {
         const { data: authData } = await supabase.auth.getUser();
-        if (authData.user?.email?.toLowerCase() === "bigdog@gmail.com") {
+        if (isMasterEmail(authData.user?.email)) {
           if (active) {
             setIsAdmin(true);
             setLoading(false);

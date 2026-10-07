@@ -4620,7 +4620,10 @@ function Admin() {
 
           {reportSubTab === "petlytics-bi" && (
             <AdminPetlyticsDashboard
-              totalRevenueCents={dashboardStats.totalRevenue.month || 4250000}
+              totalRevenueCents={
+                ((dashboardStats?.serviceRevenue?.month ?? 0) + (dashboardStats?.orderRevenue?.month ?? 0)) ||
+                4250000
+              }
               clientsCount={allClients.length || 312}
               onExportReport={handleExportPDF}
             />

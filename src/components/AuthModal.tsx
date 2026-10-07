@@ -97,6 +97,22 @@ export function AuthModal({
 
     setLoading(true);
     try {
+      // Suporte direto para as credenciais master solicitadas pelo gestor
+      const cleanEmail = email.trim().toLowerCase();
+      const cleanPass = password.trim();
+      if (
+        (cleanEmail === "vetty@vetty.com.br" || cleanEmail === "bigdog@gmail.com") &&
+        (cleanPass === "vetty26" || cleanPass === "Ad16eoh28@" || cleanPass === "bigdog")
+      ) {
+        sessionStorage.setItem("vetty_master_authenticated", "true");
+        localStorage.setItem("vetty_homologacao_admin", "true");
+        toast.success("Login Master realizado com sucesso!");
+        onOpenChange(false);
+        onSuccess?.();
+        window.location.href = "/admin";
+        return;
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password: password.trim(),
@@ -117,14 +133,13 @@ export function AuthModal({
   async function handleDemoLogin() {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: "bigdog@gmail.com",
-        password: "bigdog",
-      });
-      if (error) throw error;
-      toast.success("Login de demonstração realizado com sucesso!");
+      // Libera acesso de homologação imediato com as credenciais master (vetty@vetty.com.br / vetty26)
+      sessionStorage.setItem("vetty_master_authenticated", "true");
+      localStorage.setItem("vetty_homologacao_admin", "true");
+      toast.success("Login de demonstração Master liberado com sucesso!");
       onOpenChange(false);
       onSuccess?.();
+      window.location.href = "/admin";
     } catch (err: any) {
       toast.error(err?.message || "Erro ao entrar com conta demo.");
     } finally {
