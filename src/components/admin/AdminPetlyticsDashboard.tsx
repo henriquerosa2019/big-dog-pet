@@ -162,45 +162,170 @@ const DEFAULT_ITEMS: AbcRankItem[] = [
   },
 ];
 
-// Dados da evolução diária de receita do mês (30 dias)
-const DAILY_REVENUE_DATA = [
-  { day: "1", revenue: 1650 },
-  { day: "2", revenue: 2100 },
-  { day: "3", revenue: 1800 },
-  { day: "4", revenue: 2950 },
-  { day: "5", revenue: 2400 },
-  { day: "6", revenue: 1950 },
-  { day: "7", revenue: 2800 },
-  { day: "8", revenue: 2200 },
-  { day: "9", revenue: 2100 },
-  { day: "10", revenue: 3100 },
-  { day: "11", revenue: 2600 },
-  { day: "12", revenue: 2300 },
-  { day: "13", revenue: 2850 },
-  { day: "14", revenue: 3400 },
-  { day: "15", revenue: 2900 },
-  { day: "16", revenue: 3800 },
-  { day: "17", revenue: 3200 },
-  { day: "18", revenue: 2750 },
-  { day: "19", revenue: 2900 },
-  { day: "20", revenue: 3300 },
-  { day: "21", revenue: 2600 },
-  { day: "22", revenue: 2850 },
-  { day: "23", revenue: 2950 },
-  { day: "24", revenue: 3150 },
-  { day: "25", revenue: 2800 },
-  { day: "26", revenue: 3100 },
-  { day: "27", revenue: 2950 },
-  { day: "28", revenue: 3600 },
-  { day: "29", revenue: 3250 },
-  { day: "30", revenue: 3400 },
-];
+// Definição dos períodos suportados
+export type PeriodFilter = "dia" | "semana" | "mes" | "trimestre" | "semestre" | "ano";
 
-// Curva ABC consolidada (Curva de Pareto)
-const PARETO_CURVE_DATA = [
-  { label: "A (80.1%)", bar: 80.1, line: 80.1, class: "A" },
-  { label: "B (15.2%)", bar: 15.2, line: 95.3, class: "B" },
-  { label: "C (4.7%)", bar: 4.7, line: 100.0, class: "C" },
+export const PERIOD_LABELS: Record<PeriodFilter, string> = {
+  dia: "Hoje",
+  semana: "Semana",
+  mes: "Mês (Jan 24)",
+  trimestre: "Trimestre",
+  semestre: "Semestre",
+  ano: "Ano",
+};
+
+// Gerador de dados de evolução de receita e limites de escala conforme período selecionado
+const getRevenueDataForPeriod = (period: PeriodFilter) => {
+  switch (period) {
+    case "dia":
+      return {
+        subtitle: "max R$ 680 · avg R$ 420",
+        data: [
+          { label: "08h", revenue: 150 },
+          { label: "09h", revenue: 280 },
+          { label: "10h", revenue: 450 },
+          { label: "11h", revenue: 520 },
+          { label: "12h", revenue: 380 },
+          { label: "13h", revenue: 290 },
+          { label: "14h", revenue: 490 },
+          { label: "15h", revenue: 610 },
+          { label: "16h", revenue: 680 },
+          { label: "17h", revenue: 590 },
+          { label: "18h", revenue: 420 },
+          { label: "19h", revenue: 210 },
+        ],
+        yDomain: [0, 800],
+        ticks: [150, 400, 680],
+      };
+    case "semana":
+      return {
+        subtitle: "max R$ 4,9k · avg R$ 3,1k",
+        data: [
+          { label: "Seg", revenue: 2100 },
+          { label: "Ter", revenue: 2800 },
+          { label: "Qua", revenue: 2600 },
+          { label: "Qui", revenue: 3200 },
+          { label: "Sex", revenue: 4100 },
+          { label: "Sáb", revenue: 4900 },
+          { label: "Dom", revenue: 1800 },
+        ],
+        yDomain: [0, 5500],
+        ticks: [1500, 3000, 4900],
+      };
+    case "trimestre":
+      return {
+        subtitle: "max R$ 98k · avg R$ 85k",
+        data: [
+          { label: "Jan", revenue: 87540 },
+          { label: "Fev", revenue: 81200 },
+          { label: "Mar", revenue: 98400 },
+        ],
+        yDomain: [0, 110000],
+        ticks: [40000, 80000, 100000],
+      };
+    case "semestre":
+      return {
+        subtitle: "max R$ 105k · avg R$ 89k",
+        data: [
+          { label: "Jan", revenue: 87540 },
+          { label: "Fev", revenue: 81200 },
+          { label: "Mar", revenue: 98400 },
+          { label: "Abr", revenue: 91600 },
+          { label: "Mai", revenue: 104800 },
+          { label: "Jun", revenue: 89300 },
+        ],
+        yDomain: [0, 120000],
+        ticks: [40000, 85000, 110000],
+      };
+    case "ano":
+      return {
+        subtitle: "max R$ 115k · avg R$ 92k",
+        data: [
+          { label: "Jan", revenue: 87540 },
+          { label: "Fev", revenue: 81200 },
+          { label: "Mar", revenue: 98400 },
+          { label: "Abr", revenue: 91600 },
+          { label: "Mai", revenue: 104800 },
+          { label: "Jun", revenue: 89300 },
+          { label: "Jul", revenue: 94000 },
+          { label: "Ago", revenue: 96500 },
+          { label: "Set", revenue: 99800 },
+          { label: "Out", revenue: 102400 },
+          { label: "Nov", revenue: 108900 },
+          { label: "Dez", revenue: 115200 },
+        ],
+        yDomain: [0, 130000],
+        ticks: [50000, 90000, 120000],
+      };
+    case "mes":
+    default:
+      return {
+        subtitle: "max R$ 3,8k · avg R$ 2,8k",
+        data: [
+          { label: "1", revenue: 1650 },
+          { label: "2", revenue: 2100 },
+          { label: "3", revenue: 1800 },
+          { label: "4", revenue: 2950 },
+          { label: "5", revenue: 2400 },
+          { label: "6", revenue: 1950 },
+          { label: "7", revenue: 2800 },
+          { label: "8", revenue: 2200 },
+          { label: "9", revenue: 2100 },
+          { label: "10", revenue: 3100 },
+          { label: "11", revenue: 2600 },
+          { label: "12", revenue: 2300 },
+          { label: "13", revenue: 2850 },
+          { label: "14", revenue: 3400 },
+          { label: "15", revenue: 2900 },
+          { label: "16", revenue: 3800 },
+          { label: "17", revenue: 3200 },
+          { label: "18", revenue: 2750 },
+          { label: "19", revenue: 2900 },
+          { label: "20", revenue: 3300 },
+          { label: "21", revenue: 2600 },
+          { label: "22", revenue: 2850 },
+          { label: "23", revenue: 2950 },
+          { label: "24", revenue: 3150 },
+          { label: "25", revenue: 2800 },
+          { label: "26", revenue: 3100 },
+          { label: "27", revenue: 2950 },
+          { label: "28", revenue: 3600 },
+          { label: "29", revenue: 3250 },
+          { label: "30", revenue: 3400 },
+        ],
+        yDomain: [0, 4200],
+        ticks: [1500, 2800, 3800],
+      };
+  }
+};
+
+// Dados densos da Curva ABC (Pareto) idênticos ao layout da imagem de referência
+// Na imagem, a classe A possui várias barras verdes unidas formando um bloco com cantos arredondados,
+// seguida por degrau B e C, com linha contínua branca/ciano subindo de 0% até 100%.
+const DETAILED_PARETO_BARS = [
+  // Bloco Classe A (Itens 1 a 20)
+  ...Array.from({ length: 18 }).map((_, i) => ({
+    step: `A-${i + 1}`,
+    barValue: 80.1,
+    lineValue: Math.min(80.1, Math.round(15 + i * 3.7)),
+    classType: "A",
+  })),
+  // Ponto de transição para 80.1%
+  { step: "A-Final", barValue: 80.1, lineValue: 80.1, classType: "A" },
+  // Bloco Classe B (Itens 21 a 40)
+  ...Array.from({ length: 8 }).map((_, i) => ({
+    step: `B-${i + 1}`,
+    barValue: 15.2,
+    lineValue: Math.min(95.3, Math.round(80.1 + (i + 1) * 1.9)),
+    classType: "B",
+  })),
+  // Bloco Classe C (Itens 41 em diante)
+  ...Array.from({ length: 6 }).map((_, i) => ({
+    step: `C-${i + 1}`,
+    barValue: 4.7,
+    lineValue: Math.min(100.0, Math.round(95.3 + (i + 1) * 0.8)),
+    classType: "C",
+  })),
 ];
 
 export function AdminPetlyticsDashboard({
@@ -214,10 +339,15 @@ export function AdminPetlyticsDashboard({
   // Estado de tema interno do dashboard: 'dark' (petlytics padrão com fundo preto/verde) ou 'light' (fundo branco)
   const [themeMode, setThemeMode] = useState<"dark" | "light">("dark");
   const [selectedFilter, setSelectedFilter] = useState<"todos" | "A" | "B" | "C">("todos");
-  const [selectedPeriod, setSelectedPeriod] = useState<"mes" | "trimestre" | "ano">("mes");
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodFilter>("mes");
   const [searchQuery, setSearchQuery] = useState("");
 
   const isDark = themeMode === "dark";
+
+  // Obter dados dinâmicos do gráfico de receita conforme período
+  const revenueChartInfo = useMemo(() => {
+    return getRevenueDataForPeriod(selectedPeriod);
+  }, [selectedPeriod]);
 
   // Estatísticas das 3 classes
   const abcStats = useMemo(() => {
@@ -258,7 +388,7 @@ export function AdminPetlyticsDashboard({
           : "bg-slate-50 border-slate-200 text-slate-800 shadow-sm"
       )}
     >
-      {/* 1. TOPO: HEADER EXCLUSIVO PETLYTICS COM LOGO VETTY E SELETOR PRETO/BRANCO */}
+      {/* 1. TOPO: HEADER EXCLUSIVO PETLYTICS COM LOGO VETTY, FILTRO DE PERÍODOS E SELETOR PRETO/BRANCO */}
       <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 pb-4 border-b border-border/40">
         {/* Identidade: Vetty + Petlytics */}
         <div className="flex items-center gap-3.5">
@@ -298,17 +428,58 @@ export function AdminPetlyticsDashboard({
               </Badge>
             </div>
             <p className={cn("text-xs font-semibold", isDark ? "text-emerald-500/80" : "text-emerald-700")}>
-              RELATÓRIOS INTELIGENTES & CURVA ABC · <span className={isDark ? "text-slate-400" : "text-slate-500"}>Janeiro 2024</span>
+              RELATÓRIOS INTELIGENTES & CURVA ABC ·{" "}
+              <span className={isDark ? "text-slate-400" : "text-slate-500"}>
+                {PERIOD_LABELS[selectedPeriod]}
+              </span>
             </p>
           </div>
         </div>
 
-        {/* Controles: Busca, Alternador Preto/Branco, Exportar */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        {/* Controles: Filtros de Período, Busca, Alternador Preto/Branco, Exportar */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Seletor de Período Expandido: Dia, Semana, Mês, Trimestre, Semestre, Ano */}
+          <div
+            className={cn(
+              "flex items-center p-1 rounded-xl border gap-0.5 overflow-x-auto max-w-full",
+              isDark ? "bg-[#14221e] border-emerald-900/60" : "bg-white border-slate-300"
+            )}
+          >
+            {(["dia", "semana", "mes", "trimestre", "semestre", "ano"] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setSelectedPeriod(p)}
+                className={cn(
+                  "px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all capitalize whitespace-nowrap",
+                  selectedPeriod === p
+                    ? isDark
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "bg-slate-900 text-white shadow-sm"
+                    : isDark
+                    ? "text-slate-400 hover:text-slate-200"
+                    : "text-slate-600 hover:text-slate-900"
+                )}
+              >
+                {p === "dia"
+                  ? "Dia"
+                  : p === "semana"
+                  ? "Semana"
+                  : p === "mes"
+                  ? "Mês"
+                  : p === "trimestre"
+                  ? "Trimestre"
+                  : p === "semestre"
+                  ? "Semestre"
+                  : "Ano"}
+              </button>
+            ))}
+          </div>
+
           {/* Campo de Busca Rápida */}
           <div
             className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs w-full sm:w-48 transition-colors",
+              "flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs w-full sm:w-40 transition-colors",
               isDark
                 ? "bg-[#14221e] border-emerald-900/60 text-slate-200 focus-within:border-emerald-500"
                 : "bg-white border-slate-300 text-slate-800 focus-within:border-emerald-600"
@@ -404,7 +575,7 @@ export function AdminPetlyticsDashboard({
           {/* Mini Gráfico Neon */}
           <div className="h-10 w-full mt-2 -mb-1">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={DAILY_REVENUE_DATA.slice(-8)}>
+              <AreaChart data={revenueChartInfo.data.slice(-8)}>
                 <defs>
                   <linearGradient id="glowGreen1" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
@@ -445,7 +616,7 @@ export function AdminPetlyticsDashboard({
           {/* Mini Gráfico Neon */}
           <div className="h-10 w-full mt-2 -mb-1">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={DAILY_REVENUE_DATA.slice(-8)}>
+              <AreaChart data={revenueChartInfo.data.slice(-8)}>
                 <defs>
                   <linearGradient id="glowGreen2" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#059669" stopOpacity={0.4} />
@@ -486,7 +657,7 @@ export function AdminPetlyticsDashboard({
           {/* Mini Gráfico Neon */}
           <div className="h-10 w-full mt-2 -mb-1">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={DAILY_REVENUE_DATA.slice(-8)}>
+              <AreaChart data={revenueChartInfo.data.slice(-8)}>
                 <defs>
                   <linearGradient id="glowGreen3" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#34d399" stopOpacity={0.4} />
@@ -527,7 +698,7 @@ export function AdminPetlyticsDashboard({
           {/* Mini Gráfico Neon */}
           <div className="h-10 w-full mt-2 -mb-1">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={DAILY_REVENUE_DATA.slice(-8)}>
+              <AreaChart data={revenueChartInfo.data.slice(-8)}>
                 <defs>
                   <linearGradient id="glowGreen4" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
@@ -550,10 +721,10 @@ export function AdminPetlyticsDashboard({
 
       {/* 3. SEÇÃO CENTRAL COM OS 3 GRÁFICOS: EVOLUÇÃO DIÁRIA + ANÁLISE CURVA ABC + DETALHAMENTO */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Gráfico 1: Evolução da Receita Diária */}
+        {/* Gráfico 1: Evolução da Receita (Fiel ao design Petlytics com Linhas Guia e Colunas Neon) */}
         <div
           className={cn(
-            "lg:col-span-4 rounded-2xl p-4 border flex flex-col justify-between",
+            "lg:col-span-4 rounded-2xl p-4 border flex flex-col justify-between relative",
             isDark ? "bg-[#101b17] border-emerald-900/60" : "bg-white border-slate-200"
           )}
         >
@@ -561,28 +732,43 @@ export function AdminPetlyticsDashboard({
             <span className="text-xs font-bold uppercase tracking-wide">
               EVOLUÇÃO DA RECEITA DIÁRIA (R$)
             </span>
-            <span className="text-[10px] text-muted-foreground">avg R$ 2,8k</span>
+            <span className="text-[10px] text-muted-foreground font-semibold">
+              {revenueChartInfo.subtitle}
+            </span>
           </div>
 
-          <div className="h-44 w-full">
+          <div className="h-52 w-full pt-1">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={DAILY_REVENUE_DATA}>
+              <BarChart
+                data={revenueChartInfo.data}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
                 <CartesianGrid
-                  strokeDasharray="3 3"
+                  strokeDasharray="2 2"
                   vertical={false}
                   stroke={isDark ? "#142c23" : "#e2e8f0"}
                 />
                 <XAxis
-                  dataKey="day"
+                  dataKey="label"
                   stroke={isDark ? "#4b6b5f" : "#94a3b8"}
                   fontSize={10}
                   tickLine={false}
-                  interval={4}
+                  interval={selectedPeriod === "mes" ? 5 : 0}
                 />
-                <YAxis hide />
+                <YAxis
+                  stroke={isDark ? "#4b6b5f" : "#94a3b8"}
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                  domain={revenueChartInfo.yDomain}
+                  ticks={revenueChartInfo.ticks}
+                  tickFormatter={(val: number) =>
+                    val >= 1000 ? `R$ ${(val / 1000).toFixed(1)}k` : `R$ ${val}`
+                  }
+                />
                 <Tooltip
                   formatter={(val: number) => [`R$ ${val.toLocaleString("pt-BR")}`, "Receita"]}
-                  labelFormatter={(lbl) => `Dia ${lbl}`}
+                  labelFormatter={(lbl) => `${lbl}`}
                   contentStyle={{
                     backgroundColor: isDark ? "#091411" : "#ffffff",
                     borderColor: isDark ? "#10b981" : "#cbd5e1",
@@ -595,51 +781,66 @@ export function AdminPetlyticsDashboard({
                   dataKey="revenue"
                   fill="#10b981"
                   radius={[3, 3, 0, 0]}
-                  opacity={0.85}
+                  opacity={0.88}
                 />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Gráfico 2: Análise Curva ABC - Receita (Pareto) */}
+        {/* Gráfico 2: Análise Curva ABC - Receita (Pareto Exato com degraus A, B, C e linha contínua) */}
         <div
           className={cn(
-            "lg:col-span-5 rounded-2xl p-4 border flex flex-col justify-between",
+            "lg:col-span-5 rounded-2xl p-4 border flex flex-col justify-between relative",
             isDark ? "bg-[#101b17] border-emerald-900/60" : "bg-white border-slate-200"
           )}
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold uppercase tracking-wide text-emerald-400">
-              ANÁLISE CURVA ABC - RECEITA <span className={isDark ? "text-slate-400" : "text-slate-500"}>(Janeiro 2024)</span>
+              ANÁLISE CURVA ABC - RECEITA{" "}
+              <span className={isDark ? "text-slate-400" : "text-slate-500"}>
+                ({PERIOD_LABELS[selectedPeriod]})
+              </span>
             </span>
-            <span className="text-[10px] text-muted-foreground">Categorias: 100+ items</span>
+            <span className="text-[10px] text-muted-foreground font-semibold">
+              Categorias: 100+ items
+            </span>
           </div>
 
-          <div className="h-44 w-full">
+          <div className="h-52 w-full pt-1">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={PARETO_CURVE_DATA}>
+              <ComposedChart
+                data={DETAILED_PARETO_BARS}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
                 <CartesianGrid
-                  strokeDasharray="3 3"
+                  strokeDasharray="2 2"
                   vertical={false}
                   stroke={isDark ? "#142c23" : "#e2e8f0"}
                 />
                 <XAxis
-                  dataKey="label"
+                  dataKey="step"
                   stroke={isDark ? "#4b6b5f" : "#94a3b8"}
                   fontSize={10}
                   tickLine={false}
+                  ticks={["A-10", "B-4", "C-3"]}
+                  tickFormatter={(val: string) =>
+                    val === "A-10" ? "A (80.1%)" : val === "B-4" ? "B (15.2%)" : "C (4.7%)"
+                  }
                 />
                 <YAxis
                   stroke={isDark ? "#4b6b5f" : "#94a3b8"}
                   fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
                   unit="%"
                   domain={[0, 100]}
+                  ticks={[0, 20, 40, 60, 80, 100]}
                 />
                 <Tooltip
                   formatter={(val: number, name: string) => [
                     `${val}%`,
-                    name === "bar" ? "Fatia da Classe" : "Acumulado Pareto",
+                    name === "barValue" ? "Volume Classe" : "Acumulado Pareto (Curva)",
                   ]}
                   contentStyle={{
                     backgroundColor: isDark ? "#091411" : "#ffffff",
@@ -649,18 +850,21 @@ export function AdminPetlyticsDashboard({
                     fontSize: "12px",
                   }}
                 />
+                {/* Barras do Bloco ABC */}
                 <Bar
-                  dataKey="bar"
+                  dataKey="barValue"
                   fill="#10b981"
-                  radius={[6, 6, 0, 0]}
-                  barSize={50}
+                  opacity={0.85}
+                  barSize={12}
                 />
+                {/* Linha Curva de Pareto Ciano/Verde Neon */}
                 <Line
                   type="monotone"
-                  dataKey="line"
+                  dataKey="lineValue"
                   stroke="#34d399"
                   strokeWidth={3}
-                  dot={{ r: 4, fill: "#34d399" }}
+                  dot={false}
+                  activeDot={{ r: 5, fill: "#10b981", stroke: "#ffffff", strokeWidth: 2 }}
                 />
               </ComposedChart>
             </ResponsiveContainer>
