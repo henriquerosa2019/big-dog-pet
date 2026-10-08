@@ -3048,6 +3048,18 @@ function Admin() {
             </Button>
 
             <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="h-9 px-3.5 rounded-2xl text-xs font-bold gap-2 bg-[#e0f2fe] hover:bg-[#bae6fd] text-[#0369a1] border-[#bae6fd] shadow-xs cursor-pointer"
+            >
+              <Link to="/auditoria">
+                <Database className="h-4 w-4 text-[#0284c7]" />
+                Auditoria da Base
+              </Link>
+            </Button>
+
+            <Button
               size="sm"
               onClick={() => {
                 setCurrentTab("comunicacao");
