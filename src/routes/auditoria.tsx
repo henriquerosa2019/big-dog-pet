@@ -556,36 +556,48 @@ export function DashboardAuditoria() {
             </div>
 
             {/* FILTRO RÁPIDO */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
-                variant={filterTable === "todos" ? "default" : "outline"}
                 onClick={() => setFilterTable("todos")}
-                className="h-8 rounded-xl text-xs font-bold"
+                className={`h-8 px-3 rounded-xl text-xs font-bold transition-all ${
+                  filterTable === "todos"
+                    ? "bg-emerald-500 text-slate-950 font-black shadow-md shadow-emerald-500/20"
+                    : "bg-[#071912] hover:bg-[#0f291f] text-slate-300 border border-emerald-900/60"
+                }`}
               >
                 Todos ({apptsCount})
               </Button>
               <Button
                 size="sm"
-                variant={filterTable === "abertos" ? "default" : "outline"}
                 onClick={() => setFilterTable("abertos")}
-                className="h-8 rounded-xl text-xs font-bold"
+                className={`h-8 px-3 rounded-xl text-xs font-bold transition-all ${
+                  filterTable === "abertos"
+                    ? "bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/20"
+                    : "bg-[#071912] hover:bg-[#0f291f] text-slate-300 border border-emerald-900/60"
+                }`}
               >
                 Abertos ({apptsAbertos})
               </Button>
               <Button
                 size="sm"
-                variant={filterTable === "concluidos" ? "default" : "outline"}
                 onClick={() => setFilterTable("concluidos")}
-                className="h-8 rounded-xl text-xs font-bold"
+                className={`h-8 px-3 rounded-xl text-xs font-bold transition-all ${
+                  filterTable === "concluidos"
+                    ? "bg-emerald-500 text-slate-950 font-black shadow-md shadow-emerald-500/20"
+                    : "bg-[#071912] hover:bg-[#0f291f] text-slate-300 border border-emerald-900/60"
+                }`}
               >
                 Concluídos ({apptsConcluidos})
               </Button>
               <Button
                 size="sm"
-                variant={filterTable === "taxi" ? "default" : "outline"}
                 onClick={() => setFilterTable("taxi")}
-                className="h-8 rounded-xl text-xs font-bold"
+                className={`h-8 px-3 rounded-xl text-xs font-bold transition-all ${
+                  filterTable === "taxi"
+                    ? "bg-blue-500 text-slate-950 font-black shadow-md shadow-blue-500/20"
+                    : "bg-[#071912] hover:bg-[#0f291f] text-slate-300 border border-emerald-900/60"
+                }`}
               >
                 Táxi ({transportOrders.length})
               </Button>
